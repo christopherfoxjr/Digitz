@@ -1,3 +1,3 @@
 echo "Building . . ."
 mkdir output
-g++ -lncurses src/main.cpp -o output/Digitz
+g++ stc/main.cpp -o output/digitz -lncurses -lcurl -std=c++11
