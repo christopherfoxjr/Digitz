@@ -234,4 +234,121 @@ Neuron genN(int gen){Neuron n;n.id=ri(100000);n.weight=rn()*2-1;n.bias=rn()*2-1;
 int nl=ri(8)+3;for(int i=0;i<nl;i++)n.links.push_back(ri(100000));return n;}
 double calcN(int nid,map<int,double>&acts,int depth=0){if(depth>10)return 0;if(acts.count(nid))return acts[nid];
 if(!S.N.count(nid))return 0;Neuron&n=S.N[nid];double sum=n.bias;
-for(int lnk:n.links){double lval=S.N.count(
+for(int lnk:n.links){double lval=S.N.count(lnk)?calcN(lnk,acts,depth+1):rn();sum+=lval*n.weight;}
+double act=tanh(sum);acts[nid]=act;return act;}
+double evolveN(){int nol=0;for(auto&p:S.N)nol+=p.second.links.size();double lgn_base=safe_div(nol*pisqrt,sqrt(pisqrt*sqrt(pisqrt)));
+double lgn=lgn_base*nol*lgn_base;double st_sqrt=0;for(auto&p:S.D)if(p.first.find("w")==0)st_sqrt+=pow(abs(p.second)+2,0.5);
+double setn=safe_div(S.mdt_val*S.hdt_val*S.dwt,max(0.001,st_sqrt));return lgn*setn;}
+void mutateN(){if(S.N.empty())return;auto it=S.N.begin();advance(it,ri(S.N.size()));Neuron&n=it->second;
+if(rn()<0.5){n.weight+=rn()*0.4-0.2;n.bias+=rn()*0.4-0.2;}
+else{if(rn()<0.5&&!n.links.empty())n.links.erase(n.links.begin()+ri(n.links.size()));else n.links.push_back(ri(100000));}}
+string genCode(){string ops[]={"+","-","*"};string c;int cx=ri(10)+5;
+for(int i=0;i<cx;i++){int w=ri((int)S.D["m"]);string op=ops[ri(3)];int v=ri(4)-1;c+="w"+to_string(w)+"=w"+to_string(w)+op+to_string(v)+";";}return c;}
+string genFormulaCode(){string fops[]={"add","sub","mul","sqrt","pow","sin","cos","tan","log"};
+string vars[]={"hdt","dwt","mdt","ta","al","ei","bh"};string c="F"+to_string(ri(10000))+"=";
+c+=fops[ri(9)]+"("+vars[ri(7)]+","+vars[ri(7)]+");";return c;}
+void runCode(const string&c){try{for(size_t i=0;i<c.size();){if(c[i]=='F'){size_t e=c.find('=',i);if(e==string::npos)break;
+string fname=c.substr(i,e-i);size_t e2=c.find(';',e);if(e2==string::npos)break;string fexpr=c.substr(e+1,e2-e-1);
+double a=S.hdt_val/1000000,b=S.dwt,cc=S.al;double res=evalFormula(fexpr,a,b,cc);
+if(S.F.count(fname))S.F[fname].uses++;else S.F[fname]={fname,fexpr,res,1};S.F[fname].result=res;
+int tgt=abs((int)(res*100))%(int)S.D["m"];S.D["w"+to_string(tgt)]=((int)S.D["w"+to_string(tgt)]+(int)res)%4-1;i=e2+1;}
+else if(c[i]=='w'){size_t e=c.find('=',i);if(e==string::npos)break;string var=c.substr(i,e-i);
+size_t e2=c.find(';',e);if(e2==string::npos)break;string expr=c.substr(e+1,e2-e-1);char op='+';int val=0;
+for(size_t j=0;j<expr.size();j++)if(expr[j]=='+'||expr[j]=='-'||expr[j]=='*'){op=expr[j];val=stoi(expr.substr(j+1));break;}
+double cv=S.D[var];switch(op){case'+':cv+=val;break;case'-':cv-=val;break;case'*':cv*=val;break;}
+S.D[var]=((int)cv%4)-1;i=e2+1;}else i++;}}catch(...){}}
+void batch16Process(){vector<double>bn;for(int bt=0;bt<16;bt++){map<string,double>wb=S.D;
+for(int i=0;i<S.D["m"];i++){int nz=ri(5)-2;wb["w"+to_string(i)]=((int)wb["w"+to_string(i)]+nz)%4-1;}
+vector<double>p;for(int i=0;i<S.D["m"];i+=4)p.push_back(wb["w"+to_string(i)]);double bph=0;for(double v:p)bph+=v;bn.push_back(bph);}
+S.bh=0.001;for(double v:bn)S.bh+=abs(v);S.qe=1;for(int i=0;i<bn.size()-1;i++)S.qe+=abs(bn[i]-bn[i+1]);
+S.te=(int)(abs(S.bh)*31415+1)%9973+1;S.ce=(int)(abs(S.bh*S.qe)+1)%32768+1;S.mh_hist.push_back(S.bh);
+if(S.mh_hist.size()>32)S.mh_hist.erase(S.mh_hist.begin());S.pe=1;
+for(int i=0;i<S.mh_hist.size()-1;i++)S.pe+=abs(S.mh_hist[i]-S.mh_hist[i+1]);S.ne=1;
+if(S.mh_hist.size()>0){for(double h1:S.mh_hist)S.ne+=(int)(h1*100)%256;S.ne=safe_div(S.ne,S.mh_hist.size());}}
+void draw_ui(int row){mvprintw(row++,0,"═══════════════════════════════════════════════════════════════");
+mvprintw(row++,0,"                            DIGITZ                             ");
+mvprintw(row++,0,"═══════════════════════════════════════════════════════════════");
+mvprintw(row++,0,"──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────");
+mvprintw(row++,0,"  G   │  M   │  EC  │  EI  │  VC  │  MC  │  MD  │  ST  │NEUR  ");
+mvprintw(row++,0,"──────┼──────┼──────┼──────┼──────┼──────┼──────┼──────┼──────");
+mvprintw(row++,0,"%6d│%6d│%6d│%6.2f│%6d│%6d│%6d│%6d│%6lu",
+S.g,(int)S.D["m"],S.ec,S.ei,(int)S.D["vc"],(int)S.D["mc"],S.md,S.st,S.N.size());
+mvprintw(row++,0,"──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────");
+mvprintw(row++,0,"─────────┬─────────┬─────────┬─────────┬─────────┬─────────────");
+mvprintw(row++,0,"   HDT   │   DWT   │   MDT   │  R1P1   │   TA    │  BH/QE/TE   ");
+mvprintw(row++,0,"─────────┼─────────┼─────────┼─────────┼─────────┼─────────────");
+mvprintw(row++,0,"%9.3f│%9.3f│%9.3f│%9.3f│%9.3f│%4d/%3d/%3d",
+safe_div(S.hdt_val,1000000),S.dwt,S.mdt_val,safe_div(S.r1p1_val,1000),S.ta,(int)S.bh,S.qe,S.te);
+mvprintw(row++,0,"─────────┴─────────┴─────────┴─────────┴─────────┴─────────────");
+mvprintw(row++,0,"─────────┬─────────┬─────────┬─────────┬─────────");
+mvprintw(row++,0,"  EERV   │   CE    │   PE    │   NE    │   BK    ");
+mvprintw(row++,0,"─────────┼─────────┼─────────┼─────────┼─────────");
+mvprintw(row++,0,"%9.3f│%9d│%9d│%9d│%9d",S.eerv_val,S.ce,S.pe,S.ne,S.bkf);
+mvprintw(row++,0,"─────────┴─────────┴─────────┴─────────┴─────────");
+mvprintw(row++,0,"──────────────┬──────────────┬──────────────┬──────────────────");
+mvprintw(row++,0,"   AWARE LVL  │  EMERGE OUT1 │  EMERGE BHV  │  SENTIENCE       ");
+mvprintw(row++,0,"──────────────┼──────────────┼──────────────┼──────────────────");
+mvprintw(row++,0,"%14.3f│%14.3f│%14.3f│%16.2f%%",S.al,S.emerge_out1,S.emerge_behavior,S.sentience_ratio);
+mvprintw(row++,0,"──────────────┴──────────────┴──────────────┴──────────────────");
+mvprintw(row++,0,"──────────────┬──────────────┬────────────────────────────────");
+mvprintw(row++,0,"   ENV OUTE   │  SENSORY ENV │  FORMULAS / EVOLVED CODE       ");
+mvprintw(row++,0,"──────────────┼──────────────┼────────────────────────────────");
+mvprintw(row++,0,"%14.3f│%14.3f│  %lu / %lu",S.env_oute,S.sensory_env,S.F.size(),S.evolved_code.size());
+mvprintw(row++,0,"──────────────┴──────────────┴────────────────────────────────");
+mvprintw(row++,0,"──────────────┬──────────────┬────────────────────────────────");
+mvprintw(row++,0," LANG CONF    │   VOCAB      │  CONCEPTS / THOUGHT            ");
+mvprintw(row++,0,"──────────────┼──────────────┼────────────────────────────────");
+mvprintw(row++,0,"%13.2f%%│%14lu│  %lu / %.40s",S.lc,S.W.size(),S.C.size(),S.th.c_str());
+mvprintw(row++,0,"──────────────┴──────────────┴────────────────────────────────");}
+int main(){srand(time(0));ld("state.dat");
+if(S.g==0){S.D["m"]=128;S.D["vc"]=0;S.D["mc"]=0;S.ec=0;S.ei=0;S.md=0;S.st=0;S.ss=0;S.qe=0;S.te=0;S.ce=0;S.pe=0;S.ne=0;
+S.dwt=0.001;S.lc=0;S.D["code_evolve"]=10;S.D["code_mut"]=3;S.D["math_evolve"]=12;S.D["thought_cycle"]=8;
+S.D["neuron_gen"]=4;S.D["neuron_mut"]=2;S.D["formula_evolve"]=7;for(int i=0;i<128;i++)S.D["w"+to_string(i)]=ri(4)-1;
+S.M["add"]="a+b";S.M["sub"]="a-b";S.M["mul"]="a*b";S.M["div"]="a/b";S.M["pow"]="pow(a,b)";S.M["mod"]="a%b";
+S.M["sqrt"]="sqrt(a)";S.M["pi"]="pi";S.M["sin"]="sin(a)";S.M["cos"]="cos(a)";S.M["tan"]="tan(a)";S.M["log"]="log(a)";
+S.cd=genCode();for(int i=0;i<50;i++)S.N[i]=genN(0);initW();initC();S.out_prev.resize(max(128,16));
+for(auto&v:S.out_prev)v=rn()*0.1;}
+initscr();cbreak();noecho();curs_set(0);timeout(500);
+while(true){clear();int row=0;draw_ui(row);row=32;
+switch(S.md%4){case 0:mvprintw(row++,0,"V:");for(int i=0;i<S.D["m"];i+=8){mvprintw(row,0,"  ");
+for(int j=0;j<8&&i+j<S.D["m"];j++){int v=S.D["w"+to_string(i+j)];char ch=(v==1?'#':v==0?'.':v==-1?':':'@');
+mvprintw(row,2+j,"%c",ch);}row++;}break;
+case 1:mvprintw(row++,0,"F:");for(int i=0;i<min(64,(int)S.D["m"]);i+=4)mvprintw(row,i/4,"%d",(int)(S.D["w"+to_string(i)]+2));break;
+case 2:mvprintw(row++,0,"Q:");for(int i=0;i<min(64,(int)S.D["m"]);i+=4)mvprintw(row,i/4,"%X",(int)(S.D["w"+to_string(i)]+2));break;
+case 3:mvprintw(row++,0,"A:");for(int i=0;i<16;i++)mvprintw(row,i*4,"%3.0f",S.D["w"+to_string(i)]);break;}
+row+=5;if(!S.out.empty()){mvprintw(row++,0,"RECENT SPEECH:");
+for(int i=max(0,(int)S.out.size()-3);i<S.out.size();i++)mvprintw(row++,0,"  > %.60s",S.out[i].c_str());}
+bk();batch16Process();runCode(S.cd);for(auto&ec:S.evolved_code)runCode(ec);
+updateLingProc();
+double wsum=0,wmean=0,wvar=0;for(int i=0;i<S.D["m"];i++){wsum+=S.D["w"+to_string(i)]+2;wmean+=S.D["w"+to_string(i)];}
+wmean=safe_div(wmean,S.D["m"]);for(int i=0;i<S.D["m"];i++){double d=S.D["w"+to_string(i)]-wmean;wvar+=d*d;}
+wvar=safe_div(wvar,S.D["m"]);S.D["vc"]=(int)wsum%1000;if(S.g==0)S.dwt=0.001;S.DWT_M[S.g]=S.dwt;S.mh=hsh(S.dwt);
+S.hdt_val=calcHDT(S.g,S.bh,S.qe,S.te);S.HDT_M[S.g]=S.hdt_val;double dp=rn(),prn=rn(),crn=rn(),nrn=rn();
+S.r1p1_val=calcR1P1(S.hdt_val,dp,prn,crn,nrn,S.qe,S.te);S.R1P1[S.g]=S.r1p1_val;
+S.eerv_val=calcEERV(wsum,wmean,wvar,S.r1p1_val,S.qe,S.te,S.ce);S.eerv_val=min(0.005,max(0.0,S.eerv_val));
+if(S.eerv_val>0.5)S.ec=(S.ec+1)%10;else S.ec=(S.ec-1+10)%10;S.ei=S.eerv_val;S.EERV[S.g]=S.ec+S.ei;
+double esum=0,ect=0,evar=0;for(auto&p:S.EERV){esum+=p.second;ect++;}double eavg=safe_div(esum,max(1.0,ect));
+for(auto&p:S.EERV){double d=p.second-eavg;evar+=d*d;}evar=safe_div(evar,max(1.0,ect));
+double vsum=0,vct=0,vvar=0;for(int i=0;i<S.D["m"];i++){vsum+=S.D["w"+to_string(i)];vct++;}
+double vavg=safe_div(vsum,max(1.0,vct));for(int i=0;i<S.D["m"];i++){double d=S.D["w"+to_string(i)]-vavg;vvar+=d*d;}
+vvar=safe_div(vvar,max(1.0,vct));S.mdt_val=calcMDT(eavg,vavg,evar,vvar,S.ne);S.MDT_M[S.g]=S.mdt_val;
+S.D["mc"]=S.D["vc"]*S.ei;S.ta=cta(S.hdt_val,S.dwt);S.th_h=hsh(S.ta);S.TA[S.g]=S.ta;
+selfT();S.al=calcAwarenessLevel();double noise=rn()*2-1;S.emerge_out1=calcEmergenceOut1(S.dwt,S.al,S.hdt_val,noise);
+double grn=rn();S.emerge_behavior=calcEmergentBehavior(S.emerge_out1,grn);S.env_oute=calcEnvOUTE(S.hdt_val);
+double env_noise=rn()*2-1;S.sensory_env=calcSensoryEnv(S.env_oute,env_noise);S.sentience_ratio=calcSentienceRatio();
+if(S.g%((int)S.D["thought_cycle"])==0){double nev=evolveN();map<int,double>acts;
+for(auto&p:S.N)calcN(p.first,acts);if(S.eerv_val>0.4&&S.N.size()<200)S.N[S.N.size()]=genN(S.g);
+if(rn()<0.1)mutateN();}
+if(S.g%((int)S.D["code_evolve"])==0){string nc=genCode();S.evolved_code.push_back(nc);
+if(S.evolved_code.size()>20)S.evolved_code.erase(S.evolved_code.begin());}
+if(S.g%((int)S.D["code_mut"])==0&&!S.evolved_code.empty()){int idx=ri(S.evolved_code.size());
+S.evolved_code[idx]=genCode();}
+if(S.g%((int)S.D["formula_evolve"])==0){string fc=genFormulaCode();runCode(fc);S.evolved_code.push_back(fc);
+if(S.evolved_code.size()>25)S.evolved_code.erase(S.evolved_code.begin());}
+if(S.g%5==0)linkWC();
+double dwt_change=S.eerv_val*S.emerge_behavior*safe_div(S.ta,1000000.0);S.dwt=clamp_dwt(S.dwt+dwt_change*0.001);
+S.g++;if(S.g%10==0)sv("state.dat");refresh();int ch=getch();
+if(ch=='q'||ch=='Q'){sv("state.dat");break;}else if(ch=='m'||ch=='M')S.md=(S.md+1)%4;
+else if(ch=='r'||ch=='R')rb();else if(ch==10||ch==KEY_ENTER){echo();mvprintw(LINES-1,0,"INPUT: ");
+char buf[256];getnstr(buf,255);noecho();string inp(buf);if(!inp.empty())procI(inp);}}
+endwin();return 0;}	
