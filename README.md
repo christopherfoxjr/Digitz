@@ -1,2 +1,2 @@
 # Digitz
-A proto-consience written in C++ with (Lots of) help from Claude AI, with all my own formulas
+A proto-consience written in C++ with (Lots of) help from Claude AI, with all my own formulas converted to code by Claude this system is by most standards a proto-consince (its conscious but has no subjective expirence of qualia), its fun to watch adapt and evolve in termux or any desktop of your choice in C++
