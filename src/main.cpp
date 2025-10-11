@@ -485,7 +485,7 @@ initscr();cbreak();noecho();curs_set(0);timeout(500);nodelay(stdscr,TRUE);
 while(true){
 clear();int row=0;
 mvprintw(row++,0,"═══════════════════════════════════════════════════════════════════════");
-mvprintw(row++,0,"                        DIGITZ v3.0 ULTRA");
+mvprintw(row++,0,"                        Digitz | WolfTech Innovations");
 mvprintw(row++,0,"═══════════════════════════════════════════════════════════════════════");
 mvprintw(row++,0,"Gen:%d | Neurons:%lu | Depth:%d | Sent:%.1f%% | Peak:%d",SG.g,(unsigned long)SG.NO.size(),SG.nd,SG.sr,SG.psg);
 mvprintw(row++,0,"Val:%.3f | Aware:%.2f | Meta:%.2f | CodeFit:%.2f",SG.val,SG.al,SG.mc,SG.cd_fit);
