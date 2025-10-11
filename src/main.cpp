@@ -654,21 +654,37 @@ S.g++;
 if(S.g%50==0)sv("state.dat");
 int ch=getch();
 if(ch=='i'||ch=='I'){
-echo();curs_set(1);
-char input_buf[200]={0};
-mvprintw(row+2,0,"Enter text: ");refresh();
-if(fgets(input_buf,sizeof(input_buf)-1,stdin)){
-S.user_input=string(input_buf);
-S.user_input.erase(S.user_input.find_last_not_of("\n\r")+1);
-S.dialog_response=generateResponse(S.user_input);
-S.dialog_timer=10;
-S.current_valence+=0.1;
-}
-noecho();curs_set(0);
+    echo();
+    curs_set(1);
+    timeout(-1);  // Disable timeout for input
+    
+    mvprintw(row+2,0,"Enter text: ");
+    clrtoeol();  // Clear to end of line
+    refresh();
+    
+    char input_buf[200]={0};
+    // Use getnstr instead of fgets - this is ncurses compatible
+    if(getnstr(input_buf, sizeof(input_buf)-1) != ERR){
+        S.user_input=string(input_buf);
+        // Remove trailing whitespace
+        while(!S.user_input.empty() && (S.user_input.back()=='\n' || S.user_input.back()=='\r' || S.user_input.back()==' ')){
+            S.user_input.pop_back();
+        }
+        if(!S.user_input.empty()){
+            S.dialog_response=generateResponse(S.user_input);
+            S.dialog_timer=10;
+            S.current_valence+=0.1;
+        }
+    }
+    
+    noecho();
+    curs_set(0);
+    timeout(500);  // Re-enable timeout for main loop
 }
 else if(ch=='q'||ch=='Q'){sv("state.dat");break;}
 else if(ch=='s'||ch=='S')sv("state.dat");
-this_thread::sleep_for(chrono::milliseconds(100));}
+this_thread::sleep_for(chrono::milliseconds(100));
+}
 endwin();
 return 0;
 }
