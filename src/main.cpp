@@ -162,7 +162,7 @@ storeEpisodicMemory("prediction_error",improvement);
 }
 S.current_valence=clamp_valence(S.current_valence);
 }
-void storeEpisodicMemory(const string&content,double valence){
+void storeEpisodicMemory(const string&content,double valence);{
 if(S.episodic_memory.size()>100)S.episodic_memory.erase(S.episodic_memory.begin());
 S.episodic_memory.push_back({S.g,valence,content});
 }
