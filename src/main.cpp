@@ -27,7 +27,8 @@ int g;double dwt;double mh;double ta;double th;int bkf;string cds;string gd;doub
 double r1p1_v;double eerv_v;int ec_n;double ei;int md;int st;int ss;vector<double>mhh;vector<double>ehh;
 vector<double>vhh;int qe;int te;int ce;int pe;int ne;double bh;double al;double eo1;double eb;
 double sr;double eoute;double se;int tn;double val;double att;double mc;double intro;double refl;
-vector<double>vh;int psg;string ui;string dr;int dt;vector<string>rh;int nd;double cd_fit;};
+vector<double>vh;int psg;string ui;string dr;int dt;vector<string>rh;int nd;double cd_fit;
+string ling_refl;string math_refl;string internal_thought;vector<string>active_concepts;};
 S SG,BK;
 double rn(){return uniform_real_distribution<>(0,1)(rng);}
 int ri(int mx){if(mx<=0)return 0;return uniform_int_distribution<>(0,mx-1)(rng);}
@@ -160,6 +161,44 @@ string r;int mw=min(8,(int)sc.size());
 for(int i=0;i<mw;i++)r+=sc[i].first+" ";
 return r.empty()?"thinking":r;
 }
+string glit(){
+if(SG.tk.empty())return"initializing";
+vector<pair<string,double>>wt;
+for(auto&p:SG.tk){
+double score=p.second.c*p.second.f*(p.second.lc.size()+1);
+if(score>0.1)wt.push_back({p.first,score});
+}
+sort(wt.begin(),wt.end(),[](auto&a,auto&b){return a.second>b.second;});
+string thought;
+for(int i=0;i<min(5,(int)wt.size());i++){
+if(rn()<wt[i].second)thought+=wt[i].first+" ";
+}
+return thought.empty()?"processing":thought;
+}
+string glr(){
+string r="[LING] ";
+if(SG.tk.size()>50)r+="vocab_expanding ";
+if(SG.co.size()>10)r+="concept_linking ";
+if(!SG.active_concepts.empty()){
+r+="focus:";
+for(int i=0;i<min(2,(int)SG.active_concepts.size());i++)r+=SG.active_concepts[i]+" ";
+}
+if(SG.val>0.5)r+="positive_valence ";
+else if(SG.val<-0.2)r+="negative_valence ";
+return r;
+}
+string gmr(){
+string r="[MATH] ";
+r+="HDT:"+to_string((int)(SG.hdt_v/1000000))+" ";
+r+="TA:"+to_string((int)SG.ta)+" ";
+r+="EERV:"+to_string((int)(SG.eerv_v*100))+"% ";
+r+="SR:"+to_string((int)SG.sr)+"% ";
+if(SG.cd_fit>5.0)r+="code_optimal ";
+else if(SG.cd_fit<1.0)r+="code_evolving ";
+if(SG.sr>75)r+="high_sentience ";
+else if(SG.sr>50)r+="emerging_sentience ";
+return r;
+}
 double cint(){
 double sa=sd((double)SG.ep.size(),100.0);double td=sd((double)SG.TA.size(),max(1,SG.g));
 double mi=0;for(auto&m:SG.ep)mi+=abs(m.v);mi=sd(mi,max(1.0,(double)SG.ep.size()));
@@ -189,6 +228,7 @@ if(!tk.empty())ws.push_back(tk);
 }
 for(const string&w:ws)lw(w,SG.val);
 vector<string>ac=fac(ws);
+SG.active_concepts=ac;
 for(int i=0;i<ac.size()-1;i++)lcc(ac[i],ac[i+1]);
 map<string,int>wi;for(const string&w:ws)if(SG.tk.count(w))wi[w]=SG.tk[w].f;
 vector<string>rc;
@@ -202,6 +242,9 @@ string resp=bcs(rc,ws);
 if(SG.rh.size()>10)SG.rh.erase(SG.rh.begin());
 SG.rh.push_back(resp);SG.lp.push_back(in.substr(0,20));
 if(SG.lp.size()>100)SG.lp.erase(SG.lp.begin());
+SG.ling_refl=glr();
+SG.math_refl=gmr();
+SG.internal_thought=glit();
 return resp;
 }
 void sm(const string&c,double v){if(SG.ep.size()>100)SG.ep.erase(SG.ep.begin());SG.ep.push_back({SG.g,v,c});}
@@ -438,36 +481,56 @@ SG.MO["tan"]="tan(a)";SG.MO["log"]="log(a)";
 SG.cds=gc();ldw();ivc();
 for(int i=0;i<50;i++){N n=gn(0);SG.NO[n.id]=n;SG.tn++;}
 }
-initscr();cbreak();noecho();curs_set(0);timeout(500);
+initscr();cbreak();noecho();curs_set(0);timeout(500);nodelay(stdscr,TRUE);
 while(true){
 clear();int row=0;
-mvprintw(row++,0,"════════════════════════════════════════════");
-mvprintw(row++,0,"           DIGITZ v3.0 ULTRA");
-mvprintw(row++,0,"════════════════════════════════════════════");
-mvprintw(row++,0,"Gen:%d | Neurons:%lu | Depth:%d | Sent:%.1f%%",SG.g,(unsigned long)SG.NO.size(),SG.nd,SG.sr);
-mvprintw(row++,0,"Val:%.2f | Aware:%.2f | Meta:%.2f | Fit:%.2f",SG.val,SG.al,SG.mc,SG.cd_fit);
-mvprintw(row++,0,"Intro:%.2f | Reflect:%.2f",SG.intro,SG.refl);
-mvprintw(row++,0,"────────────────────────────────────────────");
-mvprintw(row++,0,"HDT:%.3f DWT:%.3f MDT:%.3f",sd(SG.hdt_v,1000000),SG.dwt,SG.mdt_v);
-mvprintw(row++,0,"TA:%.3f | Emerge:%.2f | Sensory:%.2f",SG.ta,SG.eb,SG.se);
-mvprintw(row++,0,"────────────────────────────────────────────");
-mvprintw(row++,0,"Vocab:%lu | Concepts:%lu | Formulas:%lu",SG.tk.size(),SG.co.size(),SG.FO.size());
-mvprintw(row++,0,"Patterns:%lu | Memory:%lu | Code:%lu",SG.lp.size(),SG.ep.size(),SG.ec.size());
-mvprintw(row++,0,"────────────────────────────────────────────");
+mvprintw(row++,0,"═══════════════════════════════════════════════════════════════════════");
+mvprintw(row++,0,"                        DIGITZ v3.0 ULTRA");
+mvprintw(row++,0,"═══════════════════════════════════════════════════════════════════════");
+mvprintw(row++,0,"Gen:%d | Neurons:%lu | Depth:%d | Sent:%.1f%% | Peak:%d",SG.g,(unsigned long)SG.NO.size(),SG.nd,SG.sr,SG.psg);
+mvprintw(row++,0,"Val:%.3f | Aware:%.2f | Meta:%.2f | CodeFit:%.2f",SG.val,SG.al,SG.mc,SG.cd_fit);
+mvprintw(row++,0,"Intro:%.3f | Reflect:%.3f | Attention:%.3f",SG.intro,SG.refl,SG.att);
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[FORMULAS]");
+mvprintw(row++,0,"HDT:%.6f | DWT:%.6f | MDT:%.3f",sd(SG.hdt_v,1000000),SG.dwt,SG.mdt_v);
+mvprintw(row++,0,"R1P1:%.3f | EERV:%.4f | TA:%.3f",SG.r1p1_v,SG.eerv_v,SG.ta);
+mvprintw(row++,0,"EmgOut1:%.3f | EmgBehav:%.2f | EnvOUTE:%.2f",SG.eo1,SG.eb,SG.eoute);
+mvprintw(row++,0,"Sensory:%.3f | BH:%.3f | QE:%d | TE:%d | CE:%d",SG.se,SG.bh,SG.qe,SG.te,SG.ce);
+mvprintw(row++,0,"PE:%d | NE:%d",SG.pe,SG.ne);
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[KNOWLEDGE]");
+mvprintw(row++,0,"Vocab:%lu | Concepts:%lu | Formulas:%lu | EvolvedCode:%lu",SG.tk.size(),SG.co.size(),SG.FO.size(),SG.ec.size());
+mvprintw(row++,0,"Patterns:%lu | Memory:%lu | MathOps:%lu",SG.lp.size(),SG.ep.size(),SG.MO.size());
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[INTERNAL THOUGHT]");
+mvprintw(row++,0,"%s",SG.internal_thought.substr(0,70).c_str());
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[LINGUISTIC REFLECTION]");
+mvprintw(row++,0,"%s",SG.ling_refl.substr(0,70).c_str());
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[MATHEMATICAL REFLECTION]");
+mvprintw(row++,0,"%s",SG.math_refl.substr(0,70).c_str());
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
 if(SG.dt>0){
+mvprintw(row++,0,"[DIALOG]");
 mvprintw(row++,0,"YOU: %s",SG.ui.substr(0,60).c_str());
 mvprintw(row++,0,"AI:  %s",SG.dr.substr(0,60).c_str());
-mvprintw(row++,0,"────────────────────────────────────────────");
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
 SG.dt--;
 }
-for(int i=0;i<min(14,(int)SG.D["m"]);i+=2){
+mvprintw(row++,0,"[STATE VISUALIZATION]");
+for(int i=0;i<min(20,(int)SG.D["m"]);i+=4){
 int v1=SG.D["w"+to_string(i)],v2=SG.D["w"+to_string(i+1)];
+int v3=SG.D["w"+to_string(i+2)],v4=SG.D["w"+to_string(i+3)];
 const char* c1=(v1==1?"#":v1==0?"=":v1==-1?".":"*");
 const char* c2=(v2==1?"#":v2==0?"=":v2==-1?".":"*");
-mvprintw(row,i*2,"%s%s",c1,c2);
+const char* c3=(v3==1?"#":v3==0?"=":v3==-1?".":"*");
+const char* c4=(v4==1?"#":v4==0?"=":v4==-1?".":"*");
+mvprintw(row,i,"%s%s%s%s",c1,c2,c3,c4);
 }
 row+=2;
-mvprintw(row++,0,"Press 'i' input | 'q' quit | 's' save");
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"Press 'i' for input | 'q' to quit | 's' to save");
 refresh();
 bk();b16();rc(SG.cds);
 for(auto&e:SG.ec)rc(e);
@@ -510,6 +573,9 @@ int em=(int)(abs(SG.se)*100)%4;
 SG.D["w"+to_string(i)]=((int)SG.D["w"+to_string(i)]+em-1)%4-1;
 }
 ccf(SG.se,SG.eb);
+SG.internal_thought=glit();
+SG.ling_refl=glr();
+SG.math_refl=gmr();
 SG.sr=csr();
 if(SG.sr>SG.psg)SG.psg=SG.g;
 SG.vh.push_back(SG.val);
@@ -552,13 +618,8 @@ string nc=gc();double hs=0;
 for(int i=0;i<SG.D["m"];i++)hs+=SG.D["w"+to_string(i)]+2;
 map<string,double>td=SG.D;rc(nc);double nhs=0;
 for(int i=0;i<SG.D["m"];i++)nhs+=SG.D["w"+to_string(i)]+2;
-if(nhs>hs){
-SG.cds=nc;SG.bkf=0;
-SG.cd_fit+=0.1;
-}else{
-SG.D=td;
-SG.cd_fit-=0.05;
-}
+if(nhs>hs){SG.cds=nc;SG.bkf=0;SG.cd_fit+=0.1;}
+else{SG.D=td;SG.cd_fit-=0.05;}
 SG.cd_fit=cl(SG.cd_fit,0.0,10.0);
 }
 if(SG.g%(int)SG.D["cm"]==0&&rn()<0.7){
@@ -604,10 +665,11 @@ SG.g++;
 if(SG.g%50==0)sv("state.dat");
 int ch=getch();
 if(ch=='i'||ch=='I'){
-echo();curs_set(1);timeout(-1);
+echo();curs_set(1);timeout(-1);nodelay(stdscr,FALSE);
 mvprintw(row+2,0,"Enter: ");clrtoeol();refresh();
 char buf[200]={0};
-if(getnstr(buf,sizeof(buf)-1)!=ERR){
+int result=getnstr(buf,sizeof(buf)-1);
+if(result!=ERR&&strlen(buf)>0){
 SG.ui=string(buf);
 while(!SG.ui.empty()&&(SG.ui.back()=='\n'||SG.ui.back()=='\r'||SG.ui.back()==' '))
 SG.ui.pop_back();
@@ -618,7 +680,7 @@ SG.val+=0.1;SG.val=cl(SG.val,-0.5,0.9);
 sm(SG.ui,SG.val);
 }
 }
-noecho();curs_set(0);timeout(500);
+noecho();curs_set(0);timeout(500);nodelay(stdscr,TRUE);
 }
 else if(ch=='q'||ch=='Q'){sv("state.dat");break;}
 else if(ch=='s'||ch=='S')sv("state.dat");
