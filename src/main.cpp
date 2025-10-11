@@ -462,9 +462,9 @@ SG.dt--;
 }
 for(int i=0;i<min(14,(int)SG.D["m"]);i+=2){
 int v1=SG.D["w"+to_string(i)],v2=SG.D["w"+to_string(i+1)];
-char c1=(v1==1?'█':v1==0?'▓':v1==-1?'░':'▒');
-char c2=(v2==1?'█':v2==0?'▓':v2==-1?'░':'▒');
-mvprintw(row,i*2,"%c%c",c1,c2);
+const char* c1=(v1==1?"#":v1==0?"=":v1==-1?".":"*");
+const char* c2=(v2==1?"#":v2==0?"=":v2==-1?".":"*");
+mvprintw(row,i*2,"%s%s",c1,c2);
 }
 row+=2;
 mvprintw(row++,0,"Press 'i' input | 'q' quit | 's' save");
