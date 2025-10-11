@@ -33,6 +33,22 @@ double al;double emerge_out1;double emerge_behavior;double sentience_ratio;doubl
 int total_neurons_ever;double current_valence;double attention_focus;double metacognitive_awareness;
 vector<double>valence_history;int peak_sentience_gen;string user_input;string dialog_response;int dialog_timer;};
 State S,BK;
+void storeEpisodicMemory(const string&content,double valence);
+void counterfactualAnalysis();
+void mathLangAssociation();
+void learnWord(const string&word,double concept_value);
+void createConceptAssociation(const string&concept_name,const vector<string>&related_words);
+void loadEnglishDataset();
+void downloadVocabulary();
+void mutateN();
+void runCode(const string&c);
+void batch16Process();
+void updateAttention();
+void bk();
+void rb();
+void sv(const string&f);
+void ld(const string&f);
+void draw_ui(int row);
 double rn(){return uniform_real_distribution<>(0,1)(rng);}
 int ri(int mx){if(mx<=0)return 0;return uniform_int_distribution<>(0,mx-1)(rng);}
 double pi=3.14159265358979;
