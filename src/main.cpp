@@ -68,18 +68,31 @@ system("curl -s https://raw.githubusercontent.com/dwyl/english-words/master/word
 void loadEnglishDataset(){
 ifstream dict("english_words.txt");
 if(!dict){
-downloadVocabulary();
-return;
+    // Download and WAIT for it to complete
+    system("curl -s https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt | head -10000 > english_words.txt 2>/dev/null");
+    // Try opening again after download
+    dict.open("english_words.txt");
+    if(!dict){
+        // Fallback: create some basic words
+        vector<string> basic_words = {"hello","world","think","learn","know","feel","see","hear","speak","understand",
+                                       "create","evolve","emerge","pattern","system","state","memory","thought","aware","sense"};
+        for(const string& w : basic_words){
+            Token t={w,rn(),0,vector<int>()};
+            S.tokens[w]=t;
+        }
+        return;
+    }
 }
 string word;int idx=0;
 while(getline(dict,word)&&idx<10000){
-word.erase(remove_if(word.begin(),word.end(),::isspace),word.end());
-if(!word.empty()&&word.length()<20){
-double meaning=rn();
-Token t={word,meaning,0,vector<int>()};
-S.tokens[word]=t;
-idx++;
-}}
+    word.erase(remove_if(word.begin(),word.end(),::isspace),word.end());
+    if(!word.empty()&&word.length()<20){
+        double meaning=rn();
+        Token t={word,meaning,0,vector<int>()};
+        S.tokens[word]=t;
+        idx++;
+    }
+}
 dict.close();
 }
 void learnWord(const string&word,double concept_value){
