@@ -16,6 +16,7 @@
 #include <cctype>
 #include <cstdio>
 using namespace std;
+void storeEpisodicMemory(const std::string&content, double valence);
 random_device rd;mt19937 rng(rd());
 struct Neuron{int id;vector<int>links;double weight;double bias;int gen;};
 struct Formula{string name;string expr;double result;int uses;};
@@ -162,7 +163,7 @@ storeEpisodicMemory("prediction_error",improvement);
 }
 S.current_valence=clamp_valence(S.current_valence);
 }
-void storeEpisodicMemory(const string&content,double valence);{
+void storeEpisodicMemory(const string&content,double valence) {
 if(S.episodic_memory.size()>100)S.episodic_memory.erase(S.episodic_memory.begin());
 S.episodic_memory.push_back({S.g,valence,content});
 }
