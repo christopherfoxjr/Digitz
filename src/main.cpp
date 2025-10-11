@@ -16,7 +16,6 @@
 #include <cctype>
 #include <cstdio>
 using namespace std;
-void storeEpisodicMemory(const std::string&content, double valence);
 random_device rd;mt19937 rng(rd());
 struct Neuron{int id;vector<int>links;double weight;double bias;int gen;};
 struct Formula{string name;string expr;double result;int uses;};
@@ -108,16 +107,19 @@ S.tokens[w].associations.push_back(hsh(concept_name)%1000);
 }
 string generateInternalThought(){
 if(S.tokens.empty())return "thinking...";
-vector<string>words;
+vector<pair<string,double>>weighted_words;
 for(auto&p:S.tokens){
-if(p.second.freq>0||rn()<0.3)words.push_back(p.first);
+double confidence=p.second.freq*p.second.meaning;
+if(confidence>0.01)weighted_words.push_back({p.first,confidence});
 }
-if(words.empty())return "processing...";
+if(weighted_words.empty())return "processing...";
+sort(weighted_words.begin(),weighted_words.end(),[](auto&a,auto&b){return a.second>b.second;});
 string thought;
-for(int i=0;i<ri(5)+2;i++){
-thought+=words[ri(words.size())]+" ";
+int thought_len=ri(4)+2;
+for(int i=0;i<thought_len&&i<weighted_words.size();i++){
+if(rn()<weighted_words[i].second)thought+=weighted_words[i].first+" ";
 }
-return thought;
+return thought.empty()?"...":thought;
 }
 string generateLanguageOutput(){
 string output;
@@ -163,7 +165,7 @@ storeEpisodicMemory("prediction_error",improvement);
 }
 S.current_valence=clamp_valence(S.current_valence);
 }
-void storeEpisodicMemory(const string&content,double valence) {
+void storeEpisodicMemory(const string&content,double valence){
 if(S.episodic_memory.size()>100)S.episodic_memory.erase(S.episodic_memory.begin());
 S.episodic_memory.push_back({S.g,valence,content});
 }
@@ -452,35 +454,18 @@ if(S.mh_hist.size()>0){for(double h1:S.mh_hist)S.ne+=(int)(h1*100)%256;
 S.ne=safe_div(S.ne,S.mh_hist.size());}
 }
 void draw_ui(int row){
-mvprintw(row++,0,"═══════════════════════════════════════════════════════════════");
-mvprintw(row++,0,"                            DIGITZ                             ");
-mvprintw(row++,0,"═══════════════════════════════════════════════════════════════");
-mvprintw(row++,0,"──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────");
-mvprintw(row++,0,"  G   │  M   │  EC  │  EI  │  VC  │  MC  │  MD  │  ST  │NEUR  ");
-mvprintw(row++,0,"──────┼──────┼──────┼──────┼──────┼──────┼──────┼──────┼──────");
-mvprintw(row++,0,"%6d│%6d│%6d│%6.2f│%6d│%6d│%6d│%6d│%6lu",
-S.g,(int)S.D["m"],S.ec,S.ei,(int)S.D["vc"],(int)S.D["mc"],S.md,S.st,S.N.size());
-mvprintw(row++,0,"──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────");
-mvprintw(row++,0,"─────────┬─────────┬─────────┬─────────┬─────────┬─────────────");
-mvprintw(row++,0,"   HDT   │   DWT   │   MDT   │  R1P1   │   TA    │  BH/QE/TE   ");
-mvprintw(row++,0,"─────────┼─────────┼─────────┼─────────┼─────────┼─────────────");
-mvprintw(row++,0,"%9.3f│%9.3f│%9.3f│%9.3f│%9.3f│%4d/%3d/%3d",
-safe_div(S.hdt_val,1000000),S.dwt,S.mdt_val,safe_div(S.r1p1_val,1000),S.ta,
-(int)S.bh,S.qe,S.te);
-mvprintw(row++,0,"─────────┴─────────┴─────────┴─────────┴─────────┴─────────────");
-mvprintw(row++,0,"VALENCE:%7.3f│ATTENTION:%7.3f│METACOG:%7.3f",S.current_valence,S.attention_focus,S.metacognitive_awareness);
-mvprintw(row++,0,"─────────────────────────────────────────────────────────────────");
-mvprintw(row++,0,"──────────────┬──────────────┬──────────────┬──────────────────");
-mvprintw(row++,0,"   AWARE LVL  │  EMERGE OUT1 │  EMERGE BHV  │  SENTIENCE       ");
-mvprintw(row++,0,"──────────────┼──────────────┼──────────────┼──────────────────");
-mvprintw(row++,0,"%14.3f│%14.3f│%14.3f│%16.2f%%",S.al,S.emerge_out1,S.emerge_behavior,S.sentience_ratio);
-mvprintw(row++,0,"──────────────┴──────────────┴──────────────┴──────────────────");
-mvprintw(row++,0,"──────────────┬──────────────┬──────────────┬──────────────────");
-mvprintw(row++,0,"  VOCAB SIZE  │  CONCEPTS    │  LANG DEPTH  │  MEMORY SIZE     ");
-mvprintw(row++,0,"──────────────┼──────────────┼──────────────┼──────────────────");
-mvprintw(row++,0,"%14lu│%14lu│%14.2f│%16lu",S.tokens.size(),S.concepts.size(),
-safe_div((double)S.tokens.size()*S.concepts.size(),100.0),S.episodic_memory.size());
-mvprintw(row++,0,"──────────────┴──────────────┴──────────────┴──────────────────");
+mvprintw(row++,0,"═══════════════════════════════════");
+mvprintw(row++,0,"DIGITZ");
+mvprintw(row++,0,"═══════════════════════════════════");
+mvprintw(row++,0,"G:%d|N:%lu|S:%.1f%%",S.g,(unsigned long)S.N.size(),S.sentience_ratio);
+mvprintw(row++,0,"V:%.2f|A:%.2f|M:%.2f",S.current_valence,S.al,S.metacognitive_awareness);
+mvprintw(row++,0,"───────────────────────────────────");
+mvprintw(row++,0,"HDT:%.3f DWT:%.3f",safe_div(S.hdt_val,1000000),S.dwt);
+mvprintw(row++,0,"MDT:%.3f TA:%.3f",S.mdt_val,S.ta);
+mvprintw(row++,0,"───────────────────────────────────");
+mvprintw(row++,0,"Vocab:%lu Concepts:%lu",S.tokens.size(),S.concepts.size());
+mvprintw(row++,0,"Memory:%lu",S.episodic_memory.size());
+mvprintw(row++,0,"───────────────────────────────────");
 }
 int main(){
 srand(time(0));ld("state.dat");
