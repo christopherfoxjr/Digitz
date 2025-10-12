@@ -272,8 +272,22 @@ else if(l=="D:")while(getline(i,l)&&l.find(":")<l.size()&&l!="M:"){size_t p=l.fi
 if(l=="M:")while(getline(i,l)&&l.find(":")<l.size()&&l!="F:"){size_t p=l.find(":");S.M[l.substr(0,p)]=l.substr(p+1);}
 if(l=="F:")while(getline(i,l)&&l.find(":")<l.size()&&l!="ECODE:"){size_t p=l.find(":");string key=l.substr(0,p);
 stringstream ss(l.substr(p+1));string nm,ex;double res;int us;
-getline(ss,nm,',');getline(ss,ex,',');ss>>res;ss.ignore();ss>>us;
-S.F[key]={nm,ex,res,us};}
+// ORIGINAL (Problematic)
+// getline(ss,nm,',');getline(ss,ex,',');ss>>res;ss.ignore();ss>>us; 
+
+// FIX: Read 'us' as a string first to handle potential trailing whitespace/newline
+getline(ss,nm,',');
+getline(ss,ex,',');
+
+string res_str, us_str;
+getline(ss, res_str, ','); // Read result as a string up to the next comma
+getline(ss, us_str);       // Read the rest of the line (the 'uses' value)
+
+res = stod(res_str); // Convert result string to double
+us = stoi(us_str);   // Convert uses string to integer
+
+S.F[key]={nm,ex,res,us};
+
 if(l=="ECODE:")while(getline(i,l)&&!l.empty()&&l!="TOKENS:")S.evolved_code.push_back(l);
 if(l=="TOKENS:")while(getline(i,l)&&l.find(":")<l.size()&&l!="CONCEPTS:"){size_t p=l.find(":");string w=l.substr(0,p);
 stringstream ss(l.substr(p+1));double m;int f;char c;ss>>m>>c>>f;
