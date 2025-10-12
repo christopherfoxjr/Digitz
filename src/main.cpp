@@ -286,9 +286,9 @@ if(l=="MEMORY:")while(getline(i,l)&&l.find(":")<l.size()&&l!="N:"){size_t p=l.fi
 size_t p2=l.find(":",p+1);double v=stod(l.substr(p+1,p2-p-1));
 string content=l.substr(p2+1);S.episodic_memory.push_back({g,v,content});}
 if(l=="N:")while(getline(i,l)&&l.find(":")<l.size()&&l!="TA:"){size_t p=l.find(":");int id=stoi(l.substr(0,p));
-stringstream ss(l.substr(p+1));string t;getline(ss,t,',');Neuron n;n.id=stoi(t);
-getline(ss,t,',');n.weight=stod(t);getline(ss,t,',');n.bias=stod(t);getline(ss,t,',');n.gen=stoi(t);
-getline(ss,t);stringstream ls(t);string lk;while(getline(ls,lk,';'))if(!lk.empty())n.links.push_back(stoi(lk));
+stringstream ss(l.substr(p+1));string t;getline(ss,t,',');Neuron n;n.id=atoi(t.c_str());
+getline(ss,t,',');n.weight=stod(t);getline(ss,t,',');n.bias=stod(t);getline(ss,t,',');n.gen=atoi(t.c_str());
+getline(ss,t);stringstream ls(t);string lk;while(getline(ls,lk,';'))if(!lk.empty())n.links.push_back(atoi(lk.c_str()));
 S.N[id]=n;}
 if(l=="TA:")while(getline(i,l)&&l.find(":")<l.size()&&l!="HDT:"){size_t p=l.find(":");S.TA[stoi(l.substr(0,p))]=stod(l.substr(p+1));}
 if(l=="HDT:")while(getline(i,l)&&l.find(":")<l.size()&&l!="DWT:"){size_t p=l.find(":");S.HDT_M[stoi(l.substr(0,p))]=stod(l.substr(p+1));}
