@@ -271,22 +271,31 @@ else if(l.find("PEAK_SENT_GEN:")==0)S.peak_sentience_gen=stoi(l.substr(13));
 else if(l=="D:")while(getline(i,l)&&l.find(":")<l.size()&&l!="M:"){size_t p=l.find(":");S.D[l.substr(0,p)]=stod(l.substr(p+1));}
 if(l=="M:")while(getline(i,l)&&l.find(":")<l.size()&&l!="F:"){size_t p=l.find(":");S.M[l.substr(0,p)]=l.substr(p+1);}
 if(l=="F:")while(getline(i,l)&&l.find(":")<l.size()&&l!="ECODE:"){size_t p=l.find(":");string key=l.substr(0,p);
-stringstream ss(l.substr(p+1));string nm,ex;double res;int us;
-// ORIGINAL (Problematic)
-// getline(ss,nm,',');getline(ss,ex,',');ss>>res;ss.ignore();ss>>us; 
+if (l == "F:")
+    while (getline(i, l) && l.find(":") < l.size() && l != "ECODE:") {
+        size_t p = l.find(":");
+        string key = l.substr(0, p);
 
-// FIX: Read 'us' as a string first to handle potential trailing whitespace/newline
-getline(ss,nm,',');
-getline(ss,ex,',');
+        // Substring contains: [name],[expr],[result],[uses]
+        stringstream ss(l.substr(p + 1));
+        string nm, ex, res_str, us_str;
 
-string res_str, us_str;
-getline(ss, res_str, ','); // Read result as a string up to the next comma
-getline(ss, us_str);       // Read the rest of the line (the 'uses' value)
+        // Read each field into a temporary string using ',' as the delimiter
+        getline(ss, nm, ',');
+        getline(ss, ex, ',');
+        getline(ss, res_str, ','); // Read result string up to the final comma
+        getline(ss, us_str);       // Read the rest of the line (the uses string)
 
-res = stod(res_str); // Convert result string to double
-us = stoi(us_str);   // Convert uses string to integer
-
-S.F[key]={nm,ex,res,us};
+        // Perform conversions on the clean strings
+        try {
+            double res = stod(res_str);
+            int us = stoi(us_str);
+            S.F[key] = {nm, ex, res, us};
+        } catch (const std::exception& e) {
+            // Add a safety check to log or skip malformed lines
+            // cerr << "Error parsing Formula line: " << l << " | " << e.what() << endl;
+        }
+    }
 
 if(l=="ECODE:")while(getline(i,l)&&!l.empty()&&l!="TOKENS:")S.evolved_code.push_back(l);
 if(l=="TOKENS:")while(getline(i,l)&&l.find(":")<l.size()&&l!="CONCEPTS:"){size_t p=l.find(":");string w=l.substr(0,p);
