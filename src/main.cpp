@@ -72,7 +72,7 @@ if(!dict){
     if(!dict){
         // Fallback: create some basic words
         vector<string> basic_words = {"hello","world","think","learn","know","feel","see","hear","speak","understand",
-                                       "create","evolve","emerge","pattern","system","state","memory","thought","aware","sense","I","you","me","and","them","how","here","where","am","ok","happy","sad","confused","good","if","why","do","concepts"};
+                                       "create","evolve","emerge","pattern","system","state","memory","thought","aware","sense","I","you","me","and","them","how","who","here","where","am","ok","happy","sad","confused","good","if","why","do","concepts","are"};
         for(const string& w : basic_words){
             Token t={w,rn(),0,vector<int>()};
             S.tokens[w]=t;
