@@ -1,3 +1,5 @@
+double cphi() { return 0.0; }
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -388,20 +390,28 @@ recent_avg+=it->second;
 recent_avg/=min(3,(int)SG.env_history.size());
 return cl(sd(recent_avg,1e10),0.0,1.0);
 }
-if(SG.NO.size()<5)return 0.0;
-int conn=0;for(auto&n:SG.NO)conn+=n.second.lk.size();
-double connectivity=sd((double)conn,(double)(SG.NO.size()*5));
-double concept_diff=0;for(auto&c:SG.co)concept_diff+=c.second.s*c.second.lc.size();
-concept_diff=min(1.0,sd(concept_diff,max(1.0,(double)SG.co.size()*3)));
-double temporal_coherence=0;
-if(SG.TA.size()>3){
-vector<double>recent;
-for(auto it=SG.TA.rbegin();it!=SG.TA.rend()&&recent.size()<5;++it)recent.push_back(it->second);
-double var=0,mean=0;for(double v:recent)mean+=v;mean/=recent.size();
-for(double v:recent)var+=pow(v-mean,2);var/=recent.size();
-temporal_coherence=1.0/(1.0+sqrt(var));
-}
-return cl((connectivity*0.35+concept_diff*0.35+temporal_coherence*0.3)*ps*0.8,0.0,1.0);
+double calc_coherence(S& SG, double ps, double connectivity, double temporal_coherence) {
+
+    if (SG.NO.size() < 5) return 0.0;
+
+    int conn = 0;
+
+    for (auto& n : SG.NO) conn += n.second.lk.size();
+
+    double concept_diff = 0;
+
+    for (auto& c : SG.co) concept_diff += c.second.s * c.second.lc.size();
+
+    concept_diff = std::min(1.0, sd(concept_diff, std::max(1.0, (double)SG.co.size() * 3)));
+
+    if (SG.TA.size() > 3) {
+
+        return cl((connectivity * 0.35 + concept_diff * 0.35 + temporal_coherence * 0.3) * ps * 0.8, 0.0, 1.0);
+
+    }
+
+    return 0.0;
+
 }
 double calc_pred_error(const vector<string>&input_words){
 double expected_coherence=0;int matches=0;
