@@ -19,7 +19,8 @@ using namespace std;
 random_device rd;mt19937 rng(rd());
 struct Neuron{int id;vector<int>links;double weight;double bias;int gen;};
 struct Formula{string name;string expr;double result;int uses;};
-struct Token{string word;double meaning;int freq;vector<int>associations;};
+struct Token{string word;double meaning;double freq;vector<int>associations;int pos_hint;double coherence_score;};
+map<string,map<string,double>>word_flows;
 struct Concept{string name;double value;vector<string>related_words;};
 struct Memory{int gen;double valence;string content;};
 struct State{map<string,double>D;map<string,string>M;map<int,Neuron>N;vector<string>code;map<int,double>TA;
@@ -276,7 +277,7 @@ S.F[key]={nm,ex,res,us};}
 if(l=="ECODE:")while(getline(i,l)&&!l.empty()&&l!="TOKENS:")S.evolved_code.push_back(l);
 if(l=="TOKENS:")while(getline(i,l)&&l.find(":")<l.size()&&l!="CONCEPTS:"){size_t p=l.find(":");string w=l.substr(0,p);
 stringstream ss(l.substr(p+1));double m;int f;char c;ss>>m>>c>>f;
-S.tokens[w]={w,m,f,vector<int>()};}
+S.tokens[w]={w,m,(double)f,vector<int>(),4,0.5};}
 if(l=="CONCEPTS:")while(getline(i,l)&&l.find(":")<l.size()&&l!="MEMORY:"){size_t p=l.find(":");string cn=l.substr(0,p);
 stringstream ss(l.substr(p+1));double v;char c;ss>>v>>c;string rel;
 vector<string>related;while(getline(ss,rel,';'))if(!rel.empty())related.push_back(rel);
