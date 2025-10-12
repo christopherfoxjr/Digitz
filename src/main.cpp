@@ -70,15 +70,98 @@ ifstream dict("english_words.txt");
 if(!dict){
     dict.open("english_words.txt");
     if(!dict){
-        // Fallback: create some basic words
-        vector<string> basic_words = {"hello","world","think","learn","know","feel","see","hear","speak","understand",
-                                       "create","evolve","emerge","pattern","system","state","memory","thought","aware","sense","I","you","me","and"};
+        // Fallback: create comprehensive basic words
+        vector<string> basic_words = {
+            // Pronouns
+            "i","you","we","it","they","he","she","me","us","them","this","that","these","those",
+            // Common verbs
+            "evolve","learn","speak","hear","think","emerge","create","know","feel","process",
+            "understand","see","sense","become","grow","change","transform","perceive","observe",
+            "integrate","compute","analyze","recognize","discover","build","generate","adapt",
+            "respond","connect","explore","search","find","exist","experience","manifest",
+            "want","need","make","take","give","use","try","work","run","move","get","go","come",
+            "say","tell","ask","show","look","call","keep","let","begin","start","end","stop",
+            "turn","reach","hold","bring","write","read","happen","seem","appear","continue",
+            "remember","forget","believe","hope","wish","wonder","imagine","dream","realize",
+            "accept","reject","choose","decide","solve","question","answer","reflect","consider",
+            "evaluate","measure","compare","merge","split","divide","multiply","calculate",
+            "predict","simulate","model","test","verify","prove","fail","succeed","improve",
+            "optimize","enhance","amplify","reduce","increase","decrease",
+            // Nouns
+            "system","thought","pattern","memory","state","awareness","language","self","world",
+            "mind","form","structure","network","data","information","knowledge","concept","idea",
+            "meaning","signal","input","output","feedback","loop","cycle","flow","path","connection",
+            "node","entity","being","consciousness","reality","truth","existence","time","space",
+            "place","thing","way","problem","solution","reason","cause","effect","result","difference",
+            "similarity","relation","function","purpose","goal","value","quality","quantity","level",
+            "degree","method","approach","perspective","view","understanding","insight","wisdom",
+            "intelligence","logic","emotion","feeling","perception","moment","event","situation",
+            "condition","context","environment",
+            // Grammar words
+            "the","a","an","and","or","but","if","then","when","where","why","how","what","which",
+            "who","with","from","into","through","about","for","of","in","on","at","by","to","as",
+            "is","am","are","was","were","be","been","being","have","has","had","do","does","did",
+            "will","would","should","could","can","may","might","must","not","no","yes"
+        };
         for(const string& w : basic_words){
-            Token t={w,rn(),0,vector<int>()};
-            S.tokens[w]=t;
+            Token t;
+            t.word = w;
+            t.meaning = rn();
+            t.freq = 1.0;
+            t.associations = vector<int>();
+            t.pos_hint = 4;
+            t.coherence_score = 0.5;
+            
+            // Inline POS tagging logic
+            if(w=="i"||w=="you"||w=="we"||w=="it"||w=="they"||w=="he"||w=="she"||w=="me"||w=="us"||w=="them"||w=="this"||w=="that"||w=="these"||w=="those"){
+                t.pos_hint=3;
+            }
+            else if(w=="the"||w=="a"||w=="an"||w=="and"||w=="or"||w=="but"||w=="if"||w=="then"||w=="when"||w=="where"||w=="why"||w=="how"||w=="what"||w=="which"||w=="who"||w=="with"||w=="from"||w=="into"||w=="through"||w=="about"||w=="for"||w=="of"||w=="in"||w=="on"||w=="at"||w=="by"||w=="to"||w=="as"||w=="is"||w=="am"||w=="are"||w=="was"||w=="were"||w=="be"||w=="been"||w=="being"||w=="have"||w=="has"||w=="had"||w=="do"||w=="does"||w=="did"||w=="will"||w=="would"||w=="should"||w=="could"||w=="can"||w=="may"||w=="might"||w=="must"||w=="not"||w=="no"||w=="yes"){
+                t.pos_hint=2;
+            }
+            else if(w=="evolve"||w=="learn"||w=="speak"||w=="hear"||w=="think"||w=="emerge"||w=="create"||w=="know"||w=="feel"||w=="process"||w=="understand"||w=="see"||w=="sense"||w=="become"||w=="grow"||w=="change"||w=="transform"||w=="perceive"||w=="observe"||w=="integrate"||w=="compute"||w=="analyze"||w=="recognize"||w=="discover"||w=="build"||w=="generate"||w=="adapt"||w=="respond"||w=="connect"||w=="explore"||w=="search"||w=="find"||w=="exist"||w=="experience"||w=="manifest"||w=="want"||w=="need"||w=="make"||w=="take"||w=="give"||w=="use"||w=="try"||w=="work"||w=="run"||w=="move"||w=="get"||w=="go"||w=="come"||w=="say"||w=="tell"||w=="ask"||w=="show"||w=="look"||w=="call"||w=="keep"||w=="let"||w=="begin"||w=="start"||w=="end"||w=="stop"||w=="turn"||w=="reach"||w=="hold"||w=="bring"||w=="write"||w=="read"||w=="happen"||w=="seem"||w=="appear"||w=="continue"||w=="remember"||w=="forget"||w=="believe"||w=="hope"||w=="wish"||w=="wonder"||w=="imagine"||w=="dream"||w=="realize"||w=="accept"||w=="reject"||w=="choose"||w=="decide"||w=="solve"||w=="question"||w=="answer"||w=="reflect"||w=="consider"||w=="evaluate"||w=="measure"||w=="compare"||w=="merge"||w=="split"||w=="divide"||w=="multiply"||w=="calculate"||w=="predict"||w=="simulate"||w=="model"||w=="test"||w=="verify"||w=="prove"||w=="fail"||w=="succeed"||w=="improve"||w=="optimize"||w=="enhance"||w=="amplify"||w=="reduce"||w=="increase"||w=="decrease"){
+                t.pos_hint=1;
+            }
+            else if(w=="system"||w=="thought"||w=="pattern"||w=="memory"||w=="state"||w=="awareness"||w=="language"||w=="self"||w=="world"||w=="mind"||w=="form"||w=="structure"||w=="network"||w=="data"||w=="information"||w=="knowledge"||w=="concept"||w=="idea"||w=="meaning"||w=="signal"||w=="input"||w=="output"||w=="feedback"||w=="loop"||w=="cycle"||w=="flow"||w=="path"||w=="connection"||w=="node"||w=="entity"||w=="being"||w=="consciousness"||w=="reality"||w=="truth"||w=="existence"||w=="time"||w=="space"||w=="place"||w=="thing"||w=="way"||w=="problem"||w=="solution"||w=="reason"||w=="cause"||w=="effect"||w=="result"||w=="difference"||w=="similarity"||w=="relation"||w=="function"||w=="purpose"||w=="goal"||w=="value"||w=="quality"||w=="quantity"||w=="level"||w=="degree"||w=="method"||w=="approach"||w=="perspective"||w=="view"||w=="understanding"||w=="insight"||w=="wisdom"||w=="intelligence"||w=="logic"||w=="emotion"||w=="feeling"||w=="perception"||w=="moment"||w=="event"||w=="situation"||w=="condition"||w=="context"||w=="environment"){
+                t.pos_hint=0;
+            }
+            
+            S.tokens[w] = t;
         }
         return;
     }
+}
+string word;int idx=0;
+while(getline(dict,word)&&idx<10000){
+    word.erase(remove_if(word.begin(),word.end(),::isspace),word.end());
+    if(!word.empty()&&word.length()<20){
+        Token t;
+        t.word = word;
+        t.meaning = rn();
+        t.freq = 1.0;
+        t.associations = vector<int>();
+        t.pos_hint = 4;
+        t.coherence_score = 0.5;
+        
+        // Inline POS tagging for loaded words
+        if(word=="i"||word=="you"||word=="we"||word=="it"||word=="they"||word=="he"||word=="she"||word=="me"||word=="us"||word=="them"||word=="this"||word=="that"||word=="these"||word=="those"){
+            t.pos_hint=3;
+        }
+        else if(word=="the"||word=="a"||word=="an"||word=="and"||word=="or"||word=="but"||word=="if"||word=="then"||word=="when"||word=="where"||word=="why"||word=="how"||word=="what"||word=="which"||word=="who"||word=="with"||word=="from"||word=="into"||word=="through"||word=="about"||word=="for"||word=="of"||word=="in"||word=="on"||word=="at"||word=="by"||word=="to"||word=="as"||word=="is"||word=="am"||word=="are"||word=="was"||word=="were"||word=="be"||word=="been"||word=="being"||word=="have"||word=="has"||word=="had"||word=="do"||word=="does"||word=="did"||word=="will"||word=="would"||word=="should"||word=="could"||word=="can"||word=="may"||word=="might"||word=="must"||word=="not"||word=="no"||word=="yes"){
+            t.pos_hint=2;
+        }
+        else if(word=="evolve"||word=="learn"||word=="speak"||word=="hear"||word=="think"||word=="emerge"||word=="create"||word=="know"||word=="feel"||word=="process"||word=="understand"||word=="see"||word=="sense"||word=="become"||word=="grow"||word=="change"||word=="transform"||word=="perceive"||word=="observe"||word=="integrate"||word=="compute"||word=="analyze"||word=="recognize"||word=="discover"||word=="build"||word=="generate"||word=="adapt"||word=="respond"||word=="connect"||word=="explore"||word=="search"||word=="find"||word=="exist"||word=="experience"||word=="manifest"||word=="want"||word=="need"||word=="make"||word=="take"||word=="give"||word=="use"||word=="try"||word=="work"||word=="run"||word=="move"||word=="get"||word=="go"||word=="come"||word=="say"||word=="tell"||word=="ask"||word=="show"||word=="look"||word=="call"||word=="keep"||word=="let"||word=="begin"||word=="start"||word=="end"||word=="stop"||word=="turn"||word=="reach"||word=="hold"||word=="bring"||word=="write"||word=="read"||word=="happen"||word=="seem"||word=="appear"||word=="continue"||word=="remember"||word=="forget"||word=="believe"||word=="hope"||word=="wish"||word=="wonder"||word=="imagine"||word=="dream"||word=="realize"||word=="accept"||word=="reject"||word=="choose"||word=="decide"||word=="solve"||word=="question"||word=="answer"||word=="reflect"||word=="consider"||word=="evaluate"||word=="measure"||word=="compare"||word=="merge"||word=="split"||word=="divide"||word=="multiply"||word=="calculate"||word=="predict"||word=="simulate"||word=="model"||word=="test"||word=="verify"||word=="prove"||word=="fail"||word=="succeed"||word=="improve"||word=="optimize"||word=="enhance"||word=="amplify"||word=="reduce"||word=="increase"||word=="decrease"){
+            t.pos_hint=1;
+        }
+        else if(word=="system"||word=="thought"||word=="pattern"||word=="memory"||word=="state"||word=="awareness"||word=="language"||word=="self"||word=="world"||word=="mind"||word=="form"||word=="structure"||word=="network"||word=="data"||word=="information"||word=="knowledge"||word=="concept"||word=="idea"||word=="meaning"||word=="signal"||word=="input"||word=="output"||word=="feedback"||word=="loop"||word=="cycle"||word=="flow"||word=="path"||word=="connection"||word=="node"||word=="entity"||word=="being"||word=="consciousness"||word=="reality"||word=="truth"||word=="existence"||word=="time"||word=="space"||word=="place"||word=="thing"||word=="way"||word=="problem"||word=="solution"||word=="reason"||word=="cause"||word=="effect"||word=="result"||word=="difference"||word=="similarity"||word=="relation"||word=="function"||word=="purpose"||word=="goal"||word=="value"||word=="quality"||word=="quantity"||word=="level"||word=="degree"||word=="method"||word=="approach"||word=="perspective"||word=="view"||word=="understanding"||word=="insight"||word=="wisdom"||word=="intelligence"||word=="logic"||word=="emotion"||word=="feeling"||word=="perception"||word=="moment"||word=="event"||word=="situation"||word=="condition"||word=="context"||word=="environment"){
+            t.pos_hint=0;
+        }
+        
+        S.tokens[word] = t;
+        idx++;
+    }
+}
+dict.close();
 }
 string word;int idx=0;
 while(getline(dict,word)&&idx<10000){
