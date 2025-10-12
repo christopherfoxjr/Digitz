@@ -127,6 +127,8 @@ if(SG.contradiction_buffer.size()>10)SG.contradiction_buffer.erase(SG.contradict
 void lct(const string&cn,const string&tn);
 void lcc(const string&c1,const string&c2);
 double cco(const string&w);
+void ccf(double sens,double env);
+void lw(const string&w,double ctx);
 void lct(const string&cn,const string&tn){
 if(SG.co.count(cn)&&SG.tk.count(tn)){
 auto&cc=SG.co[cn];
@@ -178,6 +180,37 @@ for(const string&w:c){T t={w,{},rn()*0.8+0.2,0,0.8,{},0};init_semantic_vector(t)
 SG.co["self"]={"self",0.8,{"i","am","me"},{},0.8};SG.co["aware"]={"aware",0.7,{"know","sense","see"},{},0.7};
 SG.co["learn"]={"learn",0.6,{"learn","grow","adapt"},{},0.6};SG.co["help"]={"help",0.5,{"help","aid","assist"},{},0.5};
 SG.co["think"]={"think",0.7,{"think","thought","mind"},{},0.7};SG.co["feel"]={"feel",0.6,{"feel","sense","emotion"},{},0.6};
+}
+void lw(const string&w,double ctx){
+string lw=w;transform(lw.begin(),lw.end(),lw.begin(),::tolower);
+if(lw.length()>12||lw.empty())return;
+if(SG.tk.count(lw)){
+SG.tk[lw].f++;
+SG.tk[lw].m+=ctx*SG.meta.learning_rate;
+SG.tk[lw].c=cco(lw);
+SG.tk[lw].salience=min(100,SG.tk[lw].salience+2);
+}else{
+T t={lw,{},ctx,1,0.4,{},5};init_semantic_vector(t);SG.tk[lw]=t;
+}
+for(auto&cc:SG.co){
+for(const string&rt:cc.second.rt){
+if(rt==lw){cc.second.s=cl(cc.second.s+0.02,0.0,1.0);lct(cc.first,lw);}
+}
+}
+}
+void ccf(double sens,double env){
+if(SG.g%15==0&&SG.tk.size()>10){
+vector<string>ws;for(auto&p:SG.tk)if(p.second.f>2)ws.push_back(p.first);
+if(ws.size()>=2){
+shuffle(ws.begin(),ws.end(),rng);
+string cn="C"+to_string(SG.g)+"_"+to_string(ri(1000));
+vector<string>sel;for(int i=0;i<min(4,(int)ws.size());i++)sel.push_back(ws[i]);
+double str=abs(sens)*0.5+abs(env)*0.3+rn()*0.2;
+C nc={cn,str,sel,{},0.7};SG.co[cn]=nc;
+for(const string&w:sel)lct(cn,w);
+if(SG.co.size()>2){auto it=SG.co.begin();advance(it,ri(SG.co.size()));lcc(cn,it->first);}
+}
+}
 }
 vector<string>fac(const vector<string>&ws){
 map<string,double>cs;
