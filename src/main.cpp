@@ -270,14 +270,14 @@ else if(l.find("METACOG:")==0)S.metacognitive_awareness=stod(l.substr(8));
 else if(l.find("PEAK_SENT_GEN:")==0)S.peak_sentience_gen=stoi(l.substr(13));
 else if(l=="D:")while(getline(i,l)&&l.find(":")<l.size()&&l!="M:"){size_t p=l.find(":");S.D[l.substr(0,p)]=stod(l.substr(p+1));}
 if(l=="M:")while(getline(i,l)&&l.find(":")<l.size()&&l!="F:"){size_t p=l.find(":");S.M[l.substr(0,p)]=l.substr(p+1);}
-if(l=="F:")while(getline(i,l)&&l.find(":")<l.size()&&l!="ECODE:"){size_t p=l.find(":");string key=l.substr(0,p);
-if (l == "F:")
-    while (getline(i, l) && l.find(":") < l.size() && l != "ECODE:") {
-        size_t p = l.find(":");
-        string key = l.substr(0, p);
+if(l=="F:"){
+    // Start reading the first formula line immediately after the "F:" header
+    while(getline(i,l)&&l.find(":")<l.size()&&l!="ECODE:"){
+        size_t p=l.find(":");
+        string key=l.substr(0,p);
 
         // Substring contains: [name],[expr],[result],[uses]
-        stringstream ss(l.substr(p + 1));
+        stringstream ss(l.substr(p+1));
         string nm, ex, res_str, us_str;
 
         // Read each field into a temporary string using ',' as the delimiter
@@ -289,13 +289,18 @@ if (l == "F:")
         // Perform conversions on the clean strings
         try {
             double res = stod(res_str);
-            int us = stoi(us_str);
+            // The uses string might contain a leading space, strip it
+            size_t start = us_str.find_first_not_of(' ');
+            int us = stoi(us_str.substr(start)); 
+            
             S.F[key] = {nm, ex, res, us};
         } catch (const std::exception& e) {
-            // Add a safety check to log or skip malformed lines
-            // cerr << "Error parsing Formula line: " << l << " | " << e.what() << endl;
+            // Keep the safety catch for malformed data
         }
     }
+    // After the loop, the last line read (either ECODE: or a malformed line)
+    // is stored in 'l'. The main loop will continue from this line.
+}
 
 if(l=="ECODE:")while(getline(i,l)&&!l.empty()&&l!="TOKENS:")S.evolved_code.push_back(l);
 if(l=="TOKENS:")while(getline(i,l)&&l.find(":")<l.size()&&l!="CONCEPTS:"){size_t p=l.find(":");string w=l.substr(0,p);
