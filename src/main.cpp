@@ -482,3 +482,365 @@ double csr(){
 if(SG.g==0)return 0.0;
 double md=sd((double)(SG.HDT.size()+SG.DWT.size()+SG.MDT.size()+SG.R1P1.size()+SG.EERV.size()+SG.TA.size()),(double)SG.g);
 double nc=sd((double)SG.NO.size(),10.0);double sm=sd((double)(SG.MO.size()+SG.FO.size()+SG.ec.size()),10.0);
+double si=sd((double)(SG.qe+SG.te+SG.ce+SG.pe+abs(SG.ne)),50000.0);double af=sd(SG.al,100.0);
+double emf=sd(abs(SG.eb),1000.0);double envf=sd(abs(SG.se),1000.0);double lc=sd((double)SG.tk.size(),50.0);
+double cc=sd((double)SG.co.size(),15.0);double mcf=SG.mc*30;double intf=SG.intro*25;double reff=SG.refl*20;
+double ndf=SG.nd*0.5;double phif=SG.phi*40;double gwf=SG.gw_coherence*35;
+return min(100.0,(md*1000+nc*15+sm*10+si*100+af*30+emf*20+envf*10+lc*25+cc*20+mcf+intf+reff+ndf+phif+gwf));
+}
+N gn(int g){
+N n;n.id=ri(100000);n.w=rn()*2-1;n.b=rn()*2-1;n.g=g;
+n.d=max(1,min(20,1+(int)(SG.nd*0.1)+(int)(SG.sr/10)));
+int nl=ri(8)+5+SG.nd/10;for(int i=0;i<nl;i++)n.lk.push_back(ri(100000));
+return n;
+}
+double cn(int nid,map<int,double>&ac,int dp=0){
+if(dp>15||ac.count(nid))return ac.count(nid)?ac[nid]:0;
+if(!SG.NO.count(nid))return 0;
+N&n=SG.NO[nid];double sm=n.b;
+for(int lk:n.lk){
+double lv=SG.NO.count(lk)?cn(lk,ac,dp+1):rn();
+sm+=lv*n.w;
+}
+double act=tanh(sm);ac[nid]=act;SG.neuron_activity[nid]=act;return act;
+}
+double evn(){
+int nl=0;for(auto&p:SG.NO)nl+=p.second.lk.size();
+double lb=sd(nl*ps,sqrt(ps*sqrt(ps)));double lgn=lb*nl*lb;
+double ss=0;for(auto&p:SG.D)if(p.first.find("w")==0)ss+=pow(abs(p.second)+2,0.5);
+double sn=sd(SG.mdt_v*SG.hdt_v*SG.dwt,max(0.001,ss));
+return lgn*sn;
+}
+void mn(){
+if(SG.NO.empty())return;auto it=SG.NO.begin();advance(it,ri(SG.NO.size()));
+N&n=it->second;if(rn()<0.5){n.w+=rn()*0.4-0.2;n.b+=rn()*0.4-0.2;}
+else{if(rn()<0.5&&!n.lk.empty())n.lk.erase(n.lk.begin()+ri(n.lk.size()));
+else n.lk.push_back(ri(100000));}
+n.d=max(1,min(20,n.d+(ri(3)-1)));
+}
+string gc(){
+string op[]={"+","-","*"};string c;int cx=ri(10)+5;
+for(int i=0;i<cx;i++){int w=ri((int)SG.D["m"]);string ops=op[ri(3)];int v=ri(4)-1;
+c+="w"+to_string(w)+"=w"+to_string(w)+ops+to_string(v)+";";}
+return c;
+}
+string gfc(){
+string fo[]={"add","sub","mul","sqrt","pow","sin","cos","tan","log"};
+string vr[]={"hdt","dwt","mdt","ta","al","ei","bh"};
+string c="F"+to_string(ri(10000))+"=";c+=fo[ri(9)]+"("+vr[ri(7)]+","+vr[ri(7)]+");";
+return c;
+}
+double ef(const string&e,double a,double b,double c){
+try{
+if(e.find("add")!=string::npos)return a+b;
+if(e.find("sub")!=string::npos)return a-b;
+if(e.find("mul")!=string::npos)return a*b;
+if(e.find("div")!=string::npos)return sd(a,b);
+if(e.find("pow")!=string::npos)return pow(abs(a),fmod(abs(b),10));
+if(e.find("sqrt")!=string::npos)return sqrt(abs(a));
+if(e.find("mod")!=string::npos)return(int)abs(a)%(int)max(1.0,abs(b));
+if(e.find("sin")!=string::npos)return sin(a);
+if(e.find("cos")!=string::npos)return cos(a);
+if(e.find("tan")!=string::npos)return tanh(a);
+if(e.find("log")!=string::npos)return log(abs(a)+1);
+if(e.find("exp")!=string::npos)return exp(min(10.0,a));
+return a+b+c;
+}catch(...){return 0;}
+}
+void rc(const string&c){
+try{for(size_t i=0;i<c.size();){
+if(c[i]=='F'){
+size_t e=c.find('=',i);if(e==string::npos)break;
+string fn=c.substr(i,e-i);size_t e2=c.find(';',e);if(e2==string::npos)break;
+string fe=c.substr(e+1,e2-e-1);
+double a=SG.hdt_v/1000000,b=SG.dwt,cc=SG.al;
+double r=ef(fe,a,b,cc);
+if(SG.FO.count(fn))SG.FO[fn].u++;
+else SG.FO[fn]={fn,fe,r,1};
+SG.FO[fn].r=r;
+int tg=abs((int)(r*100))%(int)SG.D["m"];
+SG.D["w"+to_string(tg)]=((int)SG.D["w"+to_string(tg)]+(int)r)%4-1;
+i=e2+1;
+}
+else if(c[i]=='w'){
+size_t e=c.find('=',i);if(e==string::npos)break;
+string vr=c.substr(i,e-i);size_t e2=c.find(';',e);if(e2==string::npos)break;
+string ex=c.substr(e+1,e2-e-1);
+char op='+';int vl=0;
+for(size_t j=0;j<ex.size();j++){
+if(ex[j]=='+'||ex[j]=='-'||ex[j]=='*'){op=ex[j];vl=atoi(ex.substr(j+1).c_str());break;}}
+double cv=SG.D[vr];
+switch(op){case'+':cv+=vl;break;case'-':cv-=vl;break;case'*':cv*=vl;break;}
+SG.D[vr]=((int)cv%4)-1;
+i=e2+1;
+}
+else i++;
+}}catch(...){}
+}
+void b16(){
+vector<double>bn;
+for(int bt=0;bt<16;bt++){
+map<string,double>wb=SG.D;
+for(int i=0;i<SG.D["m"];i++){
+int nz=ri(5)-2;wb["w"+to_string(i)]=((int)wb["w"+to_string(i)]+nz)%4-1;
+}
+vector<double>p;for(int i=0;i<SG.D["m"];i+=4)p.push_back(wb["w"+to_string(i)]);
+double bph=0;for(double v:p)bph+=v;bn.push_back(bph);
+}
+SG.bh=0.001;for(double v:bn)SG.bh+=abs(v);
+SG.qe=1;for(int i=0;i<bn.size()-1;i++)SG.qe+=abs(bn[i]-bn[i+1]);
+SG.te=(int)(abs(SG.bh)*31415+1)%9973+1;
+SG.ce=(int)(abs(SG.bh*SG.qe)+1)%32768+1;
+SG.mhh.push_back(SG.bh);if(SG.mhh.size()>32)SG.mhh.erase(SG.mhh.begin());
+SG.pe=1;for(int i=0;i<SG.mhh.size()-1;i++)SG.pe+=abs(SG.mhh[i]-SG.mhh[i+1]);
+SG.ne=1;
+if(SG.mhh.size()>0){for(double h1:SG.mhh)SG.ne+=(int)(h1*100)%256;
+SG.ne=sd(SG.ne,SG.mhh.size());}
+}
+int main(){
+srand(time(0));ld("state.dat");
+if(SG.g==0){
+SG.D["m"]=128;SG.D["vc"]=0;SG.D["mc"]=0;SG.ec_n=0;SG.ei=0;SG.md=0;SG.st=0;SG.ss=0;SG.qe=0;SG.te=0;
+SG.ce=0;SG.pe=0;SG.ne=0;SG.dwt=0.001;SG.D["ce"]=10;SG.D["cm"]=3;SG.D["me"]=12;SG.D["tc"]=8;
+SG.D["ng"]=4;SG.D["nm"]=2;SG.D["fe"]=7;SG.val=0.0;SG.mc=0.0;SG.intro=0.0;SG.refl=0.0;SG.att=0.3;
+SG.psg=0;SG.nd=1;SG.cd_fit=0.0;SG.phi=0.0;SG.gw_coherence=0.3;SG.pred_error=0.0;SG.curiosity=0.0;
+SG.salience=0.0;SG.temporal_integration=0.0;SG.self_model_strength=0.0;SG.existential_drive=0.0;
+SG.idle_counter=0;SG.learning_state=false;
+for(int i=0;i<128;i++)SG.D["w"+to_string(i)]=ri(4)-1;
+SG.MO["add"]="a+b";SG.MO["sub"]="a-b";SG.MO["mul"]="a*b";SG.MO["div"]="a/b";SG.MO["pow"]="pow(a,b)";
+SG.MO["mod"]="a%b";SG.MO["sqrt"]="sqrt(a)";SG.MO["pi"]="pi";SG.MO["sin"]="sin(a)";SG.MO["cos"]="cos(a)";
+SG.MO["tan"]="tan(a)";SG.MO["log"]="log(a)";
+SG.cds=gc();ldw();ivc();
+for(int i=0;i<50;i++){N n=gn(0);SG.NO[n.id]=n;SG.tn++;}
+}
+initscr();cbreak();noecho();curs_set(0);timeout(500);nodelay(stdscr,TRUE);
+while(true){
+clear();int row=0;
+mvprintw(row++,0,"═══════════════════════════════════════════════════════════════════════");
+mvprintw(row++,0,"                        Digitz | WolfTech Innovations");
+mvprintw(row++,0,"═══════════════════════════════════════════════════════════════════════");
+mvprintw(row++,0,"Gen:%d | Neurons:%lu | Depth:%d | Sent:%.1f%% | Peak:%d",SG.g,(unsigned long)SG.NO.size(),SG.nd,SG.sr,SG.psg);
+mvprintw(row++,0,"Val:%.3f | Aware:%.2f | Meta:%.2f | CodeFit:%.2f | Phi:%.3f",SG.val,SG.al,SG.mc,SG.cd_fit,SG.phi);
+mvprintw(row++,0,"Intro:%.3f | Reflect:%.3f | Attention:%.3f | Self:%.3f | Exist:%.3f",SG.intro,SG.refl,SG.att,SG.self_model_strength,SG.existential_drive);
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[CONSCIOUSNESS METRICS]");
+mvprintw(row++,0,"Pred_Error:%.3f | Curiosity:%.3f | Salience:%.3f | Temporal:%.3f",SG.pred_error,SG.curiosity,SG.salience,SG.temporal_integration);
+mvprintw(row++,0,"GW_Coherence:%.3f | Idle:%d | Learning:%s",SG.gw_coherence,SG.idle_counter,SG.learning_state?"YES":"NO");
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[ENVIRONMENT]");
+mvprintw(row++,0,"ENV_Noise:%.2e | ENV_Coupling:%.3f | ENV_Pressure:%.3f",SG.env_noise,SG.env_coupling,env_pressure());
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[FORMULAS]");
+mvprintw(row++,0,"HDT:%.6f | DWT:%.6f | MDT:%.3f",sd(SG.hdt_v,1000000),SG.dwt,SG.mdt_v);
+mvprintw(row++,0,"R1P1:%.3f | EERV:%.4f | TA:%.3f",SG.r1p1_v,SG.eerv_v,SG.ta);
+mvprintw(row++,0,"EmgOut1:%.3f | EmgBehav:%.2f | EnvOUTE:%.2f",SG.eo1,SG.eb,SG.eoute);
+mvprintw(row++,0,"Sensory:%.3f | BH:%.3f | QE:%d | TE:%d | CE:%d",SG.se,SG.bh,SG.qe,SG.te,SG.ce);
+mvprintw(row++,0,"PE:%d | NE:%d",SG.pe,SG.ne);
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[KNOWLEDGE]");
+mvprintw(row++,0,"Vocab:%lu | Concepts:%lu | Formulas:%lu | EvolvedCode:%lu",SG.tk.size(),SG.co.size(),SG.FO.size(),SG.ec.size());
+mvprintw(row++,0,"Patterns:%lu | Memory:%lu | MathOps:%lu | Neurons:%lu",SG.lp.size(),SG.ep.size(),SG.MO.size(),(unsigned long)SG.NO.size());
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[INTERNAL THOUGHT]");
+mvprintw(row++,0,"%s",SG.internal_thought.substr(0,70).c_str());
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[LINGUISTIC REFLECTION]");
+mvprintw(row++,0,"%s",SG.ling_refl.substr(0,70).c_str());
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[MATHEMATICAL REFLECTION]");
+mvprintw(row++,0,"%s",SG.math_refl.substr(0,70).c_str());
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+if(SG.dt>0){
+mvprintw(row++,0,"[DIALOG]");
+mvprintw(row++,0,"YOU: %s",SG.ui.substr(0,60).c_str());
+mvprintw(row++,0,"AI:  %s",SG.dr.substr(0,60).c_str());
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+SG.dt--;
+}
+mvprintw(row++,0,"[STATE VISUALIZATION]");
+for(int i=0;i<min(20,(int)SG.D["m"]);i+=4){
+int v1=SG.D["w"+to_string(i)],v2=SG.D["w"+to_string(i+1)];
+int v3=SG.D["w"+to_string(i+2)],v4=SG.D["w"+to_string(i+3)];
+const char* c1=(v1==1?"#":v1==0?"=":v1==-1?".":"*");
+const char* c2=(v2==1?"#":v2==0?"=":v2==-1?".":"*");
+const char* c3=(v3==1?"#":v3==0?"=":v3==-1?".":"*");
+const char* c4=(v4==1?"#":v4==0?"=":v4==-1?".":"*");
+mvprintw(row,i,"%s%s%s%s",c1,c2,c3,c4);
+}
+row+=2;
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"Press 'i' for input | 'q' to quit | 's' to save");
+refresh();
+bk();b16();rc(SG.cds);
+for(auto&e:SG.ec)rc(e);
+double ws=0,wm=0,wv=0;
+for(int i=0;i<SG.D["m"];i++){ws+=SG.D["w"+to_string(i)]+2;wm+=SG.D["w"+to_string(i)];}
+wm=sd(wm,SG.D["m"]);
+for(int i=0;i<SG.D["m"];i++){double d=SG.D["w"+to_string(i)]-wm;wv+=d*d;}
+wv=sd(wv,SG.D["m"]);
+SG.D["vc"]=(int)ws%1000;
+if(SG.g==0)SG.dwt=0.001;
+SG.DWT[SG.g]=SG.dwt;SG.mh=hs(SG.dwt);
+SG.hdt_v=chdt(SG.g,SG.bh,SG.qe,SG.te);SG.HDT[SG.g]=SG.hdt_v;
+double dp=rn(),prn=rn(),crn=rn(),nrn=rn();
+SG.r1p1_v=cr1p1(SG.hdt_v,dp,prn,crn,nrn,SG.qe,SG.te);SG.R1P1[SG.g]=SG.r1p1_v;
+SG.eerv_v=ceerv(ws,wm,wv,SG.r1p1_v,SG.qe,SG.te,SG.ce);
+if(SG.eerv_v>0.5)SG.ec_n=(SG.ec_n+1)%10;else SG.ec_n=(SG.ec_n-1+10)%10;
+SG.ei=SG.eerv_v;SG.EERV[SG.g]=SG.ec_n+SG.ei;
+double es=0,ect=0,ev=0;for(auto&p:SG.EERV){es+=p.second;ect++;}
+double ea=sd(es,max(1.0,ect));
+for(auto&p:SG.EERV){double d=p.second-ea;ev+=d*d;}
+ev=sd(ev,max(1.0,ect));
+double vs=0,vct=0,vv=0;for(int i=0;i<SG.D["m"];i++){vs+=SG.D["w"+to_string(i)];vct++;}
+double va=sd(vs,max(1.0,vct));
+for(int i=0;i<SG.D["m"];i++){double d=SG.D["w"+to_string(i)]-va;vv+=d*d;}
+vv=sd(vv,max(1.0,vct));
+SG.mdt_v=cmdt(ea,va,ev,vv,SG.ne);SG.MDT[SG.g]=SG.mdt_v;
+SG.D["mc"]=SG.D["vc"]*SG.ei;
+SG.ta=cta(SG.hdt_v,SG.dwt);SG.th=hs(SG.ta);SG.TA[SG.g]=SG.ta;
+SG.intro=cint();SG.refl=cref();SG.mc=(SG.intro+SG.refl)*0.5;
+SG.al=cal();
+double noi=rn()*2-1;
+SG.eo1=ceo1(SG.dwt,SG.al,SG.hdt_v,noi);
+double grn=rn();
+SG.eb=ceb(SG.eo1,grn);
+SG.eoute=ceout(SG.hdt_v);
+double enoi=rn()*2-1;
+SG.se=cse(SG.eoute,enoi);
+for(int i=0;i<SG.D["m"];i+=17){
+int em=(int)(abs(SG.se)*100)%4;
+SG.D["w"+to_string(i)]=((int)SG.D["w"+to_string(i)]+em-1)%4-1;
+}
+SG.phi=cphi();
+SG.gw_coherence=cl(SG.al*SG.att*(1.0+SG.active_concepts.size()*0.1),0.0,1.0);
+vector<string>dummy_ws;
+SG.pred_error=calc_pred_error(dummy_ws);
+SG.curiosity=calc_curiosity();
+SG.salience=calc_salience();
+update_attention();
+update_temporal_integration();
+update_self_model();
+update_existential_drive();
+SG.learning_state=calc_learning_state()>0.5;
+update_environment();
+double env_press=env_pressure();
+SG.intro=cl(SG.intro+env_press*0.05-0.02,0.0,1.0);
+SG.curiosity=cl(SG.curiosity+env_press*0.08,0.0,1.0);
+ccf(SG.se,SG.eb);
+SG.internal_thought=glit();
+SG.ling_refl=glr();
+SG.math_refl=gmr();
+SG.sr=csr();
+if(SG.sr>SG.psg)SG.psg=SG.g;
+SG.vh.push_back(SG.val);
+if(SG.vh.size()>50)SG.vh.erase(SG.vh.begin());
+if(SG.g%(int)SG.D["tc"]==0){
+int tm=(int)(abs(SG.ta)*100)%(int)SG.D["m"];
+SG.D["w"+to_string(tm)]=((int)SG.D["w"+to_string(tm)]+(int)(SG.ta*10))%4-1;
+}
+if(SG.g%(int)SG.D["ng"]==0){
+int nn=ri(10)+8+SG.nd/5;
+for(int i=0;i<nn;i++){N n=gn(SG.g);SG.NO[n.id]=n;SG.tn++;}
+double nv=evn();
+if(nv>100){SG.D["m"]+=4;for(int i=SG.D["m"]-4;i<SG.D["m"];i++)SG.D["w"+to_string(i)]=ri(4)-1;}
+SG.nd=min(20,SG.nd+1);
+}
+if(SG.g%(int)SG.D["nm"]==0&&SG.NO.size()>0){
+int nm=ri(8)+4;for(int i=0;i<nm;i++)mn();
+}
+if(!SG.NO.empty()&&SG.g%3==0){
+map<int,double>ac;vector<int>nids;
+for(auto&p:SG.NO)nids.push_back(p.first);
+for(int i=0;i<min(12,(int)nids.size());i++){
+int nid=nids[ri(nids.size())];
+double out=cn(nid,ac);
+int tgt=abs((int)(out*SG.D["m"]))%(int)SG.D["m"];
+SG.D["w"+to_string(tgt)]=((int)SG.D["w"+to_string(tgt)]+(int)(out*2))%4-1;
+}
+}
+if(SG.g%(int)SG.D["fe"]==0){
+string nf=gfc();SG.ec.push_back(nf);
+if(SG.ec.size()>60)SG.ec.erase(SG.ec.begin());rc(nf);
+}
+if(SG.g%(int)SG.D["ce"]==0){
+string nc=gc();double hs=0;
+for(int i=0;i<SG.D["m"];i++)hs+=SG.D["w"+to_string(i)]+2;
+map<string,double>td=SG.D;rc(nc);double nhs=0;
+for(int i=0;i<SG.D["m"];i++)nhs+=SG.D["w"+to_string(i)]+2;
+if(nhs>hs){SG.cds=nc;SG.bkf=0;SG.cd_fit+=0.1;}
+else{SG.D=td;SG.cd_fit-=0.05;}
+SG.cd_fit=cl(SG.cd_fit,0.0,10.0);
+}
+if(SG.g%(int)SG.D["cm"]==0&&rn()<0.7){
+string op[]={"+","-","*"};SG.cds+=op[ri(3)]+to_string(ri(4)-1)+";";SG.bkf=0;
+}
+if(SG.g%(int)SG.D["me"]==0&&rn()<0.5){
+string mn="m"+to_string(ri(10000));
+string mo[]={"add","sub","mul","mod","pow","sqrt","sin","cos","tan","log"};
+string o1=mo[ri(10)];string o2=mo[ri(10)];
+SG.MO[mn]="r1="+o1+"(a,b);r2="+o2+"(r1,b);return r2";
+}
+if(SG.D["mc"]>700){
+SG.D["m"]+=8;for(int i=SG.D["m"]-8;i<SG.D["m"];i++)SG.D["w"+to_string(i)]=ri(4)-1;
+SG.md=(SG.md+1)%4;SG.st=(SG.st+1)%4;SG.bkf=0;
+}
+if(SG.D["mc"]<200&&SG.D["m"]>32){
+SG.D["m"]-=8;SG.st=(SG.st+1)%4;SG.ss=(SG.ss+1)%4;SG.bkf=0;
+}
+if(SG.g%7==0){
+double mx=-999;int mi=0;
+for(int i=0;i<SG.D["m"]-7;i++){
+double sm=0,sv=0;
+for(int j=0;j<8;j++){sm+=SG.D["w"+to_string(i+j)];sv+=SG.D["w"+to_string(i+j)]*SG.D["w"+to_string(i+j)];}
+double ss=sm*sv;if(ss>mx){mx=ss;mi=i;}
+}
+SG.D["w"+to_string(mi)]=((int)SG.D["w"+to_string(mi)]+SG.ec_n)%4-1;
+for(int i=0;i<8;i++)SG.D["w"+to_string(mi+i)]=((int)SG.D["w"+to_string(mi+i)]+SG.te%4)%4-1;
+}
+if(SG.g%29==0){
+for(int i=0;i<SG.D["m"]/4;i++){
+int ci=i*4;double cs=0;
+for(int j=0;j<4;j++)cs+=SG.D["w"+to_string(ci+j)];
+double ca=sd(cs,4);
+if(ca!=SG.D["w"+to_string(ci)])
+for(int j=0;j<4;j++)SG.D["w"+to_string(ci+j)]=((int)SG.D["w"+to_string(ci+j)]+(int)ca)%4-1;
+}
+}
+if(SG.sr>75.0){
+int smod=(int)(SG.sr*10)%(int)SG.D["m"];
+SG.D["w"+to_string(smod)]=((int)SG.D["w"+to_string(smod)]+(int)SG.eo1)%4-1;
+}
+if(SG.curiosity>0.7&&SG.attn_history.size()>5)SG.idle_counter=0;
+else SG.idle_counter++;
+SG.g++;
+if(SG.g%50==0)sv("state.dat");
+int ch=getch();
+if(ch=='i'||ch=='I'){
+echo();curs_set(1);timeout(-1);nodelay(stdscr,FALSE);
+mvprintw(row+2,0,"Enter: ");clrtoeol();refresh();
+char buf[200]={0};
+int result=getnstr(buf,sizeof(buf)-1);
+if(result!=ERR&&strlen(buf)>0){
+SG.ui=string(buf);
+while(!SG.ui.empty()&&(SG.ui.back()=='\n'||SG.ui.back()=='\r'||SG.ui.back()==' '))
+SG.ui.pop_back();
+if(!SG.ui.empty()){
+vector<string>input_words;stringstream ss(SG.ui);string w;
+while(ss>>w)input_words.push_back(w);
+SG.pred_error=calc_pred_error(input_words);
+SG.dr=gr(SG.ui);
+SG.dt=15;
+SG.val+=0.1;SG.val=cl(SG.val,-0.5,0.9);
+sm(SG.ui,SG.val);
+SG.idle_counter=0;
+}
+}
+noecho();curs_set(0);timeout(500);nodelay(stdscr,TRUE);
+}
+else if(ch=='q'||ch=='Q'){sv("state.dat");break;}
+else if(ch=='s'||ch=='S')sv("state.dat");
+this_thread::sleep_for(chrono::milliseconds(100));
+}
+endwin();
+return 0;
+}
