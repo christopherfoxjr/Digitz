@@ -151,62 +151,6 @@ SG.co["self"]={"self",0.8,{"i","am","me"},{},0.8};SG.co["aware"]={"aware",0.7,{"
 SG.co["learn"]={"learn",0.6,{"learn","grow","adapt"},{},0.6};SG.co["help"]={"help",0.5,{"help","aid","assist"},{},0.5};
 SG.co["think"]={"think",0.7,{"think","thought","mind"},{},0.7};SG.co["feel"]={"feel",0.6,{"feel","sense","emotion"},{},0.6};
 }
-void lct(const string&cn,const string&tn){
-if(SG.co.count(cn)&&SG.tk.count(tn)){
-auto&cc=SG.co[cn];
-if(find(cc.rt.begin(),cc.rt.end(),tn)==cc.rt.end())cc.rt.push_back(tn);
-auto&tt=SG.tk[tn];
-if(find(tt.lc.begin(),tt.lc.end(),cn)==tt.lc.end())tt.lc.push_back(cn);
-}
-}
-void lcc(const string&c1,const string&c2){
-if(SG.co.count(c1)&&SG.co.count(c2)){
-auto&cc1=SG.co[c1];auto&cc2=SG.co[c2];
-if(find(cc1.lc.begin(),cc1.lc.end(),c2)==cc1.lc.end())cc1.lc.push_back(c2);
-if(find(cc2.lc.begin(),cc2.lc.end(),c1)==cc2.lc.end())cc2.lc.push_back(c1);
-cc1.coherence=cl(cc1.coherence+0.05,0.0,1.0);
-cc2.coherence=cl(cc2.coherence+0.05,0.0,1.0);
-}
-}
-double cco(const string&w){
-if(SG.tk.count(w)){
-double fs=min(1.0,SG.tk[w].f/10.0);double ms=SG.tk[w].m;double cf=SG.val*0.5+0.5;
-double cb=SG.tk[w].lc.size()*0.15;double sal=SG.tk[w].salience*0.01;
-return cl(fs*0.25+ms*0.3+cf*0.2+cb*0.15+sal*0.1,0.0,1.0);
-}
-return 0.1;
-}
-void lw(const string&w,double ctx){
-string lw=w;transform(lw.begin(),lw.end(),lw.begin(),::tolower);
-if(lw.length()>12||lw.empty())return;
-if(SG.tk.count(lw)){
-SG.tk[lw].f++;
-SG.tk[lw].m+=ctx*SG.meta.learning_rate;
-SG.tk[lw].c=cco(lw);
-SG.tk[lw].salience=min(100,SG.tk[lw].salience+2);
-}else{
-T t={lw,{},ctx,1,0.4,{},5};init_semantic_vector(t);SG.tk[lw]=t;
-}
-for(auto&cc:SG.co){
-for(const string&rt:cc.second.rt){
-if(rt==lw){cc.second.s=cl(cc.second.s+0.02,0.0,1.0);lct(cc.first,lw);}
-}
-}
-}
-void ccf(double sens,double env){
-if(SG.g%15==0&&SG.tk.size()>10){
-vector<string>ws;for(auto&p:SG.tk)if(p.second.f>2)ws.push_back(p.first);
-if(ws.size()>=2){
-shuffle(ws.begin(),ws.end(),rng);
-string cn="C"+to_string(SG.g)+"_"+to_string(ri(1000));
-vector<string>sel;for(int i=0;i<min(4,(int)ws.size());i++)sel.push_back(ws[i]);
-double str=abs(sens)*0.5+abs(env)*0.3+rn()*0.2;
-C nc={cn,str,sel,{},0.7};SG.co[cn]=nc;
-for(const string&w:sel)lct(cn,w);
-if(SG.co.size()>2){auto it=SG.co.begin();advance(it,ri(SG.co.size()));lcc(cn,it->first);}
-}
-}
-}
 vector<string>fac(const vector<string>&ws){
 map<string,double>cs;
 for(const string&w:ws){
