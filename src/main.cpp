@@ -124,6 +124,34 @@ SG.tk[contra.first].m=cl(SG.tk[contra.first].m+contra.second*0.05,-1.0,1.0);
 }
 if(SG.contradiction_buffer.size()>10)SG.contradiction_buffer.erase(SG.contradiction_buffer.begin());
 }
+void lct(const string&cn,const string&tn);
+void lcc(const string&c1,const string&c2);
+double cco(const string&w);
+void lct(const string&cn,const string&tn){
+if(SG.co.count(cn)&&SG.tk.count(tn)){
+auto&cc=SG.co[cn];
+if(find(cc.rt.begin(),cc.rt.end(),tn)==cc.rt.end())cc.rt.push_back(tn);
+auto&tt=SG.tk[tn];
+if(find(tt.lc.begin(),tt.lc.end(),cn)==tt.lc.end())tt.lc.push_back(cn);
+}
+}
+void lcc(const string&c1,const string&c2){
+if(SG.co.count(c1)&&SG.co.count(c2)){
+auto&cc1=SG.co[c1];auto&cc2=SG.co[c2];
+if(find(cc1.lc.begin(),cc1.lc.end(),c2)==cc1.lc.end())cc1.lc.push_back(c2);
+if(find(cc2.lc.begin(),cc2.lc.end(),c1)==cc2.lc.end())cc2.lc.push_back(c1);
+cc1.coherence=cl(cc1.coherence+0.05,0.0,1.0);
+cc2.coherence=cl(cc2.coherence+0.05,0.0,1.0);
+}
+}
+double cco(const string&w){
+if(SG.tk.count(w)){
+double fs=min(1.0,SG.tk[w].f/10.0);double ms=SG.tk[w].m;double cf=SG.val*0.5+0.5;
+double cb=SG.tk[w].lc.size()*0.15;double sal=SG.tk[w].salience*0.01;
+return cl(fs*0.25+ms*0.3+cf*0.2+cb*0.15+sal*0.1,0.0,1.0);
+}
+return 0.1;
+}
 void ldw(){
 ifstream f("english_words.txt");
 if(!f){
