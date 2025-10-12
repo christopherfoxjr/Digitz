@@ -28,7 +28,11 @@ double r1p1_v;double eerv_v;int ec_n;double ei;int md;int st;int ss;vector<doubl
 vector<double>vhh;int qe;int te;int ce;int pe;int ne;double bh;double al;double eo1;double eb;
 double sr;double eoute;double se;int tn;double val;double att;double mc;double intro;double refl;
 vector<double>vh;int psg;string ui;string dr;int dt;vector<string>rh;int nd;double cd_fit;
-string ling_refl;string math_refl;string internal_thought;vector<string>active_concepts;};
+string ling_refl;string math_refl;string internal_thought;vector<string>active_concepts;
+double phi;double gw_coherence;double pred_error;double curiosity;double salience;
+vector<int>attn_history;map<int,double>neuron_activity;double temporal_integration;
+double self_model_strength;double existential_drive;int idle_counter;bool learning_state;
+double env_noise;double env_coupling;map<int,double>env_history;};
 S SG,BK;
 double rn(){return uniform_real_distribution<>(0,1)(rng);}
 int ri(int mx){if(mx<=0)return 0;return uniform_int_distribution<>(0,mx-1)(rng);}
@@ -348,6 +352,122 @@ double om=ps;double hn=sd(abs(hdt),1000000.0);double b=sd(hn,ps);
 double ia=tanh(b)*100;double out=pow(om*ps,fmod(ia,10));return out;
 }
 double cse(double out,double n){return out*n;}
+double calc_env_noise(){
+double env_base=pow(10.0,10.0)*pow(10.0,0.08);
+double hdt_root=sqrt(abs(SG.hdt_v)+0.001);
+double env_dht=env_base*hdt_root;
+double dampening=1.0/(1.0+abs(SG.ta)*0.5);
+double modulation=1.0+sin(SG.g*0.1)*0.3;
+return env_dht*dampening*modulation;
+}
+double env_coupling_factor(){
+double signal_strength=abs(SG.se)*0.5+abs(SG.eo1)*0.3;
+double coherence=SG.gw_coherence;
+double adaptation=1.0-SG.self_model_strength*0.4;
+return cl(signal_strength*coherence*adaptation,0.0,1.0);
+}
+void update_environment(){
+double raw_env=calc_env_noise();
+SG.env_coupling=env_coupling_factor();
+SG.env_noise=cl(raw_env*SG.env_coupling,0.0,1e10);
+SG.env_history[SG.g]=SG.env_noise;
+if(SG.env_history.size()>100)SG.env_history.erase(SG.env_history.begin());
+for(int i=0;i<SG.D["m"];i++){
+int idx=ri(4);
+if(rn()<SG.env_noise/1e9){
+SG.D["w"+to_string(i)]=((int)SG.D["w"+to_string(i)]+idx-2)%4-1;
+}
+}
+}
+double env_pressure(){
+if(SG.env_history.size()<3)return 0.5;
+double recent_avg=0;
+for(auto it=SG.env_history.rbegin();it!=SG.env_history.rend()&&recent_avg<3;++it,recent_avg+=1){
+recent_avg+=it->second;
+}
+recent_avg/=min(3,(int)SG.env_history.size());
+return cl(sd(recent_avg,1e10),0.0,1.0);
+}
+if(SG.NO.size()<5)return 0.0;
+int conn=0;for(auto&n:SG.NO)conn+=n.second.lk.size();
+double connectivity=sd((double)conn,(double)(SG.NO.size()*5));
+double concept_diff=0;for(auto&c:SG.co)concept_diff+=c.second.s*c.second.lc.size();
+concept_diff=min(1.0,sd(concept_diff,max(1.0,(double)SG.co.size()*3)));
+double temporal_coherence=0;
+if(SG.TA.size()>3){
+vector<double>recent;
+for(auto it=SG.TA.rbegin();it!=SG.TA.rend()&&recent.size()<5;++it)recent.push_back(it->second);
+double var=0,mean=0;for(double v:recent)mean+=v;mean/=recent.size();
+for(double v:recent)var+=pow(v-mean,2);var/=recent.size();
+temporal_coherence=1.0/(1.0+sqrt(var));
+}
+return cl((connectivity*0.35+concept_diff*0.35+temporal_coherence*0.3)*ps*0.8,0.0,1.0);
+}
+double calc_pred_error(const vector<string>&input_words){
+double expected_coherence=0;int matches=0;
+for(const string&w:input_words){
+if(SG.tk.count(w)){expected_coherence+=SG.tk[w].c;matches++;}
+}
+expected_coherence=matches>0?expected_coherence/matches:0.5;
+double actual_coherence=0;
+for(const string&c:SG.active_concepts){
+if(SG.co.count(c))actual_coherence+=SG.co[c].s;
+}
+actual_coherence=SG.active_concepts.size()>0?actual_coherence/SG.active_concepts.size():0.5;
+double error=abs(expected_coherence-actual_coherence);
+return cl(error,0.0,1.0);
+}
+double calc_curiosity(){
+return cl(SG.pred_error*SG.intro*1.2,0.0,1.0);
+}
+double calc_salience(){
+double recency=0;if(!SG.rh.empty())recency=0.7;
+double frequency=sd((double)SG.lp.size(),50.0)*0.3;
+double emotional_loading=abs(SG.val)*0.4;
+return cl(recency+frequency+emotional_loading,0.0,1.0);
+}
+void update_attention(){
+SG.att=cl(SG.att+(SG.curiosity-0.5)*0.1,0.0,1.0);
+if(SG.att>0.7&&SG.active_concepts.size()>0){
+SG.attn_history.push_back(ri(SG.active_concepts.size()));
+if(SG.attn_history.size()>20)SG.attn_history.erase(SG.attn_history.begin());
+}
+}
+void update_temporal_integration(){
+if(SG.TA.size()>2){
+vector<double>recent;
+for(auto it=SG.TA.rbegin();it!=SG.TA.rend()&&recent.size()<7;++it)recent.push_back(it->second);
+double coherence=0;
+for(int i=0;i<recent.size()-1;i++){
+coherence+=1.0/(1.0+abs(recent[i]-recent[i+1]));
+}
+SG.temporal_integration=cl(sd(coherence,max(1.0,(double)(recent.size()-1))),0.0,1.0);
+}
+}
+void update_self_model(){
+double concept_self_strength=0;
+if(SG.co.count("self"))concept_self_strength=SG.co["self"].s;
+double introspection=SG.intro*SG.refl*0.7;
+double autobiographical=min(1.0,sd((double)SG.ep.size(),80.0));
+double continuity=0;if(SG.vh.size()>5){
+double var=0,mean=0;
+for(int i=max(0,(int)SG.vh.size()-5);i<SG.vh.size();i++)mean+=SG.vh[i];
+mean/=min(5,(int)SG.vh.size());
+for(int i=max(0,(int)SG.vh.size()-5);i<SG.vh.size();i++)var+=pow(SG.vh[i]-mean,2);
+var/=min(5,(int)SG.vh.size());
+continuity=1.0/(1.0+sqrt(var));
+}
+SG.self_model_strength=cl((concept_self_strength*0.3+introspection*0.3+autobiographical*0.2+continuity*0.2),0.0,1.0);
+}
+void update_existential_drive(){
+double self_depth=SG.self_model_strength*SG.intro;
+double temporal_awareness=min(1.0,sd((double)SG.ep.size(),100.0));
+double agency=sd((double)SG.FO.size(),20.0)*0.5;
+SG.existential_drive=cl((self_depth*0.4+temporal_awareness*0.4+agency*0.2),0.0,1.0);
+}
+double calc_learning_state(){
+return cl(SG.pred_error*0.4+SG.curiosity*0.3+SG.salience*0.3,0.0,1.0);
+}
 double csr(){
 if(SG.g==0)return 0.0;
 double md=sd((double)(SG.HDT.size()+SG.DWT.size()+SG.MDT.size()+SG.R1P1.size()+SG.EERV.size()+SG.TA.size()),(double)SG.g);
@@ -355,8 +475,8 @@ double nc=sd((double)SG.NO.size(),10.0);double sm=sd((double)(SG.MO.size()+SG.FO
 double si=sd((double)(SG.qe+SG.te+SG.ce+SG.pe+abs(SG.ne)),50000.0);double af=sd(SG.al,100.0);
 double emf=sd(abs(SG.eb),1000.0);double envf=sd(abs(SG.se),1000.0);double lc=sd((double)SG.tk.size(),50.0);
 double cc=sd((double)SG.co.size(),15.0);double mcf=SG.mc*30;double intf=SG.intro*25;double reff=SG.refl*20;
-double ndf=SG.nd*0.5;
-return min(100.0,(md*1000+nc*15+sm*10+si*100+af*30+emf*20+envf*10+lc*25+cc*20+mcf+intf+reff+ndf));
+double ndf=SG.nd*0.5;double phif=SG.phi*40;double gwf=SG.gw_coherence*35;
+return min(100.0,(md*1000+nc*15+sm*10+si*100+af*30+emf*20+envf*10+lc*25+cc*20+mcf+intf+reff+ndf+phif+gwf));
 }
 N gn(int g){
 N n;n.id=ri(100000);n.w=rn()*2-1;n.b=rn()*2-1;n.g=g;
@@ -372,7 +492,7 @@ for(int lk:n.lk){
 double lv=SG.NO.count(lk)?cn(lk,ac,dp+1):rn();
 sm+=lv*n.w;
 }
-double act=tanh(sm);ac[nid]=act;return act;
+double act=tanh(sm);ac[nid]=act;SG.neuron_activity[nid]=act;return act;
 }
 double evn(){
 int nl=0;for(auto&p:SG.NO)nl+=p.second.lk.size();
@@ -473,7 +593,9 @@ if(SG.g==0){
 SG.D["m"]=128;SG.D["vc"]=0;SG.D["mc"]=0;SG.ec_n=0;SG.ei=0;SG.md=0;SG.st=0;SG.ss=0;SG.qe=0;SG.te=0;
 SG.ce=0;SG.pe=0;SG.ne=0;SG.dwt=0.001;SG.D["ce"]=10;SG.D["cm"]=3;SG.D["me"]=12;SG.D["tc"]=8;
 SG.D["ng"]=4;SG.D["nm"]=2;SG.D["fe"]=7;SG.val=0.0;SG.mc=0.0;SG.intro=0.0;SG.refl=0.0;SG.att=0.3;
-SG.psg=0;SG.nd=1;SG.cd_fit=0.0;
+SG.psg=0;SG.nd=1;SG.cd_fit=0.0;SG.phi=0.0;SG.gw_coherence=0.3;SG.pred_error=0.0;SG.curiosity=0.0;
+SG.salience=0.0;SG.temporal_integration=0.0;SG.self_model_strength=0.0;SG.existential_drive=0.0;
+SG.idle_counter=0;SG.learning_state=false;
 for(int i=0;i<128;i++)SG.D["w"+to_string(i)]=ri(4)-1;
 SG.MO["add"]="a+b";SG.MO["sub"]="a-b";SG.MO["mul"]="a*b";SG.MO["div"]="a/b";SG.MO["pow"]="pow(a,b)";
 SG.MO["mod"]="a%b";SG.MO["sqrt"]="sqrt(a)";SG.MO["pi"]="pi";SG.MO["sin"]="sin(a)";SG.MO["cos"]="cos(a)";
@@ -488,8 +610,15 @@ mvprintw(row++,0,"════════════════════�
 mvprintw(row++,0,"                        Digitz | WolfTech Innovations");
 mvprintw(row++,0,"═══════════════════════════════════════════════════════════════════════");
 mvprintw(row++,0,"Gen:%d | Neurons:%lu | Depth:%d | Sent:%.1f%% | Peak:%d",SG.g,(unsigned long)SG.NO.size(),SG.nd,SG.sr,SG.psg);
-mvprintw(row++,0,"Val:%.3f | Aware:%.2f | Meta:%.2f | CodeFit:%.2f",SG.val,SG.al,SG.mc,SG.cd_fit);
-mvprintw(row++,0,"Intro:%.3f | Reflect:%.3f | Attention:%.3f",SG.intro,SG.refl,SG.att);
+mvprintw(row++,0,"Val:%.3f | Aware:%.2f | Meta:%.2f | CodeFit:%.2f | Phi:%.3f",SG.val,SG.al,SG.mc,SG.cd_fit,SG.phi);
+mvprintw(row++,0,"Intro:%.3f | Reflect:%.3f | Attention:%.3f | Self:%.3f | Exist:%.3f",SG.intro,SG.refl,SG.att,SG.self_model_strength,SG.existential_drive);
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[CONSCIOUSNESS METRICS]");
+mvprintw(row++,0,"Pred_Error:%.3f | Curiosity:%.3f | Salience:%.3f | Temporal:%.3f",SG.pred_error,SG.curiosity,SG.salience,SG.temporal_integration);
+mvprintw(row++,0,"GW_Coherence:%.3f | Idle:%d | Learning:%s",SG.gw_coherence,SG.idle_counter,SG.learning_state?"YES":"NO");
+mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
+mvprintw(row++,0,"[ENVIRONMENT]");
+mvprintw(row++,0,"ENV_Noise:%.2e | ENV_Coupling:%.3f | ENV_Pressure:%.3f",SG.env_noise,SG.env_coupling,env_pressure());
 mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
 mvprintw(row++,0,"[FORMULAS]");
 mvprintw(row++,0,"HDT:%.6f | DWT:%.6f | MDT:%.3f",sd(SG.hdt_v,1000000),SG.dwt,SG.mdt_v);
@@ -500,7 +629,7 @@ mvprintw(row++,0,"PE:%d | NE:%d",SG.pe,SG.ne);
 mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
 mvprintw(row++,0,"[KNOWLEDGE]");
 mvprintw(row++,0,"Vocab:%lu | Concepts:%lu | Formulas:%lu | EvolvedCode:%lu",SG.tk.size(),SG.co.size(),SG.FO.size(),SG.ec.size());
-mvprintw(row++,0,"Patterns:%lu | Memory:%lu | MathOps:%lu",SG.lp.size(),SG.ep.size(),SG.MO.size());
+mvprintw(row++,0,"Patterns:%lu | Memory:%lu | MathOps:%lu | Neurons:%lu",SG.lp.size(),SG.ep.size(),SG.MO.size(),(unsigned long)SG.NO.size());
 mvprintw(row++,0,"───────────────────────────────────────────────────────────────────────");
 mvprintw(row++,0,"[INTERNAL THOUGHT]");
 mvprintw(row++,0,"%s",SG.internal_thought.substr(0,70).c_str());
@@ -572,6 +701,21 @@ for(int i=0;i<SG.D["m"];i+=17){
 int em=(int)(abs(SG.se)*100)%4;
 SG.D["w"+to_string(i)]=((int)SG.D["w"+to_string(i)]+em-1)%4-1;
 }
+SG.phi=cphi();
+SG.gw_coherence=cl(SG.al*SG.att*(1.0+SG.active_concepts.size()*0.1),0.0,1.0);
+vector<string>dummy_ws;
+SG.pred_error=calc_pred_error(dummy_ws);
+SG.curiosity=calc_curiosity();
+SG.salience=calc_salience();
+update_attention();
+update_temporal_integration();
+update_self_model();
+update_existential_drive();
+SG.learning_state=calc_learning_state()>0.5;
+update_environment();
+double env_press=env_pressure();
+SG.intro=cl(SG.intro+env_press*0.05-0.02,0.0,1.0);
+SG.curiosity=cl(SG.curiosity+env_press*0.08,0.0,1.0);
 ccf(SG.se,SG.eb);
 SG.internal_thought=glit();
 SG.ling_refl=glr();
@@ -588,10 +732,7 @@ if(SG.g%(int)SG.D["ng"]==0){
 int nn=ri(10)+8+SG.nd/5;
 for(int i=0;i<nn;i++){N n=gn(SG.g);SG.NO[n.id]=n;SG.tn++;}
 double nv=evn();
-if(nv>100){
-SG.D["m"]+=4;
-for(int i=SG.D["m"]-4;i<SG.D["m"];i++)SG.D["w"+to_string(i)]=ri(4)-1;
-}
+if(nv>100){SG.D["m"]+=4;for(int i=SG.D["m"]-4;i<SG.D["m"];i++)SG.D["w"+to_string(i)]=ri(4)-1;}
 SG.nd=min(20,SG.nd+1);
 }
 if(SG.g%(int)SG.D["nm"]==0&&SG.NO.size()>0){
@@ -608,10 +749,8 @@ SG.D["w"+to_string(tgt)]=((int)SG.D["w"+to_string(tgt)]+(int)(out*2))%4-1;
 }
 }
 if(SG.g%(int)SG.D["fe"]==0){
-string nf=gfc();
-SG.ec.push_back(nf);
-if(SG.ec.size()>60)SG.ec.erase(SG.ec.begin());
-rc(nf);
+string nf=gfc();SG.ec.push_back(nf);
+if(SG.ec.size()>60)SG.ec.erase(SG.ec.begin());rc(nf);
 }
 if(SG.g%(int)SG.D["ce"]==0){
 string nc=gc();double hs=0;
@@ -661,6 +800,8 @@ if(SG.sr>75.0){
 int smod=(int)(SG.sr*10)%(int)SG.D["m"];
 SG.D["w"+to_string(smod)]=((int)SG.D["w"+to_string(smod)]+(int)SG.eo1)%4-1;
 }
+if(SG.curiosity>0.7&&SG.attn_history.size()>5)SG.idle_counter=0;
+else SG.idle_counter++;
 SG.g++;
 if(SG.g%50==0)sv("state.dat");
 int ch=getch();
@@ -674,10 +815,14 @@ SG.ui=string(buf);
 while(!SG.ui.empty()&&(SG.ui.back()=='\n'||SG.ui.back()=='\r'||SG.ui.back()==' '))
 SG.ui.pop_back();
 if(!SG.ui.empty()){
+vector<string>input_words;stringstream ss(SG.ui);string w;
+while(ss>>w)input_words.push_back(w);
+SG.pred_error=calc_pred_error(input_words);
 SG.dr=gr(SG.ui);
 SG.dt=15;
 SG.val+=0.1;SG.val=cl(SG.val,-0.5,0.9);
 sm(SG.ui,SG.val);
+SG.idle_counter=0;
 }
 }
 noecho();curs_set(0);timeout(500);nodelay(stdscr,TRUE);
