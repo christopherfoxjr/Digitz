@@ -2,9 +2,9 @@
 
 TARGET := output/digitz
 SRC := src/main.cpp
-CXX := g++
-CXXFLAGS := -std=c++17
-LDFLAGS := -lncurses -lcurl
+CXX := clang++
+CXXFLAGS := -std=c++23 -fsanitize=address -O3 -pthread -rdynamic -march=native
+LDFLAGS := -lncurses -lcurl 
 
 DIALOG := $(shell command -v dialog 2>/dev/null)
 HAS_BACKTITLE := $(shell dialog --help 2>&1 | grep -q backtitle && echo yes || echo no)
