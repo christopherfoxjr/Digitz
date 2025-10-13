@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+
 using namespace std;
 random_device rd;mt19937 rng(rd());
 struct Neuron{int id;vector<int>links;double weight;double bias;int gen;};
