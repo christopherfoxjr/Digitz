@@ -1,6 +1,6 @@
 #include <cstdlib>
 #include <iostream>
-inline int safe_atoi(const std::string &s) { if (s.empty()) return 0; int val = atoi(s.c_str()); std::cout << "[DEBUG] Converted string [" << s << "] -> " << val << std::endl; return val; }
+#includs "convertutils.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
