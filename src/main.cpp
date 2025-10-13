@@ -1,6 +1,3 @@
-#include <cstdlib>
-#include <iostream>
-#include "convertutils.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -18,7 +15,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
-
 using namespace std;
 random_device rd;mt19937 rng(rd());
 struct Neuron{int id;vector<int>links;double weight;double bias;int gen;};
@@ -239,49 +235,49 @@ o.close();
 }
 void ld(const string&f){
 ifstream i(f);if(!i)return;string l;
-while(getline(i,l)){if(l.find("G:")==0)S.g=atoi(l.substr(2));
+while(getline(i,l)){if(l.find("G:")==0)S.g=stoi(l.substr(2));
 else if(l.find("DWT:")==0)S.dwt=stod(l.substr(4));
-else if(l.find("MH:")==0)S.mh=atof(l.substr(3));
-else if(l.find("TA:")==0)S.ta=atof(l.substr(3));
-else if(l.find("TH:")==0)S.th=atof(l.substr(3));
-else if(l.find("BKF:")==0)S.bkf=atoi(l.substr(4));
+else if(l.find("MH:")==0)S.mh=stod(l.substr(3));
+else if(l.find("TA:")==0)S.ta=stod(l.substr(3));
+else if(l.find("TH:")==0)S.th=stod(l.substr(3));
+else if(l.find("BKF:")==0)S.bkf=stoi(l.substr(4));
 else if(l.find("CD:")==0)S.cd=l.substr(3);
 else if(l.find("GD:")==0)S.gd=l.substr(3);
 else if(l.find("HDT_VAL:")==0)S.hdt_val=stod(l.substr(8));
 else if(l.find("MDT_VAL:")==0)S.mdt_val=stod(l.substr(8));
 else if(l.find("R1P1_VAL:")==0)S.r1p1_val=stod(l.substr(9));
 else if(l.find("EERV_VAL:")==0)S.eerv_val=stod(l.substr(9));
-else if(l.find("EC:")==0)S.ec=atoi(l.substr(3));
+else if(l.find("EC:")==0)S.ec=stoi(l.substr(3));
 else if(l.find("EI:")==0)S.ei=stod(l.substr(3));
-else if(l.find("MD:")==0)S.md=atoi(l.substr(3));
-else if(l.find("ST:")==0)S.st=atoi(l.substr(3));
-else if(l.find("SS:")==0)S.ss=atoi(l.substr(3));
-else if(l.find("QE:")==0)S.qe=atoi(l.substr(3));
-else if(l.find("TE:")==0)S.te=atoi(l.substr(3));
-else if(l.find("CE:")==0)S.ce=atoi(l.substr(3));
-else if(l.find("PE:")==0)S.pe=atoi(l.substr(3));
-else if(l.find("NE:")==0)S.ne=atoi(l.substr(3));
-else if(l.find("BH:")==0)S.bh=atoi(l.substr(3));
-else if(l.find("AL:")==0)S.al=atof(l.substr(3));
-else if(l.find("EMERGE_OUT1:")==0)S.emerge_out1=atof(l.substr(12));
-else if(l.find("EMERGE_BEHAVIOR:")==0)S.emerge_behavior=atof(l.substr(16));
-else if(l.find("SENTIENCE_RATIO:")==0)S.sentience_ratio=atof(l.substr(16));
-else if(l.find("ENV_OUTE:")==0)S.env_oute=atof(l.substr(9));
-else if(l.find("SENSORY_ENV:")==0)S.sensory_env=atof(l.substr(12));
-else if(l.find("TOTAL_NEURONS:")==0)S.total_neurons_ever=atoi(l.substr(14));
-else if(l.find("CURRENT_VALENCE:")==0)S.current_valence=atof(l.substr(16));
-else if(l.find("METACOG:")==0)S.metacognitive_awareness=atof(l.substr(8));
-else if(l.find("PEAK_SENT_GEN:")==0)S.peak_sentience_gen=atoi(l.substr(13));
+else if(l.find("MD:")==0)S.md=stoi(l.substr(3));
+else if(l.find("ST:")==0)S.st=stoi(l.substr(3));
+else if(l.find("SS:")==0)S.ss=stoi(l.substr(3));
+else if(l.find("QE:")==0)S.qe=stoi(l.substr(3));
+else if(l.find("TE:")==0)S.te=stoi(l.substr(3));
+else if(l.find("CE:")==0)S.ce=stoi(l.substr(3));
+else if(l.find("PE:")==0)S.pe=stoi(l.substr(3));
+else if(l.find("NE:")==0)S.ne=stoi(l.substr(3));
+else if(l.find("BH:")==0)S.bh=stod(l.substr(3));
+else if(l.find("AL:")==0)S.al=stod(l.substr(3));
+else if(l.find("EMERGE_OUT1:")==0)S.emerge_out1=stod(l.substr(12));
+else if(l.find("EMERGE_BEHAVIOR:")==0)S.emerge_behavior=stod(l.substr(16));
+else if(l.find("SENTIENCE_RATIO:")==0)S.sentience_ratio=stod(l.substr(16));
+else if(l.find("ENV_OUTE:")==0)S.env_oute=stod(l.substr(9));
+else if(l.find("SENSORY_ENV:")==0)S.sensory_env=stod(l.substr(12));
+else if(l.find("TOTAL_NEURONS:")==0)S.total_neurons_ever=stoi(l.substr(14));
+else if(l.find("CURRENT_VALENCE:")==0)S.current_valence=stod(l.substr(16));
+else if(l.find("METACOG:")==0)S.metacognitive_awareness=stod(l.substr(8));
+else if(l.find("PEAK_SENT_GEN:")==0)S.peak_sentience_gen=stoi(l.substr(13));
 else if(l=="D:")while(getline(i,l)&&l.find(":")<l.size()&&l!="M:"){size_t p=l.find(":");S.D[l.substr(0,p)]=stod(l.substr(p+1));}
 if(l=="M:")while(getline(i,l)&&l.find(":")<l.size()&&l!="F:"){size_t p=l.find(":");S.M[l.substr(0,p)]=l.substr(p+1);}
-if(l=="F:"){
-    // Start reading the first formula line immediately after the "F:" header
-    while(getline(i,l)&&l.find(":")<l.size()&&l!="ECODE:"){
-        size_t p=l.find(":");
-        string key=l.substr(0,p);
+if(l=="F:")while(getline(i,l)&&l.find(":")<l.size()&&l!="ECODE:"){size_t p=l.find(":");string key=l.substr(0,p);
+if (l == "F:")
+    while (getline(i, l) && l.find(":") < l.size() && l != "ECODE:") {
+        size_t p = l.find(":");
+        string key = l.substr(0, p);
 
         // Substring contains: [name],[expr],[result],[uses]
-        stringstream ss(l.substr(p+1));
+        stringstream ss(l.substr(p + 1));
         string nm, ex, res_str, us_str;
 
         // Read each field into a temporary string using ',' as the delimiter
@@ -293,18 +289,13 @@ if(l=="F:"){
         // Perform conversions on the clean strings
         try {
             double res = stod(res_str);
-            // The uses string might contain a leading space, strip it
-            size_t start = us_str.find_first_not_of(' ');
-            int us = stoi(us_str.substr(start)); 
-            
+            int us = stoi(us_str);
             S.F[key] = {nm, ex, res, us};
         } catch (const std::exception& e) {
-            // Keep the safety catch for malformed data
+            // Add a safety check to log or skip malformed lines
+            // cerr << "Error parsing Formula line: " << l << " | " << e.what() << endl;
         }
     }
-    // After the loop, the last line read (either ECODE: or a malformed line)
-    // is stored in 'l'. The main loop will continue from this line.
-}
 
 if(l=="ECODE:")while(getline(i,l)&&!l.empty()&&l!="TOKENS:")S.evolved_code.push_back(l);
 if(l=="TOKENS:")while(getline(i,l)&&l.find(":")<l.size()&&l!="CONCEPTS:"){size_t p=l.find(":");string w=l.substr(0,p);
