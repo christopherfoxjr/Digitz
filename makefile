@@ -3,7 +3,7 @@
 TARGET := output/digitz
 SRC := src/main.cpp
 CXX := clang++
-CXXFLAGS := -std=c++23 -fsanitize=address -O3 -pthread -rdynamic -march=native
+CXXFLAGS := -std=c++23 -O3 -pthread -rdynamic -march=native
 LDFLAGS := -lncurses -lcurl 
 
 DIALOG := $(shell command -v dialog 2>/dev/null)
