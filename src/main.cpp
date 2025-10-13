@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include "uac.h"
 #include <map>
 #include <vector>
 #include <cmath>
@@ -235,28 +236,28 @@ o.close();
 }
 void ld(const string&f){
 ifstream i(f);if(!i)return;string l;
-while(getline(i,l)){if(l.find("G:")==0)S.g=stoi(l.substr(2));
+while(getline(i,l)){if(l.find("G:")==0)S.g=uac(l.substr(2));
 else if(l.find("DWT:")==0)S.dwt=stod(l.substr(4));
 else if(l.find("MH:")==0)S.mh=stod(l.substr(3));
 else if(l.find("TA:")==0)S.ta=stod(l.substr(3));
 else if(l.find("TH:")==0)S.th=stod(l.substr(3));
-else if(l.find("BKF:")==0)S.bkf=stoi(l.substr(4));
+else if(l.find("BKF:")==0)S.bkf=uac(l.substr(4));
 else if(l.find("CD:")==0)S.cd=l.substr(3);
 else if(l.find("GD:")==0)S.gd=l.substr(3);
 else if(l.find("HDT_VAL:")==0)S.hdt_val=stod(l.substr(8));
 else if(l.find("MDT_VAL:")==0)S.mdt_val=stod(l.substr(8));
 else if(l.find("R1P1_VAL:")==0)S.r1p1_val=stod(l.substr(9));
 else if(l.find("EERV_VAL:")==0)S.eerv_val=stod(l.substr(9));
-else if(l.find("EC:")==0)S.ec=stoi(l.substr(3));
+else if(l.find("EC:")==0)S.ec=uac(l.substr(3));
 else if(l.find("EI:")==0)S.ei=stod(l.substr(3));
-else if(l.find("MD:")==0)S.md=stoi(l.substr(3));
-else if(l.find("ST:")==0)S.st=stoi(l.substr(3));
-else if(l.find("SS:")==0)S.ss=stoi(l.substr(3));
-else if(l.find("QE:")==0)S.qe=stoi(l.substr(3));
-else if(l.find("TE:")==0)S.te=stoi(l.substr(3));
-else if(l.find("CE:")==0)S.ce=stoi(l.substr(3));
-else if(l.find("PE:")==0)S.pe=stoi(l.substr(3));
-else if(l.find("NE:")==0)S.ne=stoi(l.substr(3));
+else if(l.find("MD:")==0)S.md=uac(l.substr(3));
+else if(l.find("ST:")==0)S.st=uac(l.substr(3));
+else if(l.find("SS:")==0)S.ss=uac(l.substr(3));
+else if(l.find("QE:")==0)S.qe=uac(l.substr(3));
+else if(l.find("TE:")==0)S.te=uac(l.substr(3));
+else if(l.find("CE:")==0)S.ce=uac(l.substr(3));
+else if(l.find("PE:")==0)S.pe=uac(l.substr(3));
+else if(l.find("NE:")==0)S.ne=uac(l.substr(3));
 else if(l.find("BH:")==0)S.bh=stod(l.substr(3));
 else if(l.find("AL:")==0)S.al=stod(l.substr(3));
 else if(l.find("EMERGE_OUT1:")==0)S.emerge_out1=stod(l.substr(12));
@@ -264,10 +265,10 @@ else if(l.find("EMERGE_BEHAVIOR:")==0)S.emerge_behavior=stod(l.substr(16));
 else if(l.find("SENTIENCE_RATIO:")==0)S.sentience_ratio=stod(l.substr(16));
 else if(l.find("ENV_OUTE:")==0)S.env_oute=stod(l.substr(9));
 else if(l.find("SENSORY_ENV:")==0)S.sensory_env=stod(l.substr(12));
-else if(l.find("TOTAL_NEURONS:")==0)S.total_neurons_ever=stoi(l.substr(14));
+else if(l.find("TOTAL_NEURONS:")==0)S.total_neurons_ever=uac(l.substr(14));
 else if(l.find("CURRENT_VALENCE:")==0)S.current_valence=stod(l.substr(16));
 else if(l.find("METACOG:")==0)S.metacognitive_awareness=stod(l.substr(8));
-else if(l.find("PEAK_SENT_GEN:")==0)S.peak_sentience_gen=stoi(l.substr(13));
+else if(l.find("PEAK_SENT_GEN:")==0)S.peak_sentience_gen=uac(l.substr(13));
 else if(l=="D:")while(getline(i,l)&&l.find(":")<l.size()&&l!="M:"){size_t p=l.find(":");S.D[l.substr(0,p)]=stod(l.substr(p+1));}
 if(l=="M:")while(getline(i,l)&&l.find(":")<l.size()&&l!="F:"){size_t p=l.find(":");S.M[l.substr(0,p)]=l.substr(p+1);}
 if(l=="F:"){
@@ -291,7 +292,7 @@ if(l=="F:"){
             double res = stod(res_str);
             // The uses string might contain a leading space, strip it
             size_t start = us_str.find_first_not_of(' ');
-            int us = stoi(us_str.substr(start)); 
+            int us = uac(us_str.substr(start)); 
             
             S.F[key] = {nm, ex, res, us};
         } catch (const std::exception& e) {
@@ -310,20 +311,20 @@ if(l=="CONCEPTS:")while(getline(i,l)&&l.find(":")<l.size()&&l!="MEMORY:"){size_t
 stringstream ss(l.substr(p+1));double v;char c;ss>>v>>c;string rel;
 vector<string>related;while(getline(ss,rel,';'))if(!rel.empty())related.push_back(rel);
 S.concepts[cn]={cn,v,related};}
-if(l=="MEMORY:")while(getline(i,l)&&l.find(":")<l.size()&&l!="N:"){size_t p=l.find(":");int g=stoi(l.substr(0,p));
+if(l=="MEMORY:")while(getline(i,l)&&l.find(":")<l.size()&&l!="N:"){size_t p=l.find(":");int g=uac(l.substr(0,p));
 size_t p2=l.find(":",p+1);double v=stod(l.substr(p+1,p2-p-1));
 string content=l.substr(p2+1);S.episodic_memory.push_back({g,v,content});}
-if(l=="N:")while(getline(i,l)&&l.find(":")<l.size()&&l!="TA:"){size_t p=l.find(":");int id=stoi(l.substr(0,p));
+if(l=="N:")while(getline(i,l)&&l.find(":")<l.size()&&l!="TA:"){size_t p=l.find(":");int id=uac(l.substr(0,p));
 stringstream ss(l.substr(p+1));string t;getline(ss,t,',');Neuron n;n.id=atoi(t.c_str());
 getline(ss,t,',');n.weight=stod(t);getline(ss,t,',');n.bias=stod(t);getline(ss,t,',');n.gen=atoi(t.c_str());
 getline(ss,t);stringstream ls(t);string lk;while(getline(ls,lk,';'))if(!lk.empty())n.links.push_back(atoi(lk.c_str()));
 S.N[id]=n;}
-if(l=="TA:")while(getline(i,l)&&l.find(":")<l.size()&&l!="HDT:"){size_t p=l.find(":");S.TA[stoi(l.substr(0,p))]=stod(l.substr(p+1));}
-if(l=="HDT:")while(getline(i,l)&&l.find(":")<l.size()&&l!="DWT:"){size_t p=l.find(":");S.HDT_M[stoi(l.substr(0,p))]=stod(l.substr(p+1));}
-if(l=="DWT:")while(getline(i,l)&&l.find(":")<l.size()&&l!="MDT:"){size_t p=l.find(":");S.DWT_M[stoi(l.substr(0,p))]=stod(l.substr(p+1));}
-if(l=="MDT:")while(getline(i,l)&&l.find(":")<l.size()&&l!="R1P1:"){size_t p=l.find(":");S.MDT_M[stoi(l.substr(0,p))]=stod(l.substr(p+1));}
-if(l=="R1P1:")while(getline(i,l)&&l.find(":")<l.size()&&l!="EERV:"){size_t p=l.find(":");S.R1P1[stoi(l.substr(0,p))]=stod(l.substr(p+1));}
-if(l=="EERV:")while(getline(i,l)&&l.find(":")<l.size()){size_t p=l.find(":");S.EERV[stoi(l.substr(0,p))]=stod(l.substr(p+1));}}
+if(l=="TA:")while(getline(i,l)&&l.find(":")<l.size()&&l!="HDT:"){size_t p=l.find(":");S.TA[uac(l.substr(0,p))]=stod(l.substr(p+1));}
+if(l=="HDT:")while(getline(i,l)&&l.find(":")<l.size()&&l!="DWT:"){size_t p=l.find(":");S.HDT_M[uac(l.substr(0,p))]=stod(l.substr(p+1));}
+if(l=="DWT:")while(getline(i,l)&&l.find(":")<l.size()&&l!="MDT:"){size_t p=l.find(":");S.DWT_M[uac(l.substr(0,p))]=stod(l.substr(p+1));}
+if(l=="MDT:")while(getline(i,l)&&l.find(":")<l.size()&&l!="R1P1:"){size_t p=l.find(":");S.MDT_M[uac(l.substr(0,p))]=stod(l.substr(p+1));}
+if(l=="R1P1:")while(getline(i,l)&&l.find(":")<l.size()&&l!="EERV:"){size_t p=l.find(":");S.R1P1[uac(l.substr(0,p))]=stod(l.substr(p+1));}
+if(l=="EERV:")while(getline(i,l)&&l.find(":")<l.size()){size_t p=l.find(":");S.EERV[uac(l.substr(0,p))]=stod(l.substr(p+1));}}
 i.close();
 }
 void bk(){BK=S;S.bkf=1;}
@@ -481,7 +482,7 @@ string expr=c.substr(e+1,e2-e-1);
 char op='+';int val=0;
 for(size_t j=0;j<expr.size();j++){
 if(expr[j]=='+'||expr[j]=='-'||expr[j]=='*'){
-op=expr[j];val=stoi(expr.substr(j+1));break;}}
+op=expr[j];val=uac(expr.substr(j+1));break;}}
 double cv=S.D[var];
 switch(op){case'+':cv+=val;break;case'-':cv-=val;break;case'*':cv*=val;break;}
 S.D[var]=((int)cv%4)-1;
