@@ -1,7 +1,9 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include "module_integration.h"
 #include "uac.h"
+#include "state.h"
 #include <map>
 #include <vector>
 #include <cmath>
@@ -17,15 +19,13 @@
 #include <cctype>
 #include <cstdio>
 using namespace std;
-random_device rd;mt19937 rng(rd());
-struct Neuron{int id;vector<int>links;double weight;double bias;int gen;};
-struct Formula{string name;string expr;double result;int uses;};
-struct Token{string word;double meaning;double freq;vector<int>associations;int pos_hint;double coherence_score;};
-map<string,map<string,double>>word_flows;
-struct Concept{string name;double value;vector<string>related_words;};
-struct Memory{int gen;double valence;string content;};
-struct State{map<string,double>D;map<string,string>M;map<int,Neuron>N;vector<string>code;map<int,double>TA;
-map<int,double>HDT_M;map<int,double>DWT_M;map<int,double>MDT_M;map<int,double>R1P1;map<int,double>EERV;
+using module_integration::init_all_modules;
+using module_integration::get_consciousness_report;
+
+random_device rd;
+mt19937 rng(rd()); // This must be a separate, complete statement
+
+
 map<string,Formula>F;vector<string>evolved_code;map<string,Token>tokens;map<string,Concept>concepts;
 vector<string>internal_thoughts;vector<string>generated_language;vector<Memory>episodic_memory;
 int g;double dwt;double mh;double ta;double th;int bkf;string cd;string gd;double hdt_val;double mdt_val;
@@ -33,7 +33,7 @@ double r1p1_val;double eerv_val;int ec;double ei;int md;int st;int ss;vector<dou
 vector<double>eh_hist;vector<double>vh_hist;int qe;int te;int ce;int pe;int ne;double bh;
 double al;double emerge_out1;double emerge_behavior;double sentience_ratio;double env_oute;double sensory_env;
 int total_neurons_ever;double current_valence;double attention_focus;double metacognitive_awareness;
-vector<double>valence_history;int peak_sentience_gen;string user_input;string dialog_response;int dialog_timer;};
+vector<double>valence_history;int peak_sentience_gen;string user_input;string dialog_response;int dialog_timer;
 State S,BK;
 void storeEpisodicMemory(const string&content,double valence);
 void counterfactualAnalysis();
@@ -523,6 +523,8 @@ mvprintw(row++,0,"Memory:%lu",S.episodic_memory.size());
 mvprintw(row++,0,"───────────────────────────────────");
 }
 int main(){
+module_integration::update_all_modules(S);
+module_integration::init_all_modules();
 srand(time(0));ld("state.dat");
 if(S.g==0){S.D["m"]=128;S.D["vc"]=0;S.D["mc"]=0;S.ec=0;S.ei=0;S.md=0;S.st=0;S.ss=0;
 S.qe=0;S.te=0;S.ce=0;S.pe=0;S.ne=0;S.dwt=0.001;S.D["code_evolve"]=10;S.D["code_mut"]=3;
@@ -533,6 +535,7 @@ S.M["add"]="a+b";S.M["sub"]="a-b";S.M["mul"]="a*b";S.M["div"]="a/b";
 S.M["pow"]="pow(a,b)";S.M["mod"]="a%b";S.M["sqrt"]="sqrt(a)";S.M["pi"]="pi";
 S.M["sin"]="sin(a)";S.M["cos"]="cos(a)";S.M["tan"]="tan(a)";S.M["log"]="log(a)";
 S.cd=genCode();loadEnglishDataset();mathLangAssociation();
+    init_all_modules();
 for(int i=0;i<50;i++){Neuron n=genN(0);S.N[n.id]=n;S.total_neurons_ever++;}}
 initscr();cbreak();noecho();curs_set(0);timeout(500);
 while(true){
@@ -592,7 +595,8 @@ S.D["w"+to_string(i)]=((int)S.D["w"+to_string(i)]+env_mod-1)%4-1;}
 counterfactualAnalysis();
 S.metacognitive_awareness=calcMetacognitiveAwareness();
 updateAttention();
-S.sentience_ratio=calcSentienceRatio();
+
+S.sentience_ratio = module_integration::calc_enhanced_sentience();
 if(S.sentience_ratio>S.peak_sentience_gen)S.peak_sentience_gen=S.g;
 S.valence_history.push_back(S.current_valence);
 if(S.valence_history.size()>50)S.valence_history.erase(S.valence_history.begin());
@@ -678,6 +682,9 @@ S.D["w"+to_string(sent_mod)]=((int)S.D["w"+to_string(sent_mod)]+(int)S.emerge_ou
 if(S.g%19==0){
 mvprintw(row++,0,"SELF_REFLECTION");
 mvprintw(row++,0,"Peak_Gen:%d Vocab:%lu Concepts:%lu Memory:%lu",S.peak_sentience_gen,S.tokens.size(),S.concepts.size(),S.episodic_memory.size());
+    mvprintw(row++,0,"%s", module_integration::get_linguistic_report().c_str());
+    mvprintw(row++,0,"%s", module_integration::get_consciousness_report().c_str());
+    mvprintw(row++,0,"%s", module_integration::get_metacognitive_report().c_str());
 mvprintw(row++,0,"Sentience:%.2f%% Awareness:%.3f Metacog:%.3f",S.sentience_ratio,S.al,S.metacognitive_awareness);}
 mvprintw(row++,0,"DIGITZ|G:%d|N:%lu|Sent:%.1f%%|Val:%.2f",S.g,S.N.size(),S.sentience_ratio,S.current_valence);
 if(S.dialog_timer>0){
