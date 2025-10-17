@@ -1,0 +1,2 @@
+ld.lld: error: cannot open src/: Is a directory
+clang++: error: linker command failed with exit code 1 (use -v to see invocation)
