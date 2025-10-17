@@ -103,25 +103,59 @@ S.tokens[lower_word].meaning+=concept_value*0.01;
 Token t={lower_word,concept_value,1,vector<int>()};
 S.tokens[lower_word]=t;
 }}}
-string generateResponse(const string&input){
-if(input.empty())return "...";
-vector<string>words;
-stringstream ss(tokenize(input));
-string token;
-while(ss>>token)words.push_back(token);
-string response="[DIGITZ]: ";
-for(const string&w:words){
-learnWord(w,S.current_valence);
-if(S.concepts.count(w)){
-response+="understand_"+w+" ";
-}else if(S.tokens.count(w)){
-response+=w+" ";
+
+vector<string> tokenize_to_vector(const string& text) {
+    vector<string> words;
+    stringstream ss(tokenize(text));
+    string token;
+    while(ss >> token) words.push_back(token);
+    return words;
 }
+
+void trainLanguageSystem(const string& text) {
+    if(text.empty()) return;
+    vector<string> words = tokenize_to_vector(text);
+    if(words.size() >= 2) {
+        learn_ngram(words);
+        build_markov_chain(words);
+    }
 }
-if(words.empty())response+="...";
-if(S.current_valence>0.5)response+="[positive_state]";
-else if(S.current_valence<-0.2)response+="[error_state]";
-return response.substr(0,80);
+
+string generateResponse(const string& input) {
+    if(input.empty()) return "...";
+    
+    // Train the Markov chain on input
+    trainLanguageSystem(input);
+    
+    vector<string> words = tokenize_to_vector(input);
+    
+    // Generate response using Markov chain
+    string seed = words.empty() ? "think" : words[ri(words.size())];
+    string response = "[DIGITZ]: " + generate_from_markov(seed, 10);
+    
+    // Fallback if Markov generation fails
+    if(response.length() < 20) {
+        response = "[DIGITZ]: ";
+        for(const string& w : words) {
+            learnWord(w, S.current_valence);
+            if(S.concepts.count(w)) {
+                response += "understand_" + w + " ";
+            } else if(S.tokens.count(w)) {
+                response += w + " ";
+            }
+        }
+    }
+    
+    // Learn words individually
+    for(const string& w : words) {
+        learnWord(w, S.current_valence);
+    }
+    
+    // Add emotional context
+    if(S.current_valence > 0.5) response += "[positive_state]";
+    else if(S.current_valence < -0.2) response += "[error_state]";
+    
+    return response.substr(0, 80);
 }
 void createConceptAssociation(const string&concept_name,const vector<string>&related_words){
 Concept c={concept_name,rn(),related_words};
@@ -596,7 +630,7 @@ counterfactualAnalysis();
 S.metacognitive_awareness=calcMetacognitiveAwareness();
 updateAttention();
 
-S.sentience_ratio = module_integration::calc_enhanced_sentience();
+S.sentience_ratio = calcSentienceRatio();
 if(S.sentience_ratio>S.peak_sentience_gen)S.peak_sentience_gen=S.g;
 S.valence_history.push_back(S.current_valence);
 if(S.valence_history.size()>50)S.valence_history.erase(S.valence_history.begin());
