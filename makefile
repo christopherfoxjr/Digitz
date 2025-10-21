@@ -16,7 +16,7 @@ MAIN_SRC := $(SRC)main.cpp
 MODULE_SRCS := $(SRC)language_module.cpp \
                $(SRC)consciousness_module.cpp \
                $(SRC)metacognition_module.cpp \
-               $(SRC)python_runtime.cpp
+               $(SRC)python_runtime.cpp \
                $(SRC)module_integration.cpp
 
 # All source files
