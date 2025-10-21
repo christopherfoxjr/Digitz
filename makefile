@@ -5,12 +5,16 @@ TARGET := output/digitz
 SRC := src/
 OBJ := obj/
 OUTPUT_DIR := output/
+# Automatically find Python 3.12 include paths for the compiler (-I)
+PYTHON_INCLUDES := $(shell pkg-config --cflags python-3.12)
+
+# Automatically find Python 3.12 library paths/names for the linker (-L and -l)
+PYTHON_LIBS := $(shell pkg-config --libs python-3.12)
 
 # Compiler settings
 CXX := clang++
-CXXFLAGS := -std=c++23 -O3 -pthread -march=native -Wall -Wextra
-LDFLAGS := -lncurses -lcurl -lm
-
+CXXFLAGS := -std=c++23 -O3 -pthread $(PYTHON_INCLUDES)
+LDFLAGS := -lncurses -lcurl -lm -lpython3.12
 # Source files
 MAIN_SRC := $(SRC)main.cpp
 MODULE_SRCS := $(SRC)language_module.cpp \
