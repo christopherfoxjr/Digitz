@@ -75,11 +75,12 @@
             logConsole(desc);
             const env = ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"];
             
-            let output = '';
             try {
-                await cx.run("/bin/bash", ["-c", cmd + "; echo __EXIT_CODE__:$?"], { 
+                await cx.run("/bin/bash", ["-c", cmd], { 
                     env, 
-                    cwd: "/root"
+                    cwd: "/root",
+                    uid: 0,
+                    gid: 0
                 });
             } catch (e) {
                 logConsole(`Command failed: ${e.message}`, 'warning');
@@ -161,13 +162,13 @@
                 await runCommand("apt-get install -y git gcc make libncurses5-dev python3 python3-pip", "Installing git, gcc, make, ncurses, python3...");
                 
                 progress(85, 'Building Digitz...');
-                await runCommand("git clone https://github.com/christopherfoxjr/Digitz", "Cloning Digitz repository...");
+                await runCommand("rm -rf /root/Digitz && git clone https://github.com/christopherfoxjr/Digitz /root/Digitz", "Cloning Digitz repository...");
                 
                 progress(90, 'Compiling...');
-                await runCommand("cd Digitz && make", "Compiling with make...");
+                await runCommand("cd /root/Digitz && make", "Compiling with make...");
                 
                 progress(95, 'Installing...');
-                await runCommand("cd Digitz && cp output/digitz /usr/local/bin/digitz && chmod +x /usr/local/bin/digitz", "Installing Digitz binary...");
+                await runCommand("cd /root/Digitz && cp output/digitz /usr/local/bin/digitz && chmod +x /usr/local/bin/digitz", "Installing Digitz binary...");
                 
                 // Restore console
                 cx.console = originalConsole;
