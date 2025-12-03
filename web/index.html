@@ -13,14 +13,18 @@
         #progress { width: 80%; max-width: 600px; height: 30px; border: 2px solid #0f0; margin: 20px auto; position: relative; }
         #bar { height: 100%; background: #0f0; width: 0%; transition: width 0.3s; }
         #pct { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #000; font-weight: bold; mix-blend-mode: difference; }
+        #console { width: 90%; max-width: 800px; height: 200px; margin: 10px auto; border: 1px solid #0f0; padding: 10px; overflow-y: auto; font-size: 12px; line-height: 1.4; }
         #terminal { flex: 1; padding: 10px; overflow-y: auto; display: none; }
         #terminal.active { display: block; }
         .error { color: #f00; }
+        .success { color: #0f0; }
+        .warning { color: #ff0; }
     </style>
 </head>
 <body>
     <div id="status">Initializing CheerpX VM...</div>
     <div id="progress"><div id="bar"></div><div id="pct">0%</div></div>
+    <div id="console"></div>
     <div id="terminal"></div>
 
     <script type="module">
@@ -28,12 +32,22 @@
         const bar = document.getElementById('bar');
         const pct = document.getElementById('pct');
         const terminal = document.getElementById('terminal');
+        const consoleEl = document.getElementById('console');
         let cx;
+
+        const logConsole = (msg, type = '') => {
+            const line = document.createElement('div');
+            line.className = type;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+            console.log(msg);
+        };
 
         const log = (msg, err) => {
             status.innerHTML = msg;
             if (err) status.className = 'error';
-            console.log(msg);
+            logConsole(msg, err ? 'error' : '');
         };
 
         const progress = (p, msg) => {
@@ -44,14 +58,18 @@
 
         const loadDisk = async () => {
             const methods = [
-                { t: 30000, fn: () => CheerpX.CloudDevice.create("wss://disks.webvm.io/debian_large_20230522_5044875331.ext2") },
-                { t: 45000, fn: () => CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_mini_20230519_5022088024.ext2") }
+                { name: 'WebSocket', t: 30000, fn: () => CheerpX.CloudDevice.create("wss://disks.webvm.io/debian_large_20230522_5044875331.ext2") },
+                { name: 'HTTP', t: 45000, fn: () => CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_mini_20230519_5022088024.ext2") }
             ];
             
             for (const m of methods) {
                 try {
-                    return await Promise.race([m.fn(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), m.t))]);
+                    logConsole(`Trying ${m.name} (${m.t/1000}s timeout)...`, 'warning');
+                    const disk = await Promise.race([m.fn(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), m.t))]);
+                    logConsole(`${m.name} connected!`, 'success');
+                    return disk;
                 } catch (e) {
+                    logConsole(`${m.name} failed: ${e.message}`, 'error');
                     if (m === methods[methods.length - 1]) throw e;
                 }
             }
@@ -59,23 +77,32 @@
 
         const init = async () => {
             try {
+                logConsole('Starting initialization...', 'success');
+                
                 if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
-                    log('Waiting for cross-origin isolation...');
+                    logConsole('Waiting for cross-origin isolation...');
                     for (let i = 0; i < 20; i++) {
                         await new Promise(r => setTimeout(r, 500));
                         if (window.crossOriginIsolated) break;
                     }
                     if (!window.crossOriginIsolated) throw new Error('Cross-origin isolation failed');
                 }
+                logConsole('Cross-origin isolation OK', 'success');
 
                 progress(10, 'Loading disk...');
                 const idb = await CheerpX.IDBDevice.create("digitz");
+                logConsole('IndexedDB storage created');
+                
                 const disk = await loadDisk();
+                
                 progress(40, 'Creating filesystem...');
                 const overlay = await CheerpX.OverlayDevice.create(disk, idb);
+                logConsole('Overlay filesystem ready', 'success');
+                
                 const web = await CheerpX.WebDevice.create("");
                 
                 progress(60, 'Starting VM...');
+                logConsole('Booting Linux VM...');
                 cx = await CheerpX.Linux.create({
                     mounts: [
                         { type: "ext2", path: "/", dev: overlay },
@@ -83,19 +110,34 @@
                         { type: "devs", path: "/dev" }
                     ]
                 });
+                logConsole('VM started!', 'success');
 
                 progress(70, 'Installing tools...');
                 const env = ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"];
-                await cx.run("/bin/bash", ["-c", "apt-get update && apt-get install -y git gcc make libncurses5-dev 2>&1 || true"], { env, cwd: "/root" });
+                
+                logConsole('Running apt-get update...');
+                await cx.run("/bin/bash", ["-c", "apt-get update 2>&1 || true"], { env, cwd: "/root" });
+                
+                logConsole('Installing git, gcc, make, ncurses...');
+                await cx.run("/bin/bash", ["-c", "apt-get install -y git gcc make libncurses5-dev 2>&1 || true"], { env, cwd: "/root" });
                 
                 progress(85, 'Building Digitz...');
-                await cx.run("/bin/bash", ["-c", "git clone https://github.com/christopherfoxjr/Digitz.git && cd Digitz && make && cp output/digitz /usr/local/bin/ 2>&1 || true"], { env, cwd: "/root" });
+                logConsole('Cloning Digitz repository...');
+                await cx.run("/bin/bash", ["-c", "git clone https://github.com/christopherfoxjr/Digitz.git 2>&1 || true"], { env, cwd: "/root" });
+                
+                logConsole('Compiling with make...');
+                await cx.run("/bin/bash", ["-c", "cd Digitz && make 2>&1 || true"], { env, cwd: "/root" });
+                
+                logConsole('Installing binary...');
+                await cx.run("/bin/bash", ["-c", "cd Digitz && cp output/digitz /usr/local/bin/ 2>&1 || true"], { env, cwd: "/root" });
 
                 progress(100, 'Ready!');
-                await new Promise(r => setTimeout(r, 500));
+                logConsole('Setup complete! Starting terminal...', 'success');
+                await new Promise(r => setTimeout(r, 1000));
                 
                 document.getElementById('status').style.display = 'none';
                 document.getElementById('progress').style.display = 'none';
+                consoleEl.style.display = 'none';
                 terminal.classList.add('active');
                 cx.setConsole(terminal);
                 
@@ -107,6 +149,7 @@
                 });
             } catch (e) {
                 log('ERROR: ' + e.message, true);
+                logConsole('Fatal error: ' + e.message, 'error');
             }
         };
 
