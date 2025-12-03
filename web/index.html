@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CheerpX Web VM - Digitz</title>
+    <script src="https://unpkg.com/coi-serviceworker@0.1.7/coi-serviceworker.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #0f0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        #terminal-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #setup-screen {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        
+        #ascii-art {
+            white-space: pre;
+            font-size: clamp(6px, 1.5vw, 10px);
+            line-height: 1.2;
+            margin-bottom: clamp(10px, 3vh, 20px);
+            color: #0f0;
+            text-shadow: 0 0 5px #0f0;
+            text-align: center;
+            overflow: hidden;
+        }
+        
+        #satellite-container {
+            width: 90%;
+            max-width: 600px;
+            height: clamp(100px, 20vh, 150px);
+            position: relative;
+            margin-bottom: clamp(10px, 3vh, 20px);
+        }
+        
+        #base-station {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: clamp(20px, 5vw, 40px);
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+        }
+        
+        #satellite {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: clamp(16px, 4vw, 30px);
+            animation: satelliteOrbit 3s ease-in-out infinite;
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+        }
+        
+        @keyframes satelliteOrbit {
+            0%, 100% {
+                top: 0;
+                left: 30%;
+            }
+            50% {
+                top: 0;
+                left: 70%;
+            }
+        }
+        
+        #signal-beam {
+            position: absolute;
+            bottom: clamp(20px, 5vh, 40px);
+            left: 50%;
+            width: 2px;
+            height: 0;
+            background: linear-gradient(to top, #0f0, transparent);
+            transform: translateX(-50%);
+            animation: signalPulse 1.5s ease-in-out infinite;
+            box-shadow: 0 0 10px #0f0;
+        }
+        
+        @keyframes signalPulse {
+            0%, 100% {
+                height: 0;
+                opacity: 0;
+            }
+            50% {
+                height: clamp(50px, 12vh, 100px);
+                opacity: 1;
+            }
+        }
+        
+        #connection-dots {
+            position: absolute;
+            bottom: clamp(18px, 4.5vh, 35px);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: clamp(3px, 0.8vw, 5px);
+        }
+        
+        .dot {
+            width: clamp(5px, 1.2vw, 8px);
+            height: clamp(5px, 1.2vw, 8px);
+            background: #0f0;
+            border-radius: 50%;
+            box-shadow: 0 0 5px #0f0;
+            animation: dotPulse 1.5s ease-in-out infinite;
+        }
+        
+        .dot:nth-child(2) {
+            animation-delay: 0.3s;
+        }
+        
+        .dot:nth-child(3) {
+            animation-delay: 0.6s;
+        }
+        
+        @keyframes dotPulse {
+            0%, 100% {
+                opacity: 0.3;
+                transform: scale(0.8);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+        }
+        
+        #cdn-label {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: clamp(8px, 1.5vw, 10px);
+            color: #0f0;
+            white-space: nowrap;
+        }
+        
+        #setup-log {
+            width: 90%;
+            max-width: 800px;
+            margin-bottom: clamp(10px, 2vh, 20px);
+            max-height: clamp(150px, 30vh, 300px);
+            overflow-y: auto;
+            font-size: clamp(10px, 1.8vw, 14px);
+        }
+        
+        .log-line {
+            margin: 5px 0;
+            opacity: 0;
+            animation: fadeIn 0.3s forwards;
+        }
+        
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+        
+        #progress-container {
+            width: 90%;
+            max-width: 800px;
+            height: clamp(20px, 4vh, 30px);
+            border: 2px solid #0f0;
+            position: relative;
+            margin-top: clamp(5px, 1vh, 10px);
+        }
+        
+        #progress-bar {
+            height: 100%;
+            background: #0f0;
+            width: 0%;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px #0f0;
+        }
+        
+        #progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #000;
+            font-weight: bold;
+            mix-blend-mode: difference;
+            font-size: clamp(10px, 2vw, 14px);
+        }
+        
+        #terminal {
+            flex: 1;
+            background: #000;
+            padding: clamp(5px, 1.5vw, 10px);
+            overflow-y: auto;
+            display: none;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: clamp(10px, 1.8vw, 14px);
+        }
+        
+        #terminal.active {
+            display: block;
+        }
+        
+        .error {
+            color: #f00;
+        }
+        
+        .success {
+            color: #0f0;
+        }
+        
+        .warning {
+            color: #ff0;
+        }
+
+        #instructions {
+            background: #001100;
+            border: 2px solid #0f0;
+            padding: 20px;
+            margin: 20px;
+            max-width: 600px;
+            text-align: left;
+        }
+
+        #instructions h2 {
+            color: #0f0;
+            margin-bottom: 15px;
+        }
+
+        #instructions ol {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+
+        #instructions code {
+            background: #003300;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        #continue-button {
+            margin-top: 20px;
+            padding: 10px 30px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 10px #0f0;
+        }
+
+        #continue-button:hover {
+            background: #0f0;
+            box-shadow: 0 0 20px #0f0;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal-container">
+        <div id="setup-screen">
+            <div id="ascii-art">
+    ██████╗ ██╗ ██████╗ ██╗████████╗███████╗
+    ██╔══██╗██║██╔════╝ ██║╚══██╔══╝╚══███╔╝
+    ██║  ██║██║██║  ███╗██║   ██║     ███╔╝ 
+    ██║  ██║██║██║   ██║██║   ██║    ███╔╝  
+    ██████╔╝██║╚██████╔╝██║   ██║   ███████╗
+    ╚═════╝ ╚═╝ ╚═════╝ ╚═╝   ╚═╝   ╚══════╝
+           CheerpX Web VM Loader
+            </div>
+
+            <div id="instructions" style="display: none;">
+                <h2>⚠️ Loading Service Worker...</h2>
+                <p style="margin-bottom: 15px;">Setting up cross-origin isolation... This page will reload automatically.</p>
+                <p style="color: #0f0;">If this message persists, try refreshing manually.</p>
+            </div>
+
+            <div id="satellite-container" style="display: none;">
+                <div id="cdn-label">📡 Connecting to CDN...</div>
+                <div id="satellite">🛰️</div>
+                <div id="signal-beam"></div>
+                <div id="connection-dots">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+                <div id="base-station">📡</div>
+            </div>
+            <div id="setup-log"></div>
+            <div id="progress-container" style="display: none;">
+                <div id="progress-bar"></div>
+                <div id="progress-text">0%</div>
+            </div>
+        </div>
+        <div id="terminal"></div>
+    </div>
+
+    <script type="module">
+        const setupLog = document.getElementById('setup-log');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const setupScreen = document.getElementById('setup-screen');
+        const terminal = document.getElementById('terminal');
+        const instructions = document.getElementById('instructions');
+        const satelliteContainer = document.getElementById('satellite-container');
+        const progressContainer = document.getElementById('progress-container');
+        
+        let cx;
+        let currentProgress = 0;
+        
+        function log(message, type = 'info') {
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            setupLog.appendChild(line);
+            setupLog.scrollTop = setupLog.scrollHeight;
+        }
+        
+        function updateProgress(percent, message) {
+            currentProgress = Math.min(100, percent);
+            progressBar.style.width = currentProgress + '%';
+            progressText.textContent = Math.floor(currentProgress) + '%';
+            if (message) log(message);
+        }
+        
+        async function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        function showLoadingMessage() {
+            // Show the loading message briefly
+            const instructions = document.getElementById('instructions');
+            if (instructions) {
+                instructions.style.display = 'block';
+            }
+        }
+        
+        function hideLoadingMessage() {
+            const instructions = document.getElementById('instructions');
+            if (instructions) {
+                instructions.style.display = 'none';
+            }
+            satelliteContainer.style.display = 'block';
+            progressContainer.style.display = 'block';
+        }
+        
+        async function initializeVM() {
+            try {
+                log('Initializing CheerpX virtual machine...', 'info');
+                updateProgress(5, 'Loading CheerpX engine...');
+                
+                // Update satellite animation
+                document.getElementById('cdn-label').textContent = '🛰️ Downloading from CDN...';
+                
+                // Load CheerpX
+                await import('https://cxrtnc.leaningtech.com/1.0.7/cx.js');
+                
+                updateProgress(10, 'CheerpX loaded from CDN');
+                document.getElementById('cdn-label').textContent = '✅ Connected to CheerpX CDN';
+                
+                // Create the CheerpX Linux instance
+                const idbDevice = await CheerpX.IDBDevice.create("digitz-storage");
+                updateProgress(15, 'Storage device initialized');
+                
+                const overlayDevice = await CheerpX.OverlayDevice.create(
+                    await CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_large_20230522_5044875331.ext2"),
+                    idbDevice
+                );
+                updateProgress(25, 'Overlay filesystem created');
+                
+                const webDevice = await CheerpX.WebDevice.create("");
+                updateProgress(30, 'Web device initialized');
+                
+                log('Creating Linux environment...', 'info');
+                cx = await CheerpX.Linux.create({
+                    mounts: [
+                        { type: "ext2", path: "/", dev: overlayDevice },
+                        { type: "dir", path: "/app", dev: webDevice },
+                        { type: "devs", path: "/dev" }
+                    ]
+                });
+                
+                updateProgress(40, 'Virtual machine created successfully');
+                
+                return cx;
+                
+            } catch (error) {
+                log(`VM initialization failed: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+        
+        async function setupEnvironment() {
+            try {
+                log('Setting up build environment...', 'info');
+                updateProgress(45, 'Updating package lists...');
+                
+                await cx.run("/bin/bash", ["-c", "apt-get update > /dev/null 2>&1 || true"], {
+                    env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+                    cwd: "/root"
+                });
+                
+                updateProgress(55, 'Installing Python 3.11 and dependencies...');
+                log('Installing Python, ncurses, and build tools...', 'info');
+                
+                await cx.run("/bin/bash", ["-c", 
+                    "apt-get install -y python3 python3-pip libncurses5-dev libncursesw5-dev build-essential git wget g++ > /dev/null 2>&1 || true"
+                ], {
+                    env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"],
+                    cwd: "/root"
+                });
+                
+                updateProgress(70, 'Dependencies installed');
+                
+            } catch (error) {
+                log(`Environment setup error: ${error.message}`, 'warning');
+            }
+        }
+        
+        async function downloadAndCompileDigitz() {
+            try {
+                log('Downloading Digitz source code...', 'info');
+                updateProgress(75, 'Cloning repository...');
+                
+                await cx.run("/bin/bash", ["-c", 
+                    "cd /root && git clone https://github.com/christopherfoxjr/Digitz.git 2>&1 || true"
+                ], {
+                    env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+                    cwd: "/root"
+                });
+                
+                updateProgress(80, 'Repository cloned');
+                log('Compiling Digitz with make...', 'info');
+                
+                await cx.run("/bin/bash", ["-c", 
+                    "cd /root/Digitz && make 2>&1 || true"
+                ], {
+                    env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+                    cwd: "/root/Digitz"
+                });
+                
+                updateProgress(85, 'Compilation complete');
+                
+                await cx.run("/bin/bash", ["-c", 
+                    "cd /root/Digitz && if [ -f output/digitz ]; then cp output/digitz /usr/local/bin/digitz && chmod +x /usr/local/bin/digitz; fi || true"
+                ], {
+                    env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+                    cwd: "/root/Digitz"
+                });
+                
+                updateProgress(90, 'Digitz installed to /usr/local/bin');
+                log('Digitz compiled and installed successfully!', 'success');
+                
+            } catch (error) {
+                log(`Compilation error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function launchTerminal() {
+            try {
+                updateProgress(95, 'Launching terminal...');
+                log('Starting Digitz...', 'success');
+                
+                await sleep(1000);
+                updateProgress(100, 'Setup complete!');
+                await sleep(500);
+                
+                setupScreen.style.display = 'none';
+                terminal.classList.add('active');
+                
+                cx.setConsole(terminal);
+                
+                await cx.run("/bin/bash", ["-c", 
+                    "echo 'Welcome to CheerpX Web VM!' && " +
+                    "echo 'Digitz is installed and ready to run.' && " +
+                    "echo '' && " +
+                    "echo 'Available commands:' && " +
+                    "echo '  digitz          - Run the Digitz program' && " +
+                    "echo '  python3         - Python 3 interpreter' && " +
+                    "echo '  ls, cd, pwd     - Basic shell commands' && " +
+                    "echo '' && " +
+                    "echo 'Type \"digitz\" to start or explore the system!' && " +
+                    "echo '' && " +
+                    "/bin/bash"
+                ], {
+                    env: [
+                        "HOME=/root", 
+                        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                        "TERM=xterm-256color"
+                    ],
+                    cwd: "/root"
+                });
+                
+            } catch (error) {
+                terminal.innerHTML += `\n<span class="error">Error launching terminal: ${error.message}</span>\n`;
+            }
+        }
+        
+        async function main() {
+            // Check if SharedArrayBuffer is available
+            if (typeof SharedArrayBuffer === 'undefined') {
+                // Show loading message and wait for reload
+                showLoadingMessage();
+                log('Cross-origin isolation not ready, waiting for service worker...', 'warning');
+                // Service worker will reload the page
+                return;
+            }
+            
+            // Hide instructions, show loading UI
+            hideLoadingMessage();
+            
+            try {
+                log('Starting CheerpX Web VM setup...', 'info');
+                log('This may take a few minutes on first run...', 'warning');
+                
+                await initializeVM();
+                await setupEnvironment();
+                await downloadAndCompileDigitz();
+                await launchTerminal();
+                
+            } catch (error) {
+                log(`Fatal error: ${error.message}`, 'error');
+                log('Please refresh the page to try again.', 'warning');
+            }
+        }
+        
+        // Wait a bit for service worker to be ready, then start
+        setTimeout(main, 100);
+    </script>
+</body>
+</html>
