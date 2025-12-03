@@ -3,26 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CheerpX - Digitz</title>
+    <title>DigitzWeb Virtual Machine</title>
     <script src="https://cxrtnc.leaningtech.com/1.0.7/cx.js"></script>
     <script src="coi-serviceworker.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: monospace; background: #000; color: #0f0; height: 100vh; display: flex; flex-direction: column; }
-        #status { text-align: center; padding: 20px; font-size: 14px; }
-        #progress { width: 80%; max-width: 600px; height: 30px; border: 2px solid #0f0; margin: 20px auto; position: relative; }
+        #header { text-align: center; padding: 15px; font-size: 18px; font-weight: bold; border-bottom: 2px solid #0f0; }
+        #status { text-align: center; padding: 15px; font-size: 14px; }
+        #progress { width: 80%; max-width: 600px; height: 30px; border: 2px solid #0f0; margin: 10px auto; position: relative; }
         #bar { height: 100%; background: #0f0; width: 0%; transition: width 0.3s; }
         #pct { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #000; font-weight: bold; mix-blend-mode: difference; }
-        #console { width: 90%; max-width: 800px; height: 200px; margin: 10px auto; border: 1px solid #0f0; padding: 10px; overflow-y: auto; font-size: 12px; line-height: 1.4; }
+        #console { width: 90%; max-width: 800px; height: 250px; margin: 10px auto; border: 1px solid #0f0; padding: 10px; overflow-y: auto; font-size: 12px; line-height: 1.5; }
         #terminal { flex: 1; padding: 10px; overflow-y: auto; display: none; }
         #terminal.active { display: block; }
         .error { color: #f00; }
         .success { color: #0f0; }
         .warning { color: #ff0; }
+        .cmd-output { color: #888; margin-left: 20px; }
     </style>
 </head>
 <body>
-    <div id="status">Initializing CheerpX VM...</div>
+    <div id="header">DigitzWeb Virtual Machine</div>
+    <div id="status">Initializing...</div>
     <div id="progress"><div id="bar"></div><div id="pct">0%</div></div>
     <div id="console"></div>
     <div id="terminal"></div>
@@ -41,7 +44,19 @@
             line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
             consoleEl.appendChild(line);
             consoleEl.scrollTop = consoleEl.scrollHeight;
-            console.log(msg);
+        };
+
+        const logCommand = (output) => {
+            const lines = output.split('\n');
+            lines.forEach(line => {
+                if (line.trim()) {
+                    const div = document.createElement('div');
+                    div.className = 'cmd-output';
+                    div.textContent = line;
+                    consoleEl.appendChild(div);
+                }
+            });
+            consoleEl.scrollTop = consoleEl.scrollHeight;
         };
 
         const log = (msg, err) => {
@@ -56,6 +71,24 @@
             if (msg) log(msg);
         };
 
+        const runCommand = async (cmd, desc) => {
+            logConsole(desc);
+            const env = ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"];
+            
+            try {
+                const result = await cx.run("/bin/bash", ["-c", cmd], { 
+                    env, 
+                    cwd: "/root",
+                    capture: (output) => {
+                        if (output) logCommand(output);
+                    }
+                });
+                return result;
+            } catch (e) {
+                logConsole(`Command failed: ${e.message}`, 'warning');
+            }
+        };
+
         const loadDisk = async () => {
             const methods = [
                 { name: 'WebSocket', t: 30000, fn: () => CheerpX.CloudDevice.create("wss://disks.webvm.io/debian_large_20230522_5044875331.ext2") },
@@ -64,7 +97,7 @@
             
             for (const m of methods) {
                 try {
-                    logConsole(`Trying ${m.name} (${m.t/1000}s timeout)...`, 'warning');
+                    logConsole(`Trying ${m.name} disk loading (${m.t/1000}s timeout)...`, 'warning');
                     const disk = await Promise.race([m.fn(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), m.t))]);
                     logConsole(`${m.name} connected!`, 'success');
                     return disk;
@@ -89,13 +122,15 @@
                 }
                 logConsole('Cross-origin isolation OK', 'success');
 
-                progress(10, 'Loading disk...');
+                progress(10, 'Loading disk image...');
+                logConsole('Creating IndexedDB storage...');
                 const idb = await CheerpX.IDBDevice.create("digitz");
-                logConsole('IndexedDB storage created');
+                logConsole('Storage created');
                 
                 const disk = await loadDisk();
                 
                 progress(40, 'Creating filesystem...');
+                logConsole('Building overlay filesystem...');
                 const overlay = await CheerpX.OverlayDevice.create(disk, idb);
                 logConsole('Overlay filesystem ready', 'success');
                 
@@ -113,28 +148,25 @@
                 logConsole('VM started!', 'success');
 
                 progress(70, 'Installing tools...');
-                const env = ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"];
+                await runCommand("apt-get update 2>&1", "Running apt-get update...");
                 
-                logConsole('Running apt-get update...');
-                await cx.run("/bin/bash", ["-c", "apt-get update 2>&1 || true"], { env, cwd: "/root" });
-                
-                logConsole('Installing git, gcc, make, ncurses...');
-                await cx.run("/bin/bash", ["-c", "apt-get install -y git gcc make libncurses5-dev 2>&1 || true"], { env, cwd: "/root" });
+                progress(75, 'Installing packages...');
+                await runCommand("apt-get install -y git gcc make libncurses5-dev 2>&1", "Installing git, gcc, make, ncurses...");
                 
                 progress(85, 'Building Digitz...');
-                logConsole('Cloning Digitz repository...');
-                await cx.run("/bin/bash", ["-c", "git clone https://github.com/christopherfoxjr/Digitz.git 2>&1 || true"], { env, cwd: "/root" });
+                await runCommand("git clone https://github.com/christopherfoxjr/Digitz.git 2>&1", "Cloning Digitz repository...");
                 
-                logConsole('Compiling with make...');
-                await cx.run("/bin/bash", ["-c", "cd Digitz && make 2>&1 || true"], { env, cwd: "/root" });
+                progress(90, 'Compiling...');
+                await runCommand("cd Digitz && make 2>&1", "Compiling with make...");
                 
-                logConsole('Installing binary...');
-                await cx.run("/bin/bash", ["-c", "cd Digitz && cp output/digitz /usr/local/bin/ 2>&1 || true"], { env, cwd: "/root" });
+                progress(95, 'Installing...');
+                await runCommand("cd Digitz && cp output/digitz /usr/local/bin/ && chmod +x /usr/local/bin/digitz 2>&1", "Installing Digitz binary...");
 
                 progress(100, 'Ready!');
                 logConsole('Setup complete! Starting terminal...', 'success');
-                await new Promise(r => setTimeout(r, 1000));
+                await new Promise(r => setTimeout(r, 1500));
                 
+                document.getElementById('header').style.display = 'none';
                 document.getElementById('status').style.display = 'none';
                 document.getElementById('progress').style.display = 'none';
                 consoleEl.style.display = 'none';
