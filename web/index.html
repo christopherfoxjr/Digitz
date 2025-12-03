@@ -157,7 +157,7 @@
                 log('Note: CheerpX streams data on-demand (no large download)', 'info');
                 cdnLabel.textContent = '📡 Loading disk image...';
                 
-                const diskUrl = "https://github.com/leaningtech/webvm/releases/download/ext2_image/debian_mini_20230519_5022088024.ext2";
+                const diskUrl = "https://disks.webvm.io/debian_mini_20230519_5022088024.ext2";
                 
                 updateProgress(18, 'Creating HTTP block device...');
                 const httpDevice = await CheerpX.HttpBytesDevice.create(diskUrl);
