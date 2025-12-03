@@ -3,286 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CheerpX Web VM - Digitz</title>
+    <title>CheerpX - Digitz</title>
+    <script src="https://cxrtnc.leaningtech.com/1.0.7/cx.js"></script>
     <script src="coi-serviceworker.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Courier New', monospace; background: #000; color: #0f0; overflow: hidden; height: 100vh; }
-        #terminal-container { width: 100%; height: 100%; display: flex; flex-direction: column; }
-        #setup-screen { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; }
-        #ascii-art { white-space: pre; font-size: clamp(6px, 1.5vw, 10px); line-height: 1.2; margin-bottom: clamp(10px, 3vh, 20px); color: #0f0; text-shadow: 0 0 5px #0f0; text-align: center; }
-        #satellite-container { width: 90%; max-width: 600px; height: clamp(100px, 20vh, 150px); position: relative; margin-bottom: clamp(10px, 3vh, 20px); }
-        #base-station { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); font-size: clamp(20px, 5vw, 40px); color: #0f0; text-shadow: 0 0 10px #0f0; }
-        #satellite { position: absolute; top: 0; left: 50%; transform: translateX(-50%); font-size: clamp(16px, 4vw, 30px); animation: orbit 3s ease-in-out infinite; color: #0f0; text-shadow: 0 0 10px #0f0; }
-        @keyframes orbit { 0%, 100% { top: 0; left: 30%; } 50% { top: 0; left: 70%; } }
-        #signal-beam { position: absolute; bottom: clamp(20px, 5vh, 40px); left: 50%; width: 2px; height: 0; background: linear-gradient(to top, #0f0, transparent); transform: translateX(-50%); animation: pulse 1.5s ease-in-out infinite; box-shadow: 0 0 10px #0f0; }
-        @keyframes pulse { 0%, 100% { height: 0; opacity: 0; } 50% { height: clamp(50px, 12vh, 100px); opacity: 1; } }
-        #connection-dots { position: absolute; bottom: clamp(18px, 4.5vh, 35px); left: 50%; transform: translateX(-50%); display: flex; gap: clamp(3px, 0.8vw, 5px); }
-        .dot { width: clamp(5px, 1.2vw, 8px); height: clamp(5px, 1.2vw, 8px); background: #0f0; border-radius: 50%; box-shadow: 0 0 5px #0f0; animation: dotPulse 1.5s ease-in-out infinite; }
-        .dot:nth-child(2) { animation-delay: 0.3s; }
-        .dot:nth-child(3) { animation-delay: 0.6s; }
-        @keyframes dotPulse { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
-        #cdn-label { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: clamp(8px, 1.5vw, 10px); color: #0f0; white-space: nowrap; }
-        #setup-log { width: 90%; max-width: 800px; margin-bottom: clamp(10px, 2vh, 20px); max-height: clamp(150px, 30vh, 300px); overflow-y: auto; font-size: clamp(10px, 1.8vw, 14px); }
-        .log-line { margin: 5px 0; opacity: 0; animation: fadeIn 0.3s forwards; }
-        @keyframes fadeIn { to { opacity: 1; } }
-        #progress-container { width: 90%; max-width: 800px; height: clamp(20px, 4vh, 30px); border: 2px solid #0f0; position: relative; margin-top: clamp(5px, 1vh, 10px); }
-        #progress-bar { height: 100%; background: #0f0; width: 0%; transition: width 0.5s ease; box-shadow: 0 0 10px #0f0; }
-        #progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #000; font-weight: bold; mix-blend-mode: difference; font-size: clamp(10px, 2vw, 14px); }
-        #terminal { flex: 1; background: #000; padding: clamp(5px, 1.5vw, 10px); overflow-y: auto; display: none; white-space: pre-wrap; word-wrap: break-word; font-size: clamp(10px, 1.8vw, 14px); }
+        body { font-family: monospace; background: #000; color: #0f0; height: 100vh; display: flex; flex-direction: column; }
+        #status { text-align: center; padding: 20px; font-size: 14px; }
+        #progress { width: 80%; max-width: 600px; height: 30px; border: 2px solid #0f0; margin: 20px auto; position: relative; }
+        #bar { height: 100%; background: #0f0; width: 0%; transition: width 0.3s; }
+        #pct { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #000; font-weight: bold; mix-blend-mode: difference; }
+        #terminal { flex: 1; padding: 10px; overflow-y: auto; display: none; }
         #terminal.active { display: block; }
         .error { color: #f00; }
-        .success { color: #0f0; }
-        .warning { color: #ff0; }
-        .info { color: #0af; }
-        #mobile-console { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 30vh; background: #000; border-top: 2px solid #0f0; overflow-y: auto; padding: 10px; font-size: 10px; z-index: 1000; }
-        #mobile-console.visible { display: block; }
-        #console-toggle { display: none; position: fixed; bottom: 10px; right: 10px; background: #0f0; color: #000; border: none; padding: 10px 15px; font-family: 'Courier New', monospace; font-weight: bold; cursor: pointer; z-index: 1001; box-shadow: 0 0 10px #0f0; }
-        #console-toggle.visible { display: block; }
-        .console-line { margin: 2px 0; word-break: break-word; }
-        @media (max-width: 768px) { #setup-screen { height: 70vh; } }
     </style>
 </head>
 <body>
-    <div id="terminal-container">
-        <div id="setup-screen">
-            <div id="ascii-art">
-    ██████╗ ██╗ ██████╗ ██╗████████╗███████╗
-    ██╔══██╗██║██╔════╝ ██║╚══██╔══╝╚══███╔╝
-    ██║  ██║██║██║  ███╗██║   ██║     ███╔╝ 
-    ██║  ██║██║██║   ██║██║   ██║    ███╔╝  
-    ██████╔╝██║╚██████╔╝██║   ██║   ███████╗
-    ╚═════╝ ╚═╝ ╚═════╝ ╚═╝   ╚═╝   ╚══════╝
-           CheerpX Web VM Loader
-            </div>
-            <div id="satellite-container">
-                <div id="cdn-label">📡 Initializing...</div>
-                <div id="satellite">🛰️</div>
-                <div id="signal-beam"></div>
-                <div id="connection-dots">
-                    <div class="dot"></div>
-                    <div class="dot"></div>
-                    <div class="dot"></div>
-                </div>
-                <div id="base-station">📡</div>
-            </div>
-            <div id="setup-log"></div>
-            <div id="progress-container">
-                <div id="progress-bar"></div>
-                <div id="progress-text">0%</div>
-            </div>
-        </div>
-        <div id="terminal"></div>
-    </div>
-    <button id="console-toggle">Console</button>
-    <div id="mobile-console"></div>
+    <div id="status">Initializing CheerpX VM...</div>
+    <div id="progress"><div id="bar"></div><div id="pct">0%</div></div>
+    <div id="terminal"></div>
 
     <script type="module">
-        const $ = id => document.getElementById(id);
-        const setupLog = $('setup-log'), progressBar = $('progress-bar'), progressText = $('progress-text');
-        const setupScreen = $('setup-screen'), terminal = $('terminal'), cdnLabel = $('cdn-label');
-        const mobileConsole = $('mobile-console'), consoleToggle = $('console-toggle');
-        
-        let cx, currentProgress = 0, consoleVisible = false;
-        const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test((navigator.userAgent || '').toLowerCase()) || 
-                         ('ontouchstart' in window && window.innerWidth <= 768);
-        
-        if (isMobile) {
-            consoleToggle.classList.add('visible');
-            consoleToggle.onclick = () => {
-                consoleVisible = !consoleVisible;
-                mobileConsole.classList.toggle('visible');
-                consoleToggle.textContent = consoleVisible ? 'Hide Console' : 'Console';
-            };
-            const logToConsole = (msg, type) => {
-                const line = document.createElement('div');
-                line.className = `console-line ${type}`;
-                line.textContent = msg;
-                mobileConsole.appendChild(line);
-                mobileConsole.scrollTop = mobileConsole.scrollHeight;
-            };
-            ['log', 'error', 'warn'].forEach(method => {
-                const orig = console[method];
-                console[method] = (...args) => {
-                    orig.apply(console, args);
-                    logToConsole((method === 'error' ? 'ERROR: ' : method === 'warn' ? 'WARN: ' : '') + args.join(' '), 
-                                method === 'error' ? 'error' : method === 'warn' ? 'warning' : 'info');
-                };
-            });
-        }
-        
-        function log(msg, type = 'info') {
-            const line = document.createElement('div');
-            line.className = `log-line ${type}`;
-            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            setupLog.appendChild(line);
-            setupLog.scrollTop = setupLog.scrollHeight;
-            console.log(`[${type.toUpperCase()}] ${msg}`);
-        }
-        
-        function updateProgress(pct, msg) {
-            currentProgress = Math.min(100, pct);
-            progressBar.style.width = currentProgress + '%';
-            progressText.textContent = Math.floor(currentProgress) + '%';
+        const status = document.getElementById('status');
+        const bar = document.getElementById('bar');
+        const pct = document.getElementById('pct');
+        const terminal = document.getElementById('terminal');
+        let cx;
+
+        const log = (msg, err) => {
+            status.innerHTML = msg;
+            if (err) status.className = 'error';
+            console.log(msg);
+        };
+
+        const progress = (p, msg) => {
+            bar.style.width = p + '%';
+            pct.textContent = Math.floor(p) + '%';
             if (msg) log(msg);
-        }
-        
-        function runDiagnostics() {
-            log('=== DIAGNOSTICS ===', 'info');
-            log(`Protocol: ${location.protocol}`, 'info');
-            log(`Secure: ${isSecureContext}`, 'info');
-            log(`Cross-Origin: ${crossOriginIsolated}`, 'info');
-            log(`SharedArrayBuffer: ${typeof SharedArrayBuffer !== 'undefined' ? 'OK' : 'MISSING'}`, 
-                typeof SharedArrayBuffer !== 'undefined' ? 'success' : 'error');
-            log('==================', 'info');
-        }
-        
-        async function initializeVM() {
-            try {
-                log('Initializing VM...', 'info');
-                updateProgress(5, 'Loading CheerpX...');
-                cdnLabel.textContent = '🛰️ Downloading...';
-                
-                if (typeof CheerpX === 'undefined') {
-                    await import('https://cxrtnc.leaningtech.com/1.0.7/cx.js');
-                }
-                updateProgress(10, 'CheerpX loaded');
-                cdnLabel.textContent = '✅ Connected';
-                
-                log('Creating storage devices...', 'info');
-                const idbDevice = await CheerpX.IDBDevice.create("digitz-storage");
-                updateProgress(15, 'Storage ready');
-                
-                log('Loading Debian mini disk image...', 'warning');
-                log('This may take 30-60 seconds on first load...', 'info');
-                cdnLabel.textContent = '📡 Loading disk image...';
-                
-                updateProgress(18, 'Connecting to disk server...');
-                
+        };
+
+        const loadDisk = async () => {
+            const methods = [
+                { t: 30000, fn: () => CheerpX.CloudDevice.create("wss://disks.webvm.io/debian_large_20230522_5044875331.ext2") },
+                { t: 45000, fn: () => CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_mini_20230519_5022088024.ext2") }
+            ];
+            
+            for (const m of methods) {
                 try {
-                    // Try the official webvm.io disk server first
-                    const httpDevice = await Promise.race([
-                        CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_mini_20230519_5022088024.ext2"),
-                        new Promise((_, reject) => 
-                            setTimeout(() => reject(new Error('Disk load timeout after 60s')), 60000)
-                        )
-                    ]);
-                    
-                    updateProgress(22, 'Creating overlay filesystem...');
-                    const overlayDevice = await CheerpX.OverlayDevice.create(httpDevice, idbDevice);
-                    
-                    updateProgress(25, 'Disk image ready');
-                    cdnLabel.textContent = '✅ Disk ready';
-                    log('Filesystem configured successfully', 'success');
-                    
-                    const webDevice = await CheerpX.WebDevice.create("");
-                    updateProgress(30, 'Web device ready');
-                    
-                    log('Creating Linux environment...', 'info');
-                    cx = await CheerpX.Linux.create({
-                        mounts: [
-                            { type: "ext2", path: "/", dev: overlayDevice },
-                            { type: "dir", path: "/app", dev: webDevice },
-                            { type: "devs", path: "/dev" }
-                        ]
-                    });
-                    updateProgress(40, 'VM created successfully');
-                    log('Virtual machine ready!', 'success');
-                    return cx;
-                    
-                } catch (diskError) {
-                    log(`Disk loading failed: ${diskError.message}`, 'error');
-                    log('Possible causes:', 'warning');
-                    log('1. Network issues or slow connection', 'warning');
-                    log('2. Disk server temporarily unavailable', 'warning');
-                    log('3. Browser blocking cross-origin requests', 'warning');
-                    throw diskError;
+                    return await Promise.race([m.fn(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), m.t))]);
+                } catch (e) {
+                    if (m === methods[methods.length - 1]) throw e;
                 }
-                
-            } catch (error) {
-                log(`VM init failed: ${error.message}`, 'error');
-                log(`Stack: ${error.stack}`, 'error');
-                throw error;
             }
-        }
-        
-        async function setupEnvironment() {
+        };
+
+        const init = async () => {
             try {
-                log('Setting up environment...', 'info');
-                updateProgress(45, 'Updating packages...');
-                await cx.run("/bin/bash", ["-c", "apt-get update > /dev/null 2>&1 || true"], 
-                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"], cwd: "/root" });
+                if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
+                    log('Waiting for cross-origin isolation...');
+                    for (let i = 0; i < 20; i++) {
+                        await new Promise(r => setTimeout(r, 500));
+                        if (window.crossOriginIsolated) break;
+                    }
+                    if (!window.crossOriginIsolated) throw new Error('Cross-origin isolation failed');
+                }
+
+                progress(10, 'Loading disk...');
+                const idb = await CheerpX.IDBDevice.create("digitz");
+                const disk = await loadDisk();
+                progress(40, 'Creating filesystem...');
+                const overlay = await CheerpX.OverlayDevice.create(disk, idb);
+                const web = await CheerpX.WebDevice.create("");
                 
-                updateProgress(55, 'Installing dependencies...');
-                await cx.run("/bin/bash", ["-c", "apt-get install -y python3 python3-pip libncurses5-dev libncursesw5-dev build-essential git wget g++ > /dev/null 2>&1 || true"], 
-                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"], cwd: "/root" });
-                updateProgress(70, 'Dependencies installed');
-            } catch (error) {
-                log(`Setup error: ${error.message}`, 'warning');
-            }
-        }
-        
-        async function downloadAndCompileDigitz() {
-            try {
-                log('Downloading Digitz...', 'info');
-                updateProgress(75, 'Cloning repo...');
-                await cx.run("/bin/bash", ["-c", "cd /root && git clone https://github.com/christopherfoxjr/Digitz.git 2>&1 || true"], 
-                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"], cwd: "/root" });
+                progress(60, 'Starting VM...');
+                cx = await CheerpX.Linux.create({
+                    mounts: [
+                        { type: "ext2", path: "/", dev: overlay },
+                        { type: "dir", path: "/app", dev: web },
+                        { type: "devs", path: "/dev" }
+                    ]
+                });
+
+                progress(70, 'Installing tools...');
+                const env = ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"];
+                await cx.run("/bin/bash", ["-c", "apt-get update && apt-get install -y git gcc make libncurses5-dev 2>&1 || true"], { env, cwd: "/root" });
                 
-                updateProgress(80, 'Compiling...');
-                await cx.run("/bin/bash", ["-c", "cd /root/Digitz && make 2>&1 || true"], 
-                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"], cwd: "/root/Digitz" });
-                
-                updateProgress(85, 'Installing...');
-                await cx.run("/bin/bash", ["-c", "cd /root/Digitz && if [ -f output/digitz ]; then cp output/digitz /usr/local/bin/digitz && chmod +x /usr/local/bin/digitz; fi || true"], 
-                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"], cwd: "/root/Digitz" });
-                updateProgress(90, 'Digitz installed');
-                log('Compilation complete!', 'success');
-            } catch (error) {
-                log(`Compile error: ${error.message}`, 'error');
-            }
-        }
-        
-        async function launchTerminal() {
-            try {
-                updateProgress(95, 'Launching terminal...');
-                await new Promise(r => setTimeout(r, 1000));
-                updateProgress(100, 'Complete!');
+                progress(85, 'Building Digitz...');
+                await cx.run("/bin/bash", ["-c", "git clone https://github.com/christopherfoxjr/Digitz.git && cd Digitz && make && cp output/digitz /usr/local/bin/ 2>&1 || true"], { env, cwd: "/root" });
+
+                progress(100, 'Ready!');
                 await new Promise(r => setTimeout(r, 500));
                 
-                setupScreen.style.display = 'none';
+                document.getElementById('status').style.display = 'none';
+                document.getElementById('progress').style.display = 'none';
                 terminal.classList.add('active');
                 cx.setConsole(terminal);
                 
-                await cx.run("/bin/bash", ["-c", "echo 'Welcome to CheerpX Web VM!' && echo 'Type \"digitz\" to start!' && echo '' && /bin/bash"], 
-                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "TERM=xterm-256color"], cwd: "/root" });
-            } catch (error) {
-                log(`Terminal error: ${error.message}`, 'error');
+                await cx.run("/bin/bash", ["--login"], {
+                    env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "TERM=xterm-256color", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+                    cwd: "/root",
+                    uid: 0,
+                    gid: 0
+                });
+            } catch (e) {
+                log('ERROR: ' + e.message, true);
             }
-        }
-        
-        async function main() {
-            try {
-                runDiagnostics();
-                if (typeof SharedArrayBuffer === 'undefined') {
-                    log('SharedArrayBuffer missing!', 'error');
-                    log('Waiting for service worker reload...', 'warning');
-                    await new Promise(r => setTimeout(r, 5000));
-                    log('Still waiting... refresh manually if stuck', 'error');
-                    return;
-                }
-                log('Starting VM (may take several minutes)...', 'success');
-                await initializeVM();
-                await setupEnvironment();
-                await downloadAndCompileDigitz();
-                await launchTerminal();
-            } catch (error) {
-                log(`FATAL: ${error.message}`, 'error');
-                log(`Stack: ${error.stack}`, 'error');
-            }
-        }
-        
-        setTimeout(main, 1000);
+        };
+
+        setTimeout(init, 2000);
     </script>
 </body>
 </html>
