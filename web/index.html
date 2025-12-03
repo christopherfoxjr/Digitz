@@ -137,6 +137,52 @@
             log('==================', 'info');
         }
         
+        async function downloadWithProgress(url) {
+            const response = await fetch(url);
+            const contentLength = response.headers.get('Content-Length');
+            const total = parseInt(contentLength, 10);
+            
+            log(`Starting download: ${(total / 1024 / 1024).toFixed(1)} MB`, 'info');
+            
+            const reader = response.body.getReader();
+            const chunks = [];
+            let receivedLength = 0;
+            let startTime = Date.now();
+            let lastLogTime = startTime;
+            
+            while(true) {
+                const {done, value} = await reader.read();
+                if (done) break;
+                
+                chunks.push(value);
+                receivedLength += value.length;
+                
+                const now = Date.now();
+                const elapsed = (now - startTime) / 1000;
+                const elapsedSinceLog = (now - lastLogTime) / 1000;
+                
+                if (elapsedSinceLog >= 2) {
+                    const percent = ((receivedLength / total) * 100).toFixed(1);
+                    const mbDownloaded = (receivedLength / 1024 / 1024).toFixed(1);
+                    const mbTotal = (total / 1024 / 1024).toFixed(1);
+                    const mbps = ((receivedLength / elapsed) / 1024 / 1024 * 8).toFixed(2);
+                    
+                    const progress = 15 + (receivedLength / total) * 10;
+                    updateProgress(progress, null);
+                    log(`Downloaded: ${mbDownloaded} MB / ${mbTotal} MB (${percent}%) - ${mbps} Mbps`, 'info');
+                    
+                    lastLogTime = now;
+                }
+            }
+            
+            const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+            const avgMbps = ((receivedLength / (Date.now() - startTime) * 1000) / 1024 / 1024 * 8).toFixed(2);
+            log(`Download complete in ${totalTime}s (avg ${avgMbps} Mbps)`, 'success');
+            
+            const blob = new Blob(chunks);
+            return await blob.arrayBuffer();
+        }
+        
         async function initializeVM() {
             try {
                 log('Initializing VM...', 'info');
@@ -156,39 +202,16 @@
                 cdnLabel.textContent = '⬇️ Downloading disk...';
                 
                 const diskUrl = "https://github.com/JohnnyNetsec/webvm/releases/download/ext2_image/debian_mini_20250206_13186456973.ext2";
-                const estimatedSize = 150; // MB
                 
-                let startTime = Date.now();
-                let lastLogTime = startTime;
-                let downloadProgress = 15;
-                let progressPercent = 0;
+                const diskData = await downloadWithProgress(diskUrl);
                 
-                const progressInterval = setInterval(() => {
-                    const elapsed = (Date.now() - startTime) / 1000; // seconds
-                    progressPercent += 10;
-                    downloadProgress = 15 + (progressPercent / 100) * 10;
-                    
-                    if (downloadProgress < 24.9) {
-                        const estimatedMB = (progressPercent / 100) * estimatedSize;
-                        const mbps = estimatedMB / elapsed * 8; // Convert to megabits per second
-                        
-                        updateProgress(downloadProgress, null);
-                        log(`Downloaded: ${estimatedMB.toFixed(1)} MB / ${estimatedSize} MB (${progressPercent}%) - ${mbps.toFixed(2)} Mbps`, 'info');
-                    }
-                }, 3000);
+                updateProgress(25, 'Creating filesystem...');
+                cdnLabel.textContent = '✅ Disk loaded';
                 
                 const overlayDevice = await CheerpX.OverlayDevice.create(
-                    await CheerpX.HttpBytesDevice.create(diskUrl),
+                    await CheerpX.DataDevice.create(new Uint8Array(diskData)),
                     idbDevice
                 );
-                
-                clearInterval(progressInterval);
-                const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-                const avgSpeed = (estimatedSize / (Date.now() - startTime) * 1000 * 8).toFixed(2);
-                
-                updateProgress(25, 'Download complete!');
-                log(`Disk downloaded successfully in ${totalTime}s (avg ${avgSpeed} Mbps)`, 'success');
-                cdnLabel.textContent = '✅ Disk loaded';
                 
                 const webDevice = await CheerpX.WebDevice.create("");
                 updateProgress(30, 'Web device ready');
