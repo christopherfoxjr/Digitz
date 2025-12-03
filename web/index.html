@@ -153,36 +153,52 @@
                 const idbDevice = await CheerpX.IDBDevice.create("digitz-storage");
                 updateProgress(15, 'Storage ready');
                 
-                log('Setting up Debian mini disk image...', 'warning');
-                log('Note: CheerpX streams data on-demand (no large download)', 'info');
+                log('Loading Debian mini disk image...', 'warning');
+                log('This may take 30-60 seconds on first load...', 'info');
                 cdnLabel.textContent = '📡 Loading disk image...';
                 
-                const diskUrl = "https://disks.webvm.io/debian_mini_20230519_5022088024.ext2";
+                updateProgress(18, 'Connecting to disk server...');
                 
-                updateProgress(18, 'Creating HTTP block device...');
-                const httpDevice = await CheerpX.HttpBytesDevice.create(diskUrl);
+                try {
+                    // Try the official webvm.io disk server first
+                    const httpDevice = await Promise.race([
+                        CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_mini_20230519_5022088024.ext2"),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Disk load timeout after 60s')), 60000)
+                        )
+                    ]);
+                    
+                    updateProgress(22, 'Creating overlay filesystem...');
+                    const overlayDevice = await CheerpX.OverlayDevice.create(httpDevice, idbDevice);
+                    
+                    updateProgress(25, 'Disk image ready');
+                    cdnLabel.textContent = '✅ Disk ready';
+                    log('Filesystem configured successfully', 'success');
+                    
+                    const webDevice = await CheerpX.WebDevice.create("");
+                    updateProgress(30, 'Web device ready');
+                    
+                    log('Creating Linux environment...', 'info');
+                    cx = await CheerpX.Linux.create({
+                        mounts: [
+                            { type: "ext2", path: "/", dev: overlayDevice },
+                            { type: "dir", path: "/app", dev: webDevice },
+                            { type: "devs", path: "/dev" }
+                        ]
+                    });
+                    updateProgress(40, 'VM created successfully');
+                    log('Virtual machine ready!', 'success');
+                    return cx;
+                    
+                } catch (diskError) {
+                    log(`Disk loading failed: ${diskError.message}`, 'error');
+                    log('Possible causes:', 'warning');
+                    log('1. Network issues or slow connection', 'warning');
+                    log('2. Disk server temporarily unavailable', 'warning');
+                    log('3. Browser blocking cross-origin requests', 'warning');
+                    throw diskError;
+                }
                 
-                updateProgress(22, 'Creating overlay device...');
-                const overlayDevice = await CheerpX.OverlayDevice.create(httpDevice, idbDevice);
-                
-                updateProgress(25, 'Disk image ready (streaming)');
-                cdnLabel.textContent = '✅ Disk ready';
-                log('Filesystem configured successfully', 'success');
-                
-                const webDevice = await CheerpX.WebDevice.create("");
-                updateProgress(30, 'Web device ready');
-                
-                log('Creating Linux environment...', 'info');
-                cx = await CheerpX.Linux.create({
-                    mounts: [
-                        { type: "ext2", path: "/", dev: overlayDevice },
-                        { type: "dir", path: "/app", dev: webDevice },
-                        { type: "devs", path: "/dev" }
-                    ]
-                });
-                updateProgress(40, 'VM created successfully');
-                log('Virtual machine ready!', 'success');
-                return cx;
             } catch (error) {
                 log(`VM init failed: ${error.message}`, 'error');
                 log(`Stack: ${error.stack}`, 'error');
