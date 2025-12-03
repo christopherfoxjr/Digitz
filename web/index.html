@@ -152,15 +152,26 @@
                 const idbDevice = await CheerpX.IDBDevice.create("digitz-storage");
                 updateProgress(15, 'Storage ready');
                 
+                log('Downloading Debian disk image (this takes 2-5 minutes)...', 'warning');
+                cdnLabel.textContent = '⬇️ Downloading disk image...';
+                
+                const diskProgress = setInterval(() => {
+                    const p = 15 + Math.random() * 2;
+                    if (currentProgress < 24) updateProgress(p, null);
+                }, 3000);
+                
                 const overlayDevice = await CheerpX.OverlayDevice.create(
                     await CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_large_20230522_5044875331.ext2"),
                     idbDevice
                 );
+                clearInterval(diskProgress);
                 updateProgress(25, 'Filesystem ready');
+                cdnLabel.textContent = '✅ Disk loaded';
                 
                 const webDevice = await CheerpX.WebDevice.create("");
                 updateProgress(30, 'Web device ready');
                 
+                log('Creating Linux environment...', 'info');
                 cx = await CheerpX.Linux.create({
                     mounts: [
                         { type: "ext2", path: "/", dev: overlayDevice },
