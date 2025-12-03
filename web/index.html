@@ -233,48 +233,9 @@
         .warning {
             color: #ff0;
         }
-
-        #instructions {
-            background: #001100;
-            border: 2px solid #0f0;
-            padding: 20px;
-            margin: 20px;
-            max-width: 600px;
-            text-align: left;
-        }
-
-        #instructions h2 {
-            color: #0f0;
-            margin-bottom: 15px;
-        }
-
-        #instructions ol {
-            margin-left: 20px;
-            line-height: 1.8;
-        }
-
-        #instructions code {
-            background: #003300;
-            padding: 2px 6px;
-            border-radius: 3px;
-        }
-
-        #continue-button {
-            margin-top: 20px;
-            padding: 10px 30px;
-            background: #0f0;
-            color: #000;
-            border: none;
-            font-family: 'Courier New', monospace;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 0 10px #0f0;
-        }
-
-        #continue-button:hover {
-            background: #0f0;
-            box-shadow: 0 0 20px #0f0;
+        
+        .info {
+            color: #0af;
         }
     </style>
 </head>
@@ -291,14 +252,8 @@
            CheerpX Web VM Loader
             </div>
 
-            <div id="instructions" style="display: none;">
-                <h2>⚠️ Loading Service Worker...</h2>
-                <p style="margin-bottom: 15px;">Setting up cross-origin isolation... This page will reload automatically.</p>
-                <p style="color: #0f0;">If this message persists, try refreshing manually.</p>
-            </div>
-
-            <div id="satellite-container" style="display: none;">
-                <div id="cdn-label">📡 Connecting to CDN...</div>
+            <div id="satellite-container">
+                <div id="cdn-label">📡 Initializing...</div>
                 <div id="satellite">🛰️</div>
                 <div id="signal-beam"></div>
                 <div id="connection-dots">
@@ -309,7 +264,7 @@
                 <div id="base-station">📡</div>
             </div>
             <div id="setup-log"></div>
-            <div id="progress-container" style="display: none;">
+            <div id="progress-container">
                 <div id="progress-bar"></div>
                 <div id="progress-text">0%</div>
             </div>
@@ -323,9 +278,9 @@
         const progressText = document.getElementById('progress-text');
         const setupScreen = document.getElementById('setup-screen');
         const terminal = document.getElementById('terminal');
-        const instructions = document.getElementById('instructions');
         const satelliteContainer = document.getElementById('satellite-container');
         const progressContainer = document.getElementById('progress-container');
+        const cdnLabel = document.getElementById('cdn-label');
         
         let cx;
         let currentProgress = 0;
@@ -336,6 +291,7 @@
             line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
             setupLog.appendChild(line);
             setupLog.scrollTop = setupLog.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
         }
         
         function updateProgress(percent, message) {
@@ -349,21 +305,15 @@
             return new Promise(resolve => setTimeout(resolve, ms));
         }
         
-        function showLoadingMessage() {
-            // Show the loading message briefly
-            const instructions = document.getElementById('instructions');
-            if (instructions) {
-                instructions.style.display = 'block';
-            }
-        }
-        
-        function hideLoadingMessage() {
-            const instructions = document.getElementById('instructions');
-            if (instructions) {
-                instructions.style.display = 'none';
-            }
-            satelliteContainer.style.display = 'block';
-            progressContainer.style.display = 'block';
+        // Diagnostic check on load
+        function runDiagnostics() {
+            log('=== SYSTEM DIAGNOSTICS ===', 'info');
+            log(`Protocol: ${window.location.protocol}`, 'info');
+            log(`Secure Context: ${window.isSecureContext}`, 'info');
+            log(`Cross-Origin Isolated: ${window.crossOriginIsolated}`, 'info');
+            log(`SharedArrayBuffer: ${typeof SharedArrayBuffer !== 'undefined' ? 'Available' : 'NOT AVAILABLE'}`, 
+                typeof SharedArrayBuffer !== 'undefined' ? 'success' : 'error');
+            log('=========================', 'info');
         }
         
         async function initializeVM() {
@@ -371,25 +321,33 @@
                 log('Initializing CheerpX virtual machine...', 'info');
                 updateProgress(5, 'Loading CheerpX engine...');
                 
-                // Update satellite animation
-                document.getElementById('cdn-label').textContent = '🛰️ Downloading from CDN...';
+                cdnLabel.textContent = '🛰️ Downloading from CDN...';
                 
-                // Load CheerpX
-                await import('https://cxrtnc.leaningtech.com/1.0.7/cx.js');
+                // Check if CheerpX is already loaded
+                if (typeof CheerpX === 'undefined') {
+                    log('Importing CheerpX from CDN...', 'info');
+                    await import('https://cxrtnc.leaningtech.com/1.0.7/cx.js');
+                    log('CheerpX module loaded', 'success');
+                } else {
+                    log('CheerpX already available', 'success');
+                }
                 
                 updateProgress(10, 'CheerpX loaded from CDN');
-                document.getElementById('cdn-label').textContent = '✅ Connected to CheerpX CDN';
+                cdnLabel.textContent = '✅ Connected to CheerpX CDN';
                 
                 // Create the CheerpX Linux instance
+                log('Creating IDB storage device...', 'info');
                 const idbDevice = await CheerpX.IDBDevice.create("digitz-storage");
                 updateProgress(15, 'Storage device initialized');
                 
+                log('Creating overlay filesystem...', 'info');
                 const overlayDevice = await CheerpX.OverlayDevice.create(
                     await CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_large_20230522_5044875331.ext2"),
                     idbDevice
                 );
                 updateProgress(25, 'Overlay filesystem created');
                 
+                log('Initializing web device...', 'info');
                 const webDevice = await CheerpX.WebDevice.create("");
                 updateProgress(30, 'Web device initialized');
                 
@@ -403,11 +361,13 @@
                 });
                 
                 updateProgress(40, 'Virtual machine created successfully');
+                log('VM initialization complete!', 'success');
                 
                 return cx;
                 
             } catch (error) {
-                log(`VM initialization failed: ${error.message}`, 'error');
+                log(`VM initialization FAILED: ${error.message}`, 'error');
+                log(`Error stack: ${error.stack}`, 'error');
                 throw error;
             }
         }
@@ -436,6 +396,7 @@
                 
             } catch (error) {
                 log(`Environment setup error: ${error.message}`, 'warning');
+                log(`Error details: ${error.stack}`, 'warning');
             }
         }
         
@@ -475,6 +436,7 @@
                 
             } catch (error) {
                 log(`Compilation error: ${error.message}`, 'error');
+                log(`Error details: ${error.stack}`, 'error');
             }
         }
         
@@ -514,25 +476,33 @@
                 });
                 
             } catch (error) {
+                log(`Error launching terminal: ${error.message}`, 'error');
+                log(`Error details: ${error.stack}`, 'error');
                 terminal.innerHTML += `\n<span class="error">Error launching terminal: ${error.message}</span>\n`;
             }
         }
         
         async function main() {
-            // Check if SharedArrayBuffer is available
-            if (typeof SharedArrayBuffer === 'undefined') {
-                // Show loading message and wait for reload
-                showLoadingMessage();
-                log('Cross-origin isolation not ready, waiting for service worker...', 'warning');
-                // Service worker will reload the page
-                return;
-            }
-            
-            // Hide instructions, show loading UI
-            hideLoadingMessage();
-            
             try {
-                log('Starting CheerpX Web VM setup...', 'info');
+                // Run diagnostics first
+                runDiagnostics();
+                
+                // Check if SharedArrayBuffer is available
+                if (typeof SharedArrayBuffer === 'undefined') {
+                    log('SharedArrayBuffer is NOT available!', 'error');
+                    log('Waiting for service worker to reload page...', 'warning');
+                    log('If this persists after reload, check:', 'warning');
+                    log('1. Are you using HTTPS or localhost?', 'warning');
+                    log('2. Is coi-serviceworker.min.js in the same directory?', 'warning');
+                    log('3. Check browser console for errors', 'warning');
+                    
+                    // Wait to see if service worker will reload
+                    await sleep(5000);
+                    log('Still waiting... If stuck, please refresh manually', 'error');
+                    return;
+                }
+                
+                log('SharedArrayBuffer is available! Starting VM...', 'success');
                 log('This may take a few minutes on first run...', 'warning');
                 
                 await initializeVM();
@@ -541,13 +511,14 @@
                 await launchTerminal();
                 
             } catch (error) {
-                log(`Fatal error: ${error.message}`, 'error');
-                log('Please refresh the page to try again.', 'warning');
+                log(`FATAL ERROR: ${error.message}`, 'error');
+                log(`Full error: ${error.stack}`, 'error');
+                log('Please check the console and refresh the page to try again.', 'warning');
             }
         }
         
-        // Wait a bit for service worker to be ready, then start
-        setTimeout(main, 100);
+        // Start after a short delay
+        setTimeout(main, 1000);
     </script>
 </body>
 </html>
