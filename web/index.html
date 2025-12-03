@@ -152,28 +152,42 @@
                 const idbDevice = await CheerpX.IDBDevice.create("digitz-storage");
                 updateProgress(15, 'Storage ready');
                 
-                log('Downloading Debian mini disk (~150MB, may take 1-3 min)...', 'warning');
-                log('Progress will update every few seconds...', 'info');
+                log('Downloading custom Debian mini disk...', 'warning');
                 cdnLabel.textContent = '⬇️ Downloading disk...';
                 
+                const diskUrl = "https://github.com/JohnnyNetsec/webvm/releases/download/ext2_image/debian_mini_20250206_13186456973.ext2";
+                const estimatedSize = 150; // MB
+                
+                let startTime = Date.now();
+                let lastLogTime = startTime;
                 let downloadProgress = 15;
                 let progressPercent = 0;
+                
                 const progressInterval = setInterval(() => {
+                    const elapsed = (Date.now() - startTime) / 1000; // seconds
                     progressPercent += 10;
                     downloadProgress = 15 + (progressPercent / 100) * 10;
+                    
                     if (downloadProgress < 24.9) {
+                        const estimatedMB = (progressPercent / 100) * estimatedSize;
+                        const mbps = estimatedMB / elapsed * 8; // Convert to megabits per second
+                        
                         updateProgress(downloadProgress, null);
-                        log(`Download progress: ${progressPercent}%`, 'info');
+                        log(`Downloaded: ${estimatedMB.toFixed(1)} MB / ${estimatedSize} MB (${progressPercent}%) - ${mbps.toFixed(2)} Mbps`, 'info');
                     }
                 }, 3000);
                 
                 const overlayDevice = await CheerpX.OverlayDevice.create(
-                    await CheerpX.HttpBytesDevice.create("https://github.com/leaningtech/webvm/releases/download/ext2_image/debian_mini_20230519_5022088024.ext2"),
+                    await CheerpX.HttpBytesDevice.create(diskUrl),
                     idbDevice
                 );
+                
                 clearInterval(progressInterval);
+                const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+                const avgSpeed = (estimatedSize / (Date.now() - startTime) * 1000 * 8).toFixed(2);
+                
                 updateProgress(25, 'Download complete!');
-                log('Disk image downloaded successfully', 'success');
+                log(`Disk downloaded successfully in ${totalTime}s (avg ${avgSpeed} Mbps)`, 'success');
                 cdnLabel.textContent = '✅ Disk loaded';
                 
                 const webDevice = await CheerpX.WebDevice.create("");
