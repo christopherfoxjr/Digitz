@@ -158,23 +158,23 @@
                 await runCommand("apt-get update", "Running apt-get update...");
                 
                 progress(75, 'Installing packages...');
-                await runCommand("apt-get install -y git gcc make libncurses5-dev", "Installing git, gcc, make, ncurses...");
+                await runCommand("apt-get install -y git gcc make libncurses5-dev python3 python3-pip", "Installing git, gcc, make, ncurses, python3...");
                 
                 progress(85, 'Building Digitz...');
-                await runCommand("git clone https://github.com/christopherfoxjr/Digitz.git", "Cloning Digitz repository...");
+                await runCommand("git clone https://github.com/christopherfoxjr/Digitz", "Cloning Digitz repository...");
                 
                 progress(90, 'Compiling...');
                 await runCommand("cd Digitz && make", "Compiling with make...");
                 
                 progress(95, 'Installing...');
-                await runCommand("cd Digitz && cp output/digitz /usr/local/bin/ && chmod +x /usr/local/bin/digitz", "Installing Digitz binary...");
+                await runCommand("cd Digitz && cp output/digitz /usr/local/bin/digitz && chmod +x /usr/local/bin/digitz", "Installing Digitz binary...");
                 
                 // Restore console
                 cx.console = originalConsole;
 
                 progress(100, 'Ready!');
-                logConsole('Setup complete! Starting terminal...', 'success');
-                await new Promise(r => setTimeout(r, 1500));
+                logConsole('Setup complete! Launching Digitz...', 'success');
+                await new Promise(r => setTimeout(r, 1000));
                 
                 document.getElementById('header').style.display = 'none';
                 document.getElementById('status').style.display = 'none';
@@ -183,7 +183,8 @@
                 terminal.classList.add('active');
                 cx.setConsole(terminal);
                 
-                await cx.run("/bin/bash", ["--login"], {
+                // Run Digitz directly
+                await cx.run("/usr/local/bin/digitz", [], {
                     env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "TERM=xterm-256color", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
                     cwd: "/root",
                     uid: 0,
