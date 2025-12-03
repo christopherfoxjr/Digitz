@@ -152,26 +152,28 @@
                 const idbDevice = await CheerpX.IDBDevice.create("digitz-storage");
                 updateProgress(15, 'Storage ready');
                 
-                log('Downloading Debian mini disk (~150MB, 1-3 minutes)...', 'warning');
+                log('Downloading Debian mini disk (~150MB, may take 1-3 min)...', 'warning');
+                log('Progress will update every few seconds...', 'info');
                 cdnLabel.textContent = '⬇️ Downloading disk...';
                 
                 let downloadProgress = 15;
+                let progressPercent = 0;
                 const progressInterval = setInterval(() => {
-                    downloadProgress += 0.5;
-                    if (downloadProgress < 24) {
+                    progressPercent += 10;
+                    downloadProgress = 15 + (progressPercent / 100) * 10;
+                    if (downloadProgress < 24.9) {
                         updateProgress(downloadProgress, null);
-                        if (Math.floor(downloadProgress) % 2 === 0) {
-                            log(`Downloading... ${Math.floor(downloadProgress - 15)}%`, 'info');
-                        }
+                        log(`Download progress: ${progressPercent}%`, 'info');
                     }
-                }, 2000);
+                }, 3000);
                 
                 const overlayDevice = await CheerpX.OverlayDevice.create(
                     await CheerpX.HttpBytesDevice.create("https://github.com/leaningtech/webvm/releases/download/ext2_image/debian_mini_20230519_5022088024.ext2"),
                     idbDevice
                 );
                 clearInterval(progressInterval);
-                updateProgress(25, 'Disk downloaded and ready');
+                updateProgress(25, 'Download complete!');
+                log('Disk image downloaded successfully', 'success');
                 cdnLabel.textContent = '✅ Disk loaded';
                 
                 const webDevice = await CheerpX.WebDevice.create("");
