@@ -6,237 +6,41 @@
     <title>CheerpX Web VM - Digitz</title>
     <script src="coi-serviceworker.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Courier New', monospace;
-            background: #000;
-            color: #0f0;
-            overflow: hidden;
-            height: 100vh;
-            width: 100vw;
-        }
-        
-        #terminal-container {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        #setup-screen {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 10px;
-            box-sizing: border-box;
-        }
-        
-        #ascii-art {
-            white-space: pre;
-            font-size: clamp(6px, 1.5vw, 10px);
-            line-height: 1.2;
-            margin-bottom: clamp(10px, 3vh, 20px);
-            color: #0f0;
-            text-shadow: 0 0 5px #0f0;
-            text-align: center;
-            overflow: hidden;
-        }
-        
-        #satellite-container {
-            width: 90%;
-            max-width: 600px;
-            height: clamp(100px, 20vh, 150px);
-            position: relative;
-            margin-bottom: clamp(10px, 3vh, 20px);
-        }
-        
-        #base-station {
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: clamp(20px, 5vw, 40px);
-            color: #0f0;
-            text-shadow: 0 0 10px #0f0;
-        }
-        
-        #satellite {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: clamp(16px, 4vw, 30px);
-            animation: satelliteOrbit 3s ease-in-out infinite;
-            color: #0f0;
-            text-shadow: 0 0 10px #0f0;
-        }
-        
-        @keyframes satelliteOrbit {
-            0%, 100% {
-                top: 0;
-                left: 30%;
-            }
-            50% {
-                top: 0;
-                left: 70%;
-            }
-        }
-        
-        #signal-beam {
-            position: absolute;
-            bottom: clamp(20px, 5vh, 40px);
-            left: 50%;
-            width: 2px;
-            height: 0;
-            background: linear-gradient(to top, #0f0, transparent);
-            transform: translateX(-50%);
-            animation: signalPulse 1.5s ease-in-out infinite;
-            box-shadow: 0 0 10px #0f0;
-        }
-        
-        @keyframes signalPulse {
-            0%, 100% {
-                height: 0;
-                opacity: 0;
-            }
-            50% {
-                height: clamp(50px, 12vh, 100px);
-                opacity: 1;
-            }
-        }
-        
-        #connection-dots {
-            position: absolute;
-            bottom: clamp(18px, 4.5vh, 35px);
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: clamp(3px, 0.8vw, 5px);
-        }
-        
-        .dot {
-            width: clamp(5px, 1.2vw, 8px);
-            height: clamp(5px, 1.2vw, 8px);
-            background: #0f0;
-            border-radius: 50%;
-            box-shadow: 0 0 5px #0f0;
-            animation: dotPulse 1.5s ease-in-out infinite;
-        }
-        
-        .dot:nth-child(2) {
-            animation-delay: 0.3s;
-        }
-        
-        .dot:nth-child(3) {
-            animation-delay: 0.6s;
-        }
-        
-        @keyframes dotPulse {
-            0%, 100% {
-                opacity: 0.3;
-                transform: scale(0.8);
-            }
-            50% {
-                opacity: 1;
-                transform: scale(1.2);
-            }
-        }
-        
-        #cdn-label {
-            position: absolute;
-            top: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: clamp(8px, 1.5vw, 10px);
-            color: #0f0;
-            white-space: nowrap;
-        }
-        
-        #setup-log {
-            width: 90%;
-            max-width: 800px;
-            margin-bottom: clamp(10px, 2vh, 20px);
-            max-height: clamp(150px, 30vh, 300px);
-            overflow-y: auto;
-            font-size: clamp(10px, 1.8vw, 14px);
-        }
-        
-        .log-line {
-            margin: 5px 0;
-            opacity: 0;
-            animation: fadeIn 0.3s forwards;
-        }
-        
-        @keyframes fadeIn {
-            to { opacity: 1; }
-        }
-        
-        #progress-container {
-            width: 90%;
-            max-width: 800px;
-            height: clamp(20px, 4vh, 30px);
-            border: 2px solid #0f0;
-            position: relative;
-            margin-top: clamp(5px, 1vh, 10px);
-        }
-        
-        #progress-bar {
-            height: 100%;
-            background: #0f0;
-            width: 0%;
-            transition: width 0.5s ease;
-            box-shadow: 0 0 10px #0f0;
-        }
-        
-        #progress-text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #000;
-            font-weight: bold;
-            mix-blend-mode: difference;
-            font-size: clamp(10px, 2vw, 14px);
-        }
-        
-        #terminal {
-            flex: 1;
-            background: #000;
-            padding: clamp(5px, 1.5vw, 10px);
-            overflow-y: auto;
-            display: none;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: clamp(10px, 1.8vw, 14px);
-        }
-        
-        #terminal.active {
-            display: block;
-        }
-        
-        .error {
-            color: #f00;
-        }
-        
-        .success {
-            color: #0f0;
-        }
-        
-        .warning {
-            color: #ff0;
-        }
-        
-        .info {
-            color: #0af;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Courier New', monospace; background: #000; color: #0f0; overflow: hidden; height: 100vh; }
+        #terminal-container { width: 100%; height: 100%; display: flex; flex-direction: column; }
+        #setup-screen { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; }
+        #ascii-art { white-space: pre; font-size: clamp(6px, 1.5vw, 10px); line-height: 1.2; margin-bottom: clamp(10px, 3vh, 20px); color: #0f0; text-shadow: 0 0 5px #0f0; text-align: center; }
+        #satellite-container { width: 90%; max-width: 600px; height: clamp(100px, 20vh, 150px); position: relative; margin-bottom: clamp(10px, 3vh, 20px); }
+        #base-station { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); font-size: clamp(20px, 5vw, 40px); color: #0f0; text-shadow: 0 0 10px #0f0; }
+        #satellite { position: absolute; top: 0; left: 50%; transform: translateX(-50%); font-size: clamp(16px, 4vw, 30px); animation: orbit 3s ease-in-out infinite; color: #0f0; text-shadow: 0 0 10px #0f0; }
+        @keyframes orbit { 0%, 100% { top: 0; left: 30%; } 50% { top: 0; left: 70%; } }
+        #signal-beam { position: absolute; bottom: clamp(20px, 5vh, 40px); left: 50%; width: 2px; height: 0; background: linear-gradient(to top, #0f0, transparent); transform: translateX(-50%); animation: pulse 1.5s ease-in-out infinite; box-shadow: 0 0 10px #0f0; }
+        @keyframes pulse { 0%, 100% { height: 0; opacity: 0; } 50% { height: clamp(50px, 12vh, 100px); opacity: 1; } }
+        #connection-dots { position: absolute; bottom: clamp(18px, 4.5vh, 35px); left: 50%; transform: translateX(-50%); display: flex; gap: clamp(3px, 0.8vw, 5px); }
+        .dot { width: clamp(5px, 1.2vw, 8px); height: clamp(5px, 1.2vw, 8px); background: #0f0; border-radius: 50%; box-shadow: 0 0 5px #0f0; animation: dotPulse 1.5s ease-in-out infinite; }
+        .dot:nth-child(2) { animation-delay: 0.3s; }
+        .dot:nth-child(3) { animation-delay: 0.6s; }
+        @keyframes dotPulse { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
+        #cdn-label { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: clamp(8px, 1.5vw, 10px); color: #0f0; white-space: nowrap; }
+        #setup-log { width: 90%; max-width: 800px; margin-bottom: clamp(10px, 2vh, 20px); max-height: clamp(150px, 30vh, 300px); overflow-y: auto; font-size: clamp(10px, 1.8vw, 14px); }
+        .log-line { margin: 5px 0; opacity: 0; animation: fadeIn 0.3s forwards; }
+        @keyframes fadeIn { to { opacity: 1; } }
+        #progress-container { width: 90%; max-width: 800px; height: clamp(20px, 4vh, 30px); border: 2px solid #0f0; position: relative; margin-top: clamp(5px, 1vh, 10px); }
+        #progress-bar { height: 100%; background: #0f0; width: 0%; transition: width 0.5s ease; box-shadow: 0 0 10px #0f0; }
+        #progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #000; font-weight: bold; mix-blend-mode: difference; font-size: clamp(10px, 2vw, 14px); }
+        #terminal { flex: 1; background: #000; padding: clamp(5px, 1.5vw, 10px); overflow-y: auto; display: none; white-space: pre-wrap; word-wrap: break-word; font-size: clamp(10px, 1.8vw, 14px); }
+        #terminal.active { display: block; }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .warning { color: #ff0; }
+        .info { color: #0af; }
+        #mobile-console { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 30vh; background: #000; border-top: 2px solid #0f0; overflow-y: auto; padding: 10px; font-size: 10px; z-index: 1000; }
+        #mobile-console.visible { display: block; }
+        #console-toggle { display: none; position: fixed; bottom: 10px; right: 10px; background: #0f0; color: #000; border: none; padding: 10px 15px; font-family: 'Courier New', monospace; font-weight: bold; cursor: pointer; z-index: 1001; box-shadow: 0 0 10px #0f0; }
+        #console-toggle.visible { display: block; }
+        .console-line { margin: 2px 0; word-break: break-word; }
+        @media (max-width: 768px) { #setup-screen { height: 70vh; } }
     </style>
 </head>
 <body>
@@ -251,7 +55,6 @@
     ╚═════╝ ╚═╝ ╚═════╝ ╚═╝   ╚═╝   ╚══════╝
            CheerpX Web VM Loader
             </div>
-
             <div id="satellite-container">
                 <div id="cdn-label">📡 Initializing...</div>
                 <div id="satellite">🛰️</div>
@@ -271,87 +74,93 @@
         </div>
         <div id="terminal"></div>
     </div>
+    <button id="console-toggle">Console</button>
+    <div id="mobile-console"></div>
 
     <script type="module">
-        const setupLog = document.getElementById('setup-log');
-        const progressBar = document.getElementById('progress-bar');
-        const progressText = document.getElementById('progress-text');
-        const setupScreen = document.getElementById('setup-screen');
-        const terminal = document.getElementById('terminal');
-        const satelliteContainer = document.getElementById('satellite-container');
-        const progressContainer = document.getElementById('progress-container');
-        const cdnLabel = document.getElementById('cdn-label');
+        const $ = id => document.getElementById(id);
+        const setupLog = $('setup-log'), progressBar = $('progress-bar'), progressText = $('progress-text');
+        const setupScreen = $('setup-screen'), terminal = $('terminal'), cdnLabel = $('cdn-label');
+        const mobileConsole = $('mobile-console'), consoleToggle = $('console-toggle');
         
-        let cx;
-        let currentProgress = 0;
+        let cx, currentProgress = 0, consoleVisible = false;
+        const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test((navigator.userAgent || '').toLowerCase()) || 
+                         ('ontouchstart' in window && window.innerWidth <= 768);
         
-        function log(message, type = 'info') {
+        if (isMobile) {
+            consoleToggle.classList.add('visible');
+            consoleToggle.onclick = () => {
+                consoleVisible = !consoleVisible;
+                mobileConsole.classList.toggle('visible');
+                consoleToggle.textContent = consoleVisible ? 'Hide Console' : 'Console';
+            };
+            const logToConsole = (msg, type) => {
+                const line = document.createElement('div');
+                line.className = `console-line ${type}`;
+                line.textContent = msg;
+                mobileConsole.appendChild(line);
+                mobileConsole.scrollTop = mobileConsole.scrollHeight;
+            };
+            ['log', 'error', 'warn'].forEach(method => {
+                const orig = console[method];
+                console[method] = (...args) => {
+                    orig.apply(console, args);
+                    logToConsole((method === 'error' ? 'ERROR: ' : method === 'warn' ? 'WARN: ' : '') + args.join(' '), 
+                                method === 'error' ? 'error' : method === 'warn' ? 'warning' : 'info');
+                };
+            });
+        }
+        
+        function log(msg, type = 'info') {
             const line = document.createElement('div');
             line.className = `log-line ${type}`;
-            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
             setupLog.appendChild(line);
             setupLog.scrollTop = setupLog.scrollHeight;
-            console.log(`[${type.toUpperCase()}] ${message}`);
+            console.log(`[${type.toUpperCase()}] ${msg}`);
         }
         
-        function updateProgress(percent, message) {
-            currentProgress = Math.min(100, percent);
+        function updateProgress(pct, msg) {
+            currentProgress = Math.min(100, pct);
             progressBar.style.width = currentProgress + '%';
             progressText.textContent = Math.floor(currentProgress) + '%';
-            if (message) log(message);
+            if (msg) log(msg);
         }
         
-        async function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-        
-        // Diagnostic check on load
         function runDiagnostics() {
-            log('=== SYSTEM DIAGNOSTICS ===', 'info');
-            log(`Protocol: ${window.location.protocol}`, 'info');
-            log(`Secure Context: ${window.isSecureContext}`, 'info');
-            log(`Cross-Origin Isolated: ${window.crossOriginIsolated}`, 'info');
-            log(`SharedArrayBuffer: ${typeof SharedArrayBuffer !== 'undefined' ? 'Available' : 'NOT AVAILABLE'}`, 
+            log('=== DIAGNOSTICS ===', 'info');
+            log(`Protocol: ${location.protocol}`, 'info');
+            log(`Secure: ${isSecureContext}`, 'info');
+            log(`Cross-Origin: ${crossOriginIsolated}`, 'info');
+            log(`SharedArrayBuffer: ${typeof SharedArrayBuffer !== 'undefined' ? 'OK' : 'MISSING'}`, 
                 typeof SharedArrayBuffer !== 'undefined' ? 'success' : 'error');
-            log('=========================', 'info');
+            log('==================', 'info');
         }
         
         async function initializeVM() {
             try {
-                log('Initializing CheerpX virtual machine...', 'info');
-                updateProgress(5, 'Loading CheerpX engine...');
+                log('Initializing VM...', 'info');
+                updateProgress(5, 'Loading CheerpX...');
+                cdnLabel.textContent = '🛰️ Downloading...';
                 
-                cdnLabel.textContent = '🛰️ Downloading from CDN...';
-                
-                // Check if CheerpX is already loaded
                 if (typeof CheerpX === 'undefined') {
-                    log('Importing CheerpX from CDN...', 'info');
                     await import('https://cxrtnc.leaningtech.com/1.0.7/cx.js');
-                    log('CheerpX module loaded', 'success');
-                } else {
-                    log('CheerpX already available', 'success');
                 }
+                updateProgress(10, 'CheerpX loaded');
+                cdnLabel.textContent = '✅ Connected';
                 
-                updateProgress(10, 'CheerpX loaded from CDN');
-                cdnLabel.textContent = '✅ Connected to CheerpX CDN';
-                
-                // Create the CheerpX Linux instance
-                log('Creating IDB storage device...', 'info');
                 const idbDevice = await CheerpX.IDBDevice.create("digitz-storage");
-                updateProgress(15, 'Storage device initialized');
+                updateProgress(15, 'Storage ready');
                 
-                log('Creating overlay filesystem...', 'info');
                 const overlayDevice = await CheerpX.OverlayDevice.create(
                     await CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_large_20230522_5044875331.ext2"),
                     idbDevice
                 );
-                updateProgress(25, 'Overlay filesystem created');
+                updateProgress(25, 'Filesystem ready');
                 
-                log('Initializing web device...', 'info');
                 const webDevice = await CheerpX.WebDevice.create("");
-                updateProgress(30, 'Web device initialized');
+                updateProgress(30, 'Web device ready');
                 
-                log('Creating Linux environment...', 'info');
                 cx = await CheerpX.Linux.create({
                     mounts: [
                         { type: "ext2", path: "/", dev: overlayDevice },
@@ -359,165 +168,91 @@
                         { type: "devs", path: "/dev" }
                     ]
                 });
-                
-                updateProgress(40, 'Virtual machine created successfully');
-                log('VM initialization complete!', 'success');
-                
+                updateProgress(40, 'VM created');
                 return cx;
-                
             } catch (error) {
-                log(`VM initialization FAILED: ${error.message}`, 'error');
-                log(`Error stack: ${error.stack}`, 'error');
+                log(`VM init failed: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
                 throw error;
             }
         }
         
         async function setupEnvironment() {
             try {
-                log('Setting up build environment...', 'info');
-                updateProgress(45, 'Updating package lists...');
+                log('Setting up environment...', 'info');
+                updateProgress(45, 'Updating packages...');
+                await cx.run("/bin/bash", ["-c", "apt-get update > /dev/null 2>&1 || true"], 
+                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"], cwd: "/root" });
                 
-                await cx.run("/bin/bash", ["-c", "apt-get update > /dev/null 2>&1 || true"], {
-                    env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
-                    cwd: "/root"
-                });
-                
-                updateProgress(55, 'Installing Python 3.11 and dependencies...');
-                log('Installing Python, ncurses, and build tools...', 'info');
-                
-                await cx.run("/bin/bash", ["-c", 
-                    "apt-get install -y python3 python3-pip libncurses5-dev libncursesw5-dev build-essential git wget g++ > /dev/null 2>&1 || true"
-                ], {
-                    env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"],
-                    cwd: "/root"
-                });
-                
+                updateProgress(55, 'Installing dependencies...');
+                await cx.run("/bin/bash", ["-c", "apt-get install -y python3 python3-pip libncurses5-dev libncursesw5-dev build-essential git wget g++ > /dev/null 2>&1 || true"], 
+                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"], cwd: "/root" });
                 updateProgress(70, 'Dependencies installed');
-                
             } catch (error) {
-                log(`Environment setup error: ${error.message}`, 'warning');
-                log(`Error details: ${error.stack}`, 'warning');
+                log(`Setup error: ${error.message}`, 'warning');
             }
         }
         
         async function downloadAndCompileDigitz() {
             try {
-                log('Downloading Digitz source code...', 'info');
-                updateProgress(75, 'Cloning repository...');
+                log('Downloading Digitz...', 'info');
+                updateProgress(75, 'Cloning repo...');
+                await cx.run("/bin/bash", ["-c", "cd /root && git clone https://github.com/christopherfoxjr/Digitz.git 2>&1 || true"], 
+                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"], cwd: "/root" });
                 
-                await cx.run("/bin/bash", ["-c", 
-                    "cd /root && git clone https://github.com/christopherfoxjr/Digitz.git 2>&1 || true"
-                ], {
-                    env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
-                    cwd: "/root"
-                });
+                updateProgress(80, 'Compiling...');
+                await cx.run("/bin/bash", ["-c", "cd /root/Digitz && make 2>&1 || true"], 
+                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"], cwd: "/root/Digitz" });
                 
-                updateProgress(80, 'Repository cloned');
-                log('Compiling Digitz with make...', 'info');
-                
-                await cx.run("/bin/bash", ["-c", 
-                    "cd /root/Digitz && make 2>&1 || true"
-                ], {
-                    env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
-                    cwd: "/root/Digitz"
-                });
-                
-                updateProgress(85, 'Compilation complete');
-                
-                await cx.run("/bin/bash", ["-c", 
-                    "cd /root/Digitz && if [ -f output/digitz ]; then cp output/digitz /usr/local/bin/digitz && chmod +x /usr/local/bin/digitz; fi || true"
-                ], {
-                    env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
-                    cwd: "/root/Digitz"
-                });
-                
-                updateProgress(90, 'Digitz installed to /usr/local/bin');
-                log('Digitz compiled and installed successfully!', 'success');
-                
+                updateProgress(85, 'Installing...');
+                await cx.run("/bin/bash", ["-c", "cd /root/Digitz && if [ -f output/digitz ]; then cp output/digitz /usr/local/bin/digitz && chmod +x /usr/local/bin/digitz; fi || true"], 
+                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"], cwd: "/root/Digitz" });
+                updateProgress(90, 'Digitz installed');
+                log('Compilation complete!', 'success');
             } catch (error) {
-                log(`Compilation error: ${error.message}`, 'error');
-                log(`Error details: ${error.stack}`, 'error');
+                log(`Compile error: ${error.message}`, 'error');
             }
         }
         
         async function launchTerminal() {
             try {
                 updateProgress(95, 'Launching terminal...');
-                log('Starting Digitz...', 'success');
-                
-                await sleep(1000);
-                updateProgress(100, 'Setup complete!');
-                await sleep(500);
+                await new Promise(r => setTimeout(r, 1000));
+                updateProgress(100, 'Complete!');
+                await new Promise(r => setTimeout(r, 500));
                 
                 setupScreen.style.display = 'none';
                 terminal.classList.add('active');
-                
                 cx.setConsole(terminal);
                 
-                await cx.run("/bin/bash", ["-c", 
-                    "echo 'Welcome to CheerpX Web VM!' && " +
-                    "echo 'Digitz is installed and ready to run.' && " +
-                    "echo '' && " +
-                    "echo 'Available commands:' && " +
-                    "echo '  digitz          - Run the Digitz program' && " +
-                    "echo '  python3         - Python 3 interpreter' && " +
-                    "echo '  ls, cd, pwd     - Basic shell commands' && " +
-                    "echo '' && " +
-                    "echo 'Type \"digitz\" to start or explore the system!' && " +
-                    "echo '' && " +
-                    "/bin/bash"
-                ], {
-                    env: [
-                        "HOME=/root", 
-                        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                        "TERM=xterm-256color"
-                    ],
-                    cwd: "/root"
-                });
-                
+                await cx.run("/bin/bash", ["-c", "echo 'Welcome to CheerpX Web VM!' && echo 'Type \"digitz\" to start!' && echo '' && /bin/bash"], 
+                    { env: ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "TERM=xterm-256color"], cwd: "/root" });
             } catch (error) {
-                log(`Error launching terminal: ${error.message}`, 'error');
-                log(`Error details: ${error.stack}`, 'error');
-                terminal.innerHTML += `\n<span class="error">Error launching terminal: ${error.message}</span>\n`;
+                log(`Terminal error: ${error.message}`, 'error');
             }
         }
         
         async function main() {
             try {
-                // Run diagnostics first
                 runDiagnostics();
-                
-                // Check if SharedArrayBuffer is available
                 if (typeof SharedArrayBuffer === 'undefined') {
-                    log('SharedArrayBuffer is NOT available!', 'error');
-                    log('Waiting for service worker to reload page...', 'warning');
-                    log('If this persists after reload, check:', 'warning');
-                    log('1. Are you using HTTPS or localhost?', 'warning');
-                    log('2. Is coi-serviceworker.min.js in the same directory?', 'warning');
-                    log('3. Check browser console for errors', 'warning');
-                    
-                    // Wait to see if service worker will reload
-                    await sleep(5000);
-                    log('Still waiting... If stuck, please refresh manually', 'error');
+                    log('SharedArrayBuffer missing!', 'error');
+                    log('Waiting for service worker reload...', 'warning');
+                    await new Promise(r => setTimeout(r, 5000));
+                    log('Still waiting... refresh manually if stuck', 'error');
                     return;
                 }
-                
-                log('SharedArrayBuffer is available! Starting VM...', 'success');
-                log('This may take a few minutes on first run...', 'warning');
-                
+                log('Starting VM (may take several minutes)...', 'success');
                 await initializeVM();
                 await setupEnvironment();
                 await downloadAndCompileDigitz();
                 await launchTerminal();
-                
             } catch (error) {
-                log(`FATAL ERROR: ${error.message}`, 'error');
-                log(`Full error: ${error.stack}`, 'error');
-                log('Please check the console and refresh the page to try again.', 'warning');
+                log(`FATAL: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
             }
         }
         
-        // Start after a short delay
         setTimeout(main, 1000);
     </script>
 </body>
