@@ -75,15 +75,12 @@
             logConsole(desc);
             const env = ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"];
             
+            let output = '';
             try {
-                const result = await cx.run("/bin/bash", ["-c", cmd], { 
+                await cx.run("/bin/bash", ["-c", cmd + "; echo __EXIT_CODE__:$?"], { 
                     env, 
-                    cwd: "/root",
-                    capture: (output) => {
-                        if (output) logCommand(output);
-                    }
+                    cwd: "/root"
                 });
-                return result;
             } catch (e) {
                 logConsole(`Command failed: ${e.message}`, 'warning');
             }
@@ -148,19 +145,32 @@
                 logConsole('VM started!', 'success');
 
                 progress(70, 'Installing tools...');
-                await runCommand("apt-get update 2>&1", "Running apt-get update...");
+                
+                // Redirect stdout/stderr to console temporarily
+                const originalConsole = cx.console;
+                cx.console = {
+                    write: (data) => {
+                        const text = new TextDecoder().decode(data);
+                        if (text.trim()) logCommand(text);
+                    }
+                };
+                
+                await runCommand("apt-get update", "Running apt-get update...");
                 
                 progress(75, 'Installing packages...');
-                await runCommand("apt-get install -y git gcc make libncurses5-dev 2>&1", "Installing git, gcc, make, ncurses...");
+                await runCommand("apt-get install -y git gcc make libncurses5-dev", "Installing git, gcc, make, ncurses...");
                 
                 progress(85, 'Building Digitz...');
-                await runCommand("git clone https://github.com/christopherfoxjr/Digitz.git 2>&1", "Cloning Digitz repository...");
+                await runCommand("git clone https://github.com/christopherfoxjr/Digitz.git", "Cloning Digitz repository...");
                 
                 progress(90, 'Compiling...');
-                await runCommand("cd Digitz && make 2>&1", "Compiling with make...");
+                await runCommand("cd Digitz && make", "Compiling with make...");
                 
                 progress(95, 'Installing...');
-                await runCommand("cd Digitz && cp output/digitz /usr/local/bin/ && chmod +x /usr/local/bin/digitz 2>&1", "Installing Digitz binary...");
+                await runCommand("cd Digitz && cp output/digitz /usr/local/bin/ && chmod +x /usr/local/bin/digitz", "Installing Digitz binary...");
+                
+                // Restore console
+                cx.console = originalConsole;
 
                 progress(100, 'Ready!');
                 logConsole('Setup complete! Starting terminal...', 'success');
