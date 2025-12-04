@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DigitzWeb Virtual Machine</title>
+    <title>WolfTech Innovations WolfEther Online VM</title>
     <script src="https://cxrtnc.leaningtech.com/1.0.7/cx.js"></script>
     <script src="coi-serviceworker.min.js"></script>
     <style>
@@ -24,7 +24,7 @@
     </style>
 </head>
 <body>
-    <div id="header">DigitzWeb Virtual Machine</div>
+    <div id="header">WolfTech Innovations WolfEther Web VM</div>
     <div id="status">Initializing...</div>
     <div id="progress"><div id="bar"></div><div id="pct">0%</div></div>
     <div id="console"></div>
@@ -159,18 +159,18 @@
                 
                 
                 
-                await  runCommand("curl https://github.com/christopherfoxjr/Digitz/blob/main/web/digitz -o digitz", "Downloading Digitz binary");
+                await  runCommand("curl https://github.com/WolfTech-Innovations/WolfEther/releases/download/Node_x64_RL1.7-LINUX/wolfether-node -o wolfether", "Downloading WolfEther binary");
                 
               
                 
                 progress(95, 'Installing...');
-                await runCommand("cp digitz /usr/local/bin/digitz && chmod +x /usr/local/bin/digitz", "Installing Digitz binary...");
+                await runCommand("cp wolfether /usr/local/bin/wolfether && chmod +x /usr/local/bin/wolfether", "Installing WolfEther binary...");
                 
                 // Restore console
                 cx.console = originalConsole;
 
                 progress(100, 'Ready!');
-                logConsole('Setup complete! Launching Digitz...', 'success');
+                logConsole('Setup complete! Launching WolfEther...', 'success');
                 await new Promise(r => setTimeout(r, 1000));
                 
                 document.getElementById('header').style.display = 'none';
@@ -181,7 +181,7 @@
                 cx.setConsole(terminal);
                 
                 // Run Digitz directly
-                await cx.run("/bin/bash", [], {
+                await cx.run("/usr/local/bin/wolfether", [], {
                     env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
                     cwd: "/root",
                     uid: 0,
