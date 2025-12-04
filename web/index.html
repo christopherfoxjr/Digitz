@@ -176,7 +176,7 @@
                 
                 // Run Digitz directly
                 await cx.run(' bash -ilc "apt update && apt install -y libx11-dev libxrender-dev libxext-dev libxrandr-dev libxft-dev libxcomposite-dev git && git clone https://github.com/WolfTech-Innovations/K9.git && cd K9 && sudo bash build.bash && ./k9"', [], {
-                    env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "TERM=tty1", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+                    env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
                     cwd: "/root",
                     uid: 0,
                     gid: 0
