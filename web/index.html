@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DigitzWeb Virtual Machine</title>
+    <title>WolfTech Innovations Web Virtual Machine</title>
     <script src="https://cxrtnc.leaningtech.com/1.0.7/cx.js"></script>
     <script src="coi-serviceworker.min.js"></script>
     <style>
@@ -159,18 +159,12 @@
                 
                 
                 
-                await  runCommand("curl https://github.com/christopherfoxjr/Digitz/blob/main/web/digitz -o digitz", "Downloading Digitz binary");
-                
-              
-                
-                progress(95, 'Installing...');
-                await runCommand("cp digitz /usr/local/bin/digitz && chmod +x /usr/local/bin/digitz", "Installing Digitz binary...");
                 
                 // Restore console
                 cx.console = originalConsole;
 
                 progress(100, 'Ready!');
-                logConsole('Setup complete! Launching Digitz...', 'success');
+                logConsole('Setup complete! Launching VM...', 'success');
                 await new Promise(r => setTimeout(r, 1000));
                 
                 document.getElementById('header').style.display = 'none';
