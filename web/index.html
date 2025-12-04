@@ -7,23 +7,70 @@
     <script src="https://cxrtnc.leaningtech.com/1.0.7/cx.js"></script>
     <script src="coi-serviceworker.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: monospace; background: #000; color: #0f0; height: 100vh; display: flex; flex-direction: column; }
-        #header { text-align: center; padding: 15px; font-size: 18px; font-weight: bold; border-bottom: 2px solid #0f0; }
-        #status { text-align: center; padding: 15px; font-size: 14px; }
-        #progress { width: 80%; max-width: 600px; height: 30px; border: 2px solid #0f0; margin: 10px auto; position: relative; }
-        #bar { height: 100%; background: #0f0; width: 0%; transition: width 0.3s; }
-        #pct { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #000; font-weight: bold; mix-blend-mode: difference; }
-        #console { width: 90%; max-width: 800px; height: 250px; margin: 10px auto; border: 1px solid #0f0; padding: 10px; overflow-y: auto; font-size: 12px; line-height: 1.5; }
-        #terminal { flex: 1; padding: 10px; overflow-y: auto; display: none; }
-        #terminal.active { display: block; }
-        .error { color: #f00; }
-        .success { color: #0f0; }
-        .warning { color: #ff0; }
-        .cmd-output { color: #888; margin-left: 20px; }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:monospace;background:#000;color:#0f0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+        #header{text-align:center;padding:15px;font-size:18px;font-weight:bold;border-bottom:2px solid #0f0;position:relative;z-index:10}
+        #status{text-align:center;padding:15px;font-size:14px;position:relative;z-index:10}
+        #progress{width:80%;max-width:600px;height:30px;border:2px solid #0f0;margin:10px auto;position:relative;z-index:10}
+        #bar{height:100%;background:#0f0;width:0%;transition:width .3s;box-shadow:0 0 20px #0f0}
+        #pct{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#000;font-weight:bold;mix-blend-mode:difference}
+        #console{width:90%;max-width:800px;height:250px;margin:10px auto;border:1px solid #0f0;padding:10px;overflow-y:auto;font-size:12px;line-height:1.5;position:relative;z-index:10;background:rgba(0,0,0,.8)}
+        #terminal{flex:1;padding:10px;overflow-y:auto;display:none;position:relative;z-index:10}
+        #terminal.active{display:block}
+        .error{color:#f00}
+        .success{color:#0f0}
+        .warning{color:#ff0}
+        .cmd-output{color:#888;margin-left:20px}
+        #bg{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none}
+        .data-stream{position:absolute;width:2px;background:linear-gradient(180deg,transparent,#0f0,transparent);animation:stream 3s linear infinite;opacity:.6}
+        @keyframes stream{0%{top:-100px}100%{top:100%}}
+        .data-stream:nth-child(1){left:10%;animation-delay:0s}
+        .data-stream:nth-child(2){left:25%;animation-delay:.5s}
+        .data-stream:nth-child(3){left:40%;animation-delay:1s}
+        .data-stream:nth-child(4){left:55%;animation-delay:1.5s}
+        .data-stream:nth-child(5){left:70%;animation-delay:2s}
+        .data-stream:nth-child(6){left:85%;animation-delay:2.5s}
+        #loader{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;opacity:0;transition:opacity .5s}
+        #loader.active{opacity:1}
+        .sat{width:60px;height:40px;position:relative;margin:0 auto 40px}
+        .sat-body{width:40px;height:30px;background:#0f0;margin:0 auto;border-radius:4px;box-shadow:0 0 20px #0f0;animation:satFloat 3s ease-in-out infinite}
+        .sat-panel{width:30px;height:8px;background:#0f0;position:absolute;top:11px}
+        .sat-panel.left{left:-15px;transform-origin:right;animation:panelLeft 3s ease-in-out infinite}
+        .sat-panel.right{right:-15px;transform-origin:left;animation:panelRight 3s ease-in-out infinite}
+        @keyframes satFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+        @keyframes panelLeft{0%,100%{transform:rotate(0)}50%{transform:rotate(-5deg)}}
+        @keyframes panelRight{0%,100%{transform:rotate(0)}50%{transform:rotate(5deg)}}
+        .tower{width:20px;height:80px;background:#0f0;margin:0 auto;position:relative;clip-path:polygon(40% 0,60% 0,100% 100%,0 100%)}
+        .tower::before,.tower::after{content:'';position:absolute;width:4px;height:4px;background:#0f0;border-radius:50%;animation:blink 1s infinite}
+        .tower::before{top:10px;left:8px}
+        .tower::after{top:20px;left:8px;animation-delay:.5s}
+        @keyframes blink{0%,100%{opacity:1;box-shadow:0 0 10px #0f0}50%{opacity:.3;box-shadow:none}}
+        .beam{width:2px;height:60px;background:linear-gradient(0deg,transparent,#0f0);position:absolute;top:-55px;left:50%;transform:translateX(-50%);animation:beamPulse 1s ease-in-out infinite;box-shadow:0 0 10px #0f0}
+        @keyframes beamPulse{0%,100%{opacity:.8;height:60px}50%{opacity:1;height:70px}}
+        .scan-line{position:fixed;width:100%;height:2px;background:linear-gradient(90deg,transparent,#0f0,transparent);top:0;left:0;animation:scan 4s linear infinite;opacity:.3;z-index:15;pointer-events:none}
+        @keyframes scan{0%{top:0}100%{top:100%}}
     </style>
 </head>
 <body>
+    <div id="bg">
+        <div class="data-stream"></div>
+        <div class="data-stream"></div>
+        <div class="data-stream"></div>
+        <div class="data-stream"></div>
+        <div class="data-stream"></div>
+        <div class="data-stream"></div>
+    </div>
+    <div id="loader">
+        <div class="sat">
+            <div class="sat-panel left"></div>
+            <div class="sat-body"></div>
+            <div class="sat-panel right"></div>
+        </div>
+        <div class="tower">
+            <div class="beam"></div>
+        </div>
+    </div>
+    <div class="scan-line"></div>
     <div id="header">WolfTech Innovations WolfEther CXBBS (CheerpX Based Blockchain Server)</div>
     <div id="status">Initializing CXBBS...</div>
     <div id="progress"><div id="bar"></div><div id="pct">0%</div></div>
@@ -31,169 +78,21 @@
     <div id="terminal"></div>
 
     <script type="module">
-        const status = document.getElementById('status');
-        const bar = document.getElementById('bar');
-        const pct = document.getElementById('pct');
-        const terminal = document.getElementById('terminal');
-        const consoleEl = document.getElementById('console');
+        const status=document.getElementById('status'),bar=document.getElementById('bar'),pct=document.getElementById('pct'),terminal=document.getElementById('terminal'),consoleEl=document.getElementById('console'),loader=document.getElementById('loader');
         let cx;
 
-        const logConsole = (msg, type = '') => {
-            const line = document.createElement('div');
-            line.className = type;
-            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            consoleEl.appendChild(line);
-            consoleEl.scrollTop = consoleEl.scrollHeight;
-        };
+        const logConsole=(msg,type='')=>{const line=document.createElement('div');line.className=type;line.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;consoleEl.appendChild(line);consoleEl.scrollTop=consoleEl.scrollHeight};
+        const logCommand=output=>{output.split('\n').forEach(line=>{if(line.trim()){const div=document.createElement('div');div.className='cmd-output';div.textContent=line;consoleEl.appendChild(div)}});consoleEl.scrollTop=consoleEl.scrollHeight};
+        const log=(msg,err)=>{status.innerHTML=msg;if(err)status.className='error';logConsole(msg,err?'error':'')};
+        const progress=(p,msg)=>{bar.style.width=p+'%';pct.textContent=Math.floor(p)+'%';if(msg)log(msg)};
+        const runCommand=async(cmd,desc)=>{logConsole(desc);const env=["HOME=/root","PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin","DEBIAN_FRONTEND=noninteractive"];try{await cx.run("/bin/bash",["-c",cmd],{env,cwd:"/root",uid:0,gid:0})}catch(e){logConsole(`Command failed: ${e.message}`,'warning')}};
+        const loadDisk=async()=>{const methods=[{name:'WebSocket',t:30000,fn:()=>CheerpX.CloudDevice.create("wss://disks.webvm.io/debian_large_20230522_5044875331.ext2")},{name:'HTTP',t:45000,fn:()=>CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_mini_20230519_5022088024.ext2")}];for(const m of methods){try{logConsole(`Trying ${m.name} disk loading (${m.t/1000}s timeout)...`,'warning');const disk=await Promise.race([m.fn(),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),m.t))]);logConsole(`${m.name} connected!`,'success');return disk}catch(e){logConsole(`${m.name} failed: ${e.message}`,'error');if(m===methods[methods.length-1])throw e}}};
+        
+        loader.classList.add('active');
 
-        const logCommand = (output) => {
-            const lines = output.split('\n');
-            lines.forEach(line => {
-                if (line.trim()) {
-                    const div = document.createElement('div');
-                    div.className = 'cmd-output';
-                    div.textContent = line;
-                    consoleEl.appendChild(div);
-                }
-            });
-            consoleEl.scrollTop = consoleEl.scrollHeight;
-        };
+        const init=async()=>{try{logConsole('Starting initialization...','success');if(!window.crossOriginIsolated||typeof SharedArrayBuffer==='undefined'){logConsole('Waiting for cross-origin isolation...');for(let i=0;i<20;i++){await new Promise(r=>setTimeout(r,500));if(window.crossOriginIsolated)break}if(!window.crossOriginIsolated)throw new Error('Cross-origin isolation failed')}logConsole('Cross-origin isolation OK','success');progress(10,'Loading disk image...');logConsole('Creating IndexedDB storage...');const idb=await CheerpX.IDBDevice.create("digitz");logConsole('Storage created');const disk=await loadDisk();progress(40,'Creating filesystem...');logConsole('Building overlay filesystem...');const overlay=await CheerpX.OverlayDevice.create(disk,idb);logConsole('Overlay filesystem ready','success');const web=await CheerpX.WebDevice.create("");progress(60,'Starting VM...');logConsole('Booting Linux VM...');cx=await CheerpX.Linux.create({mounts:[{type:"ext2",path:"/",dev:overlay},{type:"dir",path:"/app",dev:web},{type:"devs",path:"/dev"}]});logConsole('VM started!','success');const originalConsole=cx.console;cx.console={write:data=>{const text=new TextDecoder().decode(data);if(text.trim())logCommand(text)}};await runCommand("curl https://github.com/WolfTech-Innovations/WolfEther/releases/download/Node_x64_RL1.7-LINUX/wolfether-node -o wolfether","Downloading WolfEther binary");progress(95,'Installing...');await runCommand("cp wolfether /usr/local/bin/wolfether && chmod +x /usr/local/bin/wolfether","Installing WolfEther binary...");cx.console=originalConsole;progress(100,'Ready!');logConsole('Setup complete! Launching WolfEther...','success');await new Promise(r=>setTimeout(r,1000));loader.classList.remove('active');document.getElementById('header').style.display='none';document.getElementById('status').style.display='none';document.getElementById('progress').style.display='none';consoleEl.style.display='none';terminal.classList.add('active');cx.setConsole(terminal);await cx.run("/usr/local/bin/wolfether",[],{env:["HOME=/root","USER=root","SHELL=/bin/bash","PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],cwd:"/root",uid:0,gid:0})}catch(e){log('ERROR: '+e.message,true);logConsole('Fatal error: '+e.message,'error');loader.classList.remove('active')}};
 
-        const log = (msg, err) => {
-            status.innerHTML = msg;
-            if (err) status.className = 'error';
-            logConsole(msg, err ? 'error' : '');
-        };
-
-        const progress = (p, msg) => {
-            bar.style.width = p + '%';
-            pct.textContent = Math.floor(p) + '%';
-            if (msg) log(msg);
-        };
-
-        const runCommand = async (cmd, desc) => {
-            logConsole(desc);
-            const env = ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"];
-            
-            try {
-                await cx.run("/bin/bash", ["-c", cmd], { 
-                    env, 
-                    cwd: "/root",
-                    uid: 0,
-                    gid: 0
-                });
-            } catch (e) {
-                logConsole(`Command failed: ${e.message}`, 'warning');
-            }
-        };
-
-        const loadDisk = async () => {
-            const methods = [
-                { name: 'WebSocket', t: 30000, fn: () => CheerpX.CloudDevice.create("wss://disks.webvm.io/debian_large_20230522_5044875331.ext2") },
-                { name: 'HTTP', t: 45000, fn: () => CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_mini_20230519_5022088024.ext2") }
-            ];
-            
-            for (const m of methods) {
-                try {
-                    logConsole(`Trying ${m.name} disk loading (${m.t/1000}s timeout)...`, 'warning');
-                    const disk = await Promise.race([m.fn(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), m.t))]);
-                    logConsole(`${m.name} connected!`, 'success');
-                    return disk;
-                } catch (e) {
-                    logConsole(`${m.name} failed: ${e.message}`, 'error');
-                    if (m === methods[methods.length - 1]) throw e;
-                }
-            }
-        };
-
-        const init = async () => {
-            try {
-                logConsole('Starting initialization...', 'success');
-                
-                if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
-                    logConsole('Waiting for cross-origin isolation...');
-                    for (let i = 0; i < 20; i++) {
-                        await new Promise(r => setTimeout(r, 500));
-                        if (window.crossOriginIsolated) break;
-                    }
-                    if (!window.crossOriginIsolated) throw new Error('Cross-origin isolation failed');
-                }
-                logConsole('Cross-origin isolation OK', 'success');
-
-                progress(10, 'Loading disk image...');
-                logConsole('Creating IndexedDB storage...');
-                const idb = await CheerpX.IDBDevice.create("digitz");
-                logConsole('Storage created');
-                
-                const disk = await loadDisk();
-                
-                progress(40, 'Creating filesystem...');
-                logConsole('Building overlay filesystem...');
-                const overlay = await CheerpX.OverlayDevice.create(disk, idb);
-                logConsole('Overlay filesystem ready', 'success');
-                
-                const web = await CheerpX.WebDevice.create("");
-                
-                progress(60, 'Starting VM...');
-                logConsole('Booting Linux VM...');
-                cx = await CheerpX.Linux.create({
-                    mounts: [
-                        { type: "ext2", path: "/", dev: overlay },
-                        { type: "dir", path: "/app", dev: web },
-                        { type: "devs", path: "/dev" }
-                    ]
-                });
-                logConsole('VM started!', 'success');
-
-                
-                
-                // Redirect stdout/stderr to console temporarily
-                const originalConsole = cx.console;
-                cx.console = {
-                    write: (data) => {
-                        const text = new TextDecoder().decode(data);
-                        if (text.trim()) logCommand(text);
-                    }
-                };
-                
-                
-                
-                
-                await  runCommand("curl https://github.com/WolfTech-Innovations/WolfEther/releases/download/Node_x64_RL1.7-LINUX/wolfether-node -o wolfether", "Downloading WolfEther binary");
-                
-              
-                
-                progress(95, 'Installing...');
-                await runCommand("cp wolfether /usr/local/bin/wolfether && chmod +x /usr/local/bin/wolfether", "Installing WolfEther binary...");
-                
-                // Restore console
-                cx.console = originalConsole;
-
-                progress(100, 'Ready!');
-                logConsole('Setup complete! Launching WolfEther...', 'success');
-                await new Promise(r => setTimeout(r, 1000));
-                
-                document.getElementById('header').style.display = 'none';
-                document.getElementById('status').style.display = 'none';
-                document.getElementById('progress').style.display = 'none';
-                consoleEl.style.display = 'none';
-                terminal.classList.add('active');
-                cx.setConsole(terminal);
-                
-                // Run Digitz directly
-                await cx.run("/usr/local/bin/wolfether", [], {
-                    env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
-                    cwd: "/root",
-                    uid: 0,
-                    gid: 0
-                });
-            } catch (e) {
-                log('ERROR: ' + e.message, true);
-                logConsole('Fatal error: ' + e.message, 'error');
-            }
-        };
-
-        setTimeout(init, 2000);
+        setTimeout(init,2000);
     </script>
 </body>
 </html>
