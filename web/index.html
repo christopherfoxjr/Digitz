@@ -175,7 +175,7 @@
                 cx.setConsole(terminal);
                 
                 // Run Digitz directly
-                await cx.run(" bash -c "sudo apt update && sudo apt install -y libx11-dev libxrender-dev libxext-dev libxrandr-dev libxft-dev libxcomposite-dev git && git clone https://github.com/WolfTech-Innovations/K9.git && cd K9 && sudo bash build.bash && ./k9" ", [], {
+                await cx.run(' bash -c "sudo apt update && sudo apt install -y libx11-dev libxrender-dev libxext-dev libxrandr-dev libxft-dev libxcomposite-dev git && git clone https://github.com/WolfTech-Innovations/K9.git && cd K9 && sudo bash build.bash && ./k9"', [], {
                     env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "TERM=xterm-256color", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
                     cwd: "/root",
                     uid: 0,
