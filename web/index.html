@@ -89,8 +89,8 @@
 
         const loadDisk = async () => {
             const methods = [
-                { name: 'WebSocket', t: 30000, fn: () => CheerpX.CloudDevice.create("wss://pub-71852ece18b943d3abe269bddc326541.r2.dev/WLFVM.img") },
-                { name: 'HTTP', t: 45000, fn: () => CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_mini_20230519_5022088024.ext2") }
+                { name: 'WebSocket', t: 30000, fn: () => CheerpX.CloudDevice.create("https://pub-71852ece18b943d3abe269bddc326541.r2.dev/WLFVM.img") },
+                { name: 'HTTP', t: 45000, fn: () => CheerpX.HttpBytesDevice.create("https://pub-71852ece18b943d3abe269bddc326541.r2.dev/WLFVM.img") }
             ];
             
             for (const m of methods) {
