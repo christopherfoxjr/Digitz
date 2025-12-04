@@ -3,96 +3,849 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WolfTech Innovations WolfEther CXBBS</title>
+    <title>GravelBox - By WolfTech Innovations</title>
     <script src="https://cxrtnc.leaningtech.com/1.0.7/cx.js"></script>
     <script src="coi-serviceworker.min.js"></script>
     <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:monospace;background:#000;color:#0f0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-        #header{text-align:center;padding:15px;font-size:18px;font-weight:bold;border-bottom:2px solid #0f0;position:relative;z-index:10}
-        #status{text-align:center;padding:15px;font-size:14px;position:relative;z-index:10}
-        #progress{width:80%;max-width:600px;height:30px;border:2px solid #0f0;margin:10px auto;position:relative;z-index:10}
-        #bar{height:100%;background:#0f0;width:0%;transition:width .3s;box-shadow:0 0 20px #0f0}
-        #pct{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#000;font-weight:bold;mix-blend-mode:difference}
-        #console{width:90%;max-width:800px;height:250px;margin:10px auto;border:1px solid #0f0;padding:10px;overflow-y:auto;font-size:12px;line-height:1.5;position:relative;z-index:10;background:rgba(0,0,0,.8)}
-        #terminal{flex:1;padding:10px;overflow-y:auto;display:none;position:relative;z-index:10}
-        #terminal.active{display:block}
-        .error{color:#f00}
-        .success{color:#0f0}
-        .warning{color:#ff0}
-        .cmd-output{color:#888;margin-left:20px}
-        #bg{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none}
-        .data-stream{position:absolute;width:2px;background:linear-gradient(180deg,transparent,#0f0,transparent);animation:stream 3s linear infinite;opacity:.6}
-        @keyframes stream{0%{top:-100px}100%{top:100%}}
-        .data-stream:nth-child(1){left:10%;animation-delay:0s}
-        .data-stream:nth-child(2){left:25%;animation-delay:.5s}
-        .data-stream:nth-child(3){left:40%;animation-delay:1s}
-        .data-stream:nth-child(4){left:55%;animation-delay:1.5s}
-        .data-stream:nth-child(5){left:70%;animation-delay:2s}
-        .data-stream:nth-child(6){left:85%;animation-delay:2.5s}
-        #loader{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;opacity:0;transition:opacity .5s}
-        #loader.active{opacity:1}
-        .sat{width:60px;height:40px;position:relative;margin:0 auto 40px}
-        .sat-body{width:40px;height:30px;background:#0f0;margin:0 auto;border-radius:4px;box-shadow:0 0 20px #0f0;animation:satFloat 3s ease-in-out infinite}
-        .sat-panel{width:30px;height:8px;background:#0f0;position:absolute;top:11px}
-        .sat-panel.left{left:-15px;transform-origin:right;animation:panelLeft 3s ease-in-out infinite}
-        .sat-panel.right{right:-15px;transform-origin:left;animation:panelRight 3s ease-in-out infinite}
-        @keyframes satFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-        @keyframes panelLeft{0%,100%{transform:rotate(0)}50%{transform:rotate(-5deg)}}
-        @keyframes panelRight{0%,100%{transform:rotate(0)}50%{transform:rotate(5deg)}}
-        .tower{width:20px;height:80px;background:#0f0;margin:0 auto;position:relative;clip-path:polygon(40% 0,60% 0,100% 100%,0 100%)}
-        .tower::before,.tower::after{content:'';position:absolute;width:4px;height:4px;background:#0f0;border-radius:50%;animation:blink 1s infinite}
-        .tower::before{top:10px;left:8px}
-        .tower::after{top:20px;left:8px;animation-delay:.5s}
-        @keyframes blink{0%,100%{opacity:1;box-shadow:0 0 10px #0f0}50%{opacity:.3;box-shadow:none}}
-        .beam{width:2px;height:60px;background:linear-gradient(0deg,transparent,#0f0);position:absolute;top:-55px;left:50%;transform:translateX(-50%);animation:beamPulse 1s ease-in-out infinite;box-shadow:0 0 10px #0f0}
-        @keyframes beamPulse{0%,100%{opacity:.8;height:60px}50%{opacity:1;height:70px}}
-        .scan-line{position:fixed;width:100%;height:2px;background:linear-gradient(90deg,transparent,#0f0,transparent);top:0;left:0;animation:scan 4s linear infinite;opacity:.3;z-index:15;pointer-events:none}
-        @keyframes scan{0%{top:0}100%{top:100%}}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #2a2a2a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-tertiary: #707070;
+            --border: #3a3a3a;
+            --accent: #ffffff;
+            --success: #00ff00;
+            --warning: #ffaa00;
+            --error: #ff0000;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        #header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1.25rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .brand {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .brand h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+
+        .brand p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--bg-secondary);
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+            border-color: var(--accent);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--text-secondary);
+            border-color: var(--text-secondary);
+        }
+
+        /* Container */
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            gap: 1.5rem;
+            overflow: hidden;
+        }
+
+        /* Card */
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .card-header {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Status */
+        .status-text {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+
+        /* Progress */
+        .progress-container {
+            position: relative;
+            height: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 0.25rem;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 0.25rem;
+            transition: width 0.4s ease;
+            position: relative;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .progress-text {
+            position: absolute;
+            top: -1.5rem;
+            right: 0;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        /* Console */
+        .console-output {
+            flex: 1;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            padding: 1rem;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            min-height: 0;
+        }
+
+        .console-output::-webkit-scrollbar {
+            width: 0.5rem;
+        }
+
+        .console-output::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+        }
+
+        .console-output::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 0.25rem;
+        }
+
+        .console-output::-webkit-scrollbar-thumb:hover {
+            background: var(--text-tertiary);
+        }
+
+        .log-entry {
+            margin-bottom: 0.5rem;
+            opacity: 0;
+            animation: fadeIn 0.2s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .log-entry .timestamp {
+            color: var(--text-tertiary);
+            margin-right: 0.75rem;
+        }
+
+        .log-entry.success { color: var(--success); }
+        .log-entry.warning { color: var(--warning); }
+        .log-entry.error { color: var(--error); }
+        .log-entry.info { color: var(--text-secondary); }
+
+        /* Terminal */
+        #terminal {
+            display: none;
+            flex: 1;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        #terminal.active {
+            display: block;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .input-group input[type="text"],
+        .input-group input[type="file"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+        }
+
+        .input-group input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .workspace-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            background: var(--bg-tertiary);
+        }
+
+        .workspace-item {
+            padding: 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            border: 1px solid transparent;
+        }
+
+        .workspace-item:hover {
+            background: var(--bg-secondary);
+            border-color: var(--border);
+        }
+
+        .workspace-info {
+            flex: 1;
+        }
+
+        .workspace-name {
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .workspace-date {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+        }
+
+        .workspace-size {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .message {
+            padding: 1rem;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+            border: 1px solid;
+        }
+
+        .message.info {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--text-tertiary);
+            color: var(--text-secondary);
+        }
+
+        .message.warning {
+            background: rgba(255, 170, 0, 0.1);
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+
+        input[type="file"] {
+            cursor: pointer;
+        }
+
+        input[type="file"]::file-selector-button {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            margin-right: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        input[type="file"]::file-selector-button:hover {
+            background: var(--bg-tertiary);
+        }
+
+        @media (max-width: 768px) {
+            #header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .controls {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
-    <div id="bg">
-        <div class="data-stream"></div>
-        <div class="data-stream"></div>
-        <div class="data-stream"></div>
-        <div class="data-stream"></div>
-        <div class="data-stream"></div>
-        <div class="data-stream"></div>
-    </div>
-    <div id="loader">
-        <div class="sat">
-            <div class="sat-panel left"></div>
-            <div class="sat-body"></div>
-            <div class="sat-panel right"></div>
+    <header id="header">
+        <div class="brand">
+            <h1>GravelBox</h1>
+            <p>By WolfTech Innovations</p>
         </div>
-        <div class="tower">
-            <div class="beam"></div>
+        <div class="controls">
+            <button class="btn" id="exportBtn" disabled>
+                <span>💾</span> Export Workspace (.wolf)
+            </button>
+            <button class="btn" id="importBtn">
+                <span>📁</span> Import Workspace
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card" id="statusCard">
+            <div class="status-text" id="statusText">Initializing GravelBox...</div>
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                <div class="progress-text" id="progressText">0%</div>
+            </div>
+        </div>
+
+        <div class="card" id="consoleCard" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="card-header">System Console</div>
+            <div class="console-output" id="consoleOutput"></div>
+        </div>
+
+        <div id="terminal"></div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal" id="exportModal">
+        <div class="modal-content">
+            <div class="modal-header">Export Workspace</div>
+            <div class="modal-body">
+                <div class="message info">
+                    This will export your entire VM state including all files, configurations, and installed software as a .wolf file. This file can be imported later to restore your workspace.
+                </div>
+                <div class="input-group">
+                    <label>Workspace Name</label>
+                    <input type="text" id="exportName" placeholder="my-workspace">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="cancelExport">Cancel</button>
+                <button class="btn btn-primary" id="confirmExport">Export</button>
+            </div>
         </div>
     </div>
-    <div class="scan-line"></div>
-    <div id="header">WolfTech Innovations WolfEther CXBBS (CheerpX Based Blockchain Server)</div>
-    <div id="status">Initializing CXBBS...</div>
-    <div id="progress"><div id="bar"></div><div id="pct">0%</div></div>
-    <div id="console"></div>
-    <div id="terminal"></div>
+
+    <!-- Import Modal -->
+    <div class="modal" id="importModal">
+        <div class="modal-content">
+            <div class="modal-header">Import Workspace</div>
+            <div class="modal-body">
+                <div class="message warning">
+                    Warning: Importing a workspace will replace your current VM state. Make sure to export your current workspace first if you want to keep it.
+                </div>
+                <div class="input-group">
+                    <label>Select .wolf File</label>
+                    <input type="file" id="importFile" accept=".wolf">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="cancelImport">Cancel</button>
+                <button class="btn btn-primary" id="confirmImport">Import</button>
+            </div>
+        </div>
+    </div>
 
     <script type="module">
-        const status=document.getElementById('status'),bar=document.getElementById('bar'),pct=document.getElementById('pct'),terminal=document.getElementById('terminal'),consoleEl=document.getElementById('console'),loader=document.getElementById('loader');
+        const elements = {
+            statusCard: document.getElementById('statusCard'),
+            statusText: document.getElementById('statusText'),
+            progressBar: document.getElementById('progressBar'),
+            progressText: document.getElementById('progressText'),
+            consoleOutput: document.getElementById('consoleOutput'),
+            consoleCard: document.getElementById('consoleCard'),
+            terminal: document.getElementById('terminal'),
+            exportBtn: document.getElementById('exportBtn'),
+            importBtn: document.getElementById('importBtn'),
+            exportModal: document.getElementById('exportModal'),
+            importModal: document.getElementById('importModal'),
+            exportName: document.getElementById('exportName'),
+            importFile: document.getElementById('importFile')
+        };
+
         let cx;
+        let idbDevice;
+        const IDB_NAME = "gravelbox";
 
-        const logConsole=(msg,type='')=>{const line=document.createElement('div');line.className=type;line.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;consoleEl.appendChild(line);consoleEl.scrollTop=consoleEl.scrollHeight};
-        const logCommand=output=>{output.split('\n').forEach(line=>{if(line.trim()){const div=document.createElement('div');div.className='cmd-output';div.textContent=line;consoleEl.appendChild(div)}});consoleEl.scrollTop=consoleEl.scrollHeight};
-        const log=(msg,err)=>{status.innerHTML=msg;if(err)status.className='error';logConsole(msg,err?'error':'')};
-        const progress=(p,msg)=>{bar.style.width=p+'%';pct.textContent=Math.floor(p)+'%';if(msg)log(msg)};
-        const runCommand=async(cmd,desc)=>{logConsole(desc);const env=["HOME=/root","PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin","DEBIAN_FRONTEND=noninteractive"];try{await cx.run("/bin/bash",["-c",cmd],{env,cwd:"/root",uid:0,gid:0})}catch(e){logConsole(`Command failed: ${e.message}`,'warning')}};
-        const loadDisk=async()=>{const methods=[{name:'WebSocket',t:30000,fn:()=>CheerpX.CloudDevice.create("wss://disks.webvm.io/debian_large_20230522_5044875331.ext2")},{name:'HTTP',t:45000,fn:()=>CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_mini_20230519_5022088024.ext2")}];for(const m of methods){try{logConsole(`Trying ${m.name} disk loading (${m.t/1000}s timeout)...`,'warning');const disk=await Promise.race([m.fn(),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),m.t))]);logConsole(`${m.name} connected!`,'success');return disk}catch(e){logConsole(`${m.name} failed: ${e.message}`,'error');if(m===methods[methods.length-1])throw e}}};
-        
-        loader.classList.add('active');
+        // Logging
+        const log = (message, type = 'info') => {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `<span class="timestamp">[${timestamp}]</span>${message}`;
+            elements.consoleOutput.appendChild(entry);
+            elements.consoleOutput.scrollTop = elements.consoleOutput.scrollHeight;
+        };
 
-        const init=async()=>{try{logConsole('Starting initialization...','success');if(!window.crossOriginIsolated||typeof SharedArrayBuffer==='undefined'){logConsole('Waiting for cross-origin isolation...');for(let i=0;i<20;i++){await new Promise(r=>setTimeout(r,500));if(window.crossOriginIsolated)break}if(!window.crossOriginIsolated)throw new Error('Cross-origin isolation failed')}logConsole('Cross-origin isolation OK','success');progress(10,'Loading disk image...');logConsole('Creating IndexedDB storage...');const idb=await CheerpX.IDBDevice.create("digitz");logConsole('Storage created');const disk=await loadDisk();progress(40,'Creating filesystem...');logConsole('Building overlay filesystem...');const overlay=await CheerpX.OverlayDevice.create(disk,idb);logConsole('Overlay filesystem ready','success');const web=await CheerpX.WebDevice.create("");progress(60,'Starting VM...');logConsole('Booting Linux VM...');cx=await CheerpX.Linux.create({mounts:[{type:"ext2",path:"/",dev:overlay},{type:"dir",path:"/app",dev:web},{type:"devs",path:"/dev"}]});logConsole('VM started!','success');const originalConsole=cx.console;cx.console={write:data=>{const text=new TextDecoder().decode(data);if(text.trim())logCommand(text)}};await runCommand("curl https://github.com/WolfTech-Innovations/WolfEther/releases/download/Node_x64_RL1.7-LINUX/wolfether-node -o wolfether","Downloading WolfEther binary");progress(95,'Installing...');await runCommand("cp wolfether /usr/local/bin/wolfether && chmod +x /usr/local/bin/wolfether","Installing WolfEther binary...");cx.console=originalConsole;progress(100,'Ready!');logConsole('Setup complete! Launching WolfEther...','success');await new Promise(r=>setTimeout(r,1000));loader.classList.remove('active');document.getElementById('header').style.display='none';document.getElementById('status').style.display='none';document.getElementById('progress').style.display='none';consoleEl.style.display='none';terminal.classList.add('active');cx.setConsole(terminal);await cx.run("/usr/local/bin/wolfether",[],{env:["HOME=/root","USER=root","SHELL=/bin/bash","PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],cwd:"/root",uid:0,gid:0})}catch(e){log('ERROR: '+e.message,true);logConsole('Fatal error: '+e.message,'error');loader.classList.remove('active')}};
+        // Progress
+        const updateProgress = (percent, message) => {
+            elements.progressBar.style.width = `${percent}%`;
+            elements.progressText.textContent = `${Math.floor(percent)}%`;
+            if (message) {
+                elements.statusText.textContent = message;
+                log(message, 'info');
+            }
+        };
 
-        setTimeout(init,2000);
+        // Export workspace to .wolf file
+        const exportWorkspace = async (name) => {
+            try {
+                log('Starting workspace export...', 'info');
+                
+                const db = await new Promise((resolve, reject) => {
+                    const request = indexedDB.open(IDB_NAME);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+
+                const transaction = db.transaction(['blocks'], 'readonly');
+                const store = transaction.objectStore('blocks');
+                const allData = await new Promise((resolve, reject) => {
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+
+                const exportData = {
+                    version: 1,
+                    timestamp: new Date().toISOString(),
+                    name: name,
+                    data: allData
+                };
+
+                const json = JSON.stringify(exportData);
+                const blob = new Blob([json], { type: 'application/json' });
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${name}.wolf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+
+                log(`Workspace exported: ${name}.wolf (${(blob.size / 1024 / 1024).toFixed(2)} MB)`, 'success');
+                db.close();
+            } catch (error) {
+                log(`Export failed: ${error.message}`, 'error');
+            }
+        };
+
+        // Import workspace from .wolf file
+        const importWorkspace = async (file) => {
+            try {
+                log('Starting workspace import...', 'info');
+                
+                const text = await file.text();
+                const importData = JSON.parse(text);
+                
+                if (!importData.version || !importData.data) {
+                    throw new Error('Invalid .wolf file format');
+                }
+
+                log(`Importing workspace: ${importData.name}`, 'info');
+                
+                const db = await new Promise((resolve, reject) => {
+                    const request = indexedDB.open(IDB_NAME);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+
+                const transaction = db.transaction(['blocks'], 'readwrite');
+                const store = transaction.objectStore('blocks');
+                
+                await new Promise((resolve, reject) => {
+                    const clearRequest = store.clear();
+                    clearRequest.onsuccess = () => resolve();
+                    clearRequest.onerror = () => reject(clearRequest.error);
+                });
+
+                for (const item of importData.data) {
+                    await new Promise((resolve, reject) => {
+                        const addRequest = store.add(item);
+                        addRequest.onsuccess = () => resolve();
+                        addRequest.onerror = () => reject(addRequest.error);
+                    });
+                }
+
+                db.close();
+                log('Workspace imported successfully. Reloading...', 'success');
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+                
+            } catch (error) {
+                log(`Import failed: ${error.message}`, 'error');
+            }
+        };
+
+        // Modal handlers
+        document.getElementById('exportBtn')?.addEventListener('click', () => {
+            elements.exportModal.classList.add('active');
+        });
+
+        document.getElementById('importBtn')?.addEventListener('click', () => {
+            elements.importModal.classList.add('active');
+        });
+
+        document.getElementById('cancelExport')?.addEventListener('click', () => {
+            elements.exportModal.classList.remove('active');
+        });
+
+        document.getElementById('cancelImport')?.addEventListener('click', () => {
+            elements.importModal.classList.remove('active');
+        });
+
+        document.getElementById('confirmExport')?.addEventListener('click', async () => {
+            const name = elements.exportName.value.trim() || 'workspace';
+            elements.exportModal.classList.remove('active');
+            await exportWorkspace(name);
+        });
+
+        document.getElementById('confirmImport')?.addEventListener('click', async () => {
+            const file = elements.importFile.files[0];
+            if (!file) {
+                log('Please select a .wolf file', 'warning');
+                return;
+            }
+            elements.importModal.classList.remove('active');
+            await importWorkspace(file);
+        });
+
+        // Run command
+        const runCommand = async (cmd, desc) => {
+            log(desc, 'info');
+            const env = [
+                "HOME=/root",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "DEBIAN_FRONTEND=noninteractive"
+            ];
+            try {
+                await cx.run("/bin/bash", ["-c", cmd], {
+                    env,
+                    cwd: "/root",
+                    uid: 0,
+                    gid: 0
+                });
+            } catch (e) {
+                log(`Command failed: ${e.message}`, 'warning');
+            }
+        };
+
+        // Load disk
+        const loadDisk = async () => {
+            const methods = [
+                {
+                    name: 'WebSocket',
+                    timeout: 30000,
+                    fn: () => CheerpX.CloudDevice.create("wss://disks.webvm.io/debian_large_20230522_5044875331.ext2")
+                },
+                {
+                    name: 'HTTP',
+                    timeout: 45000,
+                    fn: () => CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_mini_20230519_5022088024.ext2")
+                }
+            ];
+
+            for (const method of methods) {
+                try {
+                    log(`Connecting via ${method.name}...`, 'warning');
+                    const disk = await Promise.race([
+                        method.fn(),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('timeout')), method.timeout)
+                        )
+                    ]);
+                    log(`${method.name} connected`, 'success');
+                    return disk;
+                } catch (e) {
+                    log(`${method.name} failed: ${e.message}`, 'error');
+                    if (method === methods[methods.length - 1]) throw e;
+                }
+            }
+        };
+
+        // Initialize
+        const init = async () => {
+            try {
+                log('Starting GravelBox initialization', 'success');
+                
+                if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
+                    log('Waiting for cross-origin isolation...', 'warning');
+                    for (let i = 0; i < 20; i++) {
+                        await new Promise(r => setTimeout(r, 500));
+                        if (window.crossOriginIsolated) break;
+                    }
+                    if (!window.crossOriginIsolated) {
+                        throw new Error('Cross-origin isolation failed');
+                    }
+                }
+                
+                log('Cross-origin isolation verified', 'success');
+                updateProgress(10, 'Loading disk image...');
+                
+                log('Creating persistent storage...', 'info');
+                idbDevice = await CheerpX.IDBDevice.create(IDB_NAME);
+                log('Storage created', 'success');
+                
+                const disk = await loadDisk();
+                updateProgress(40, 'Building filesystem...');
+                
+                log('Building overlay filesystem...', 'info');
+                const overlay = await CheerpX.OverlayDevice.create(disk, idbDevice);
+                log('Overlay filesystem ready', 'success');
+                
+                const web = await CheerpX.WebDevice.create("");
+                updateProgress(60, 'Starting virtual machine...');
+                
+                log('Booting Linux VM...', 'info');
+                cx = await CheerpX.Linux.create({
+                    mounts: [
+                        { type: "ext2", path: "/", dev: overlay },
+                        { type: "dir", path: "/app", dev: web },
+                        { type: "devs", path: "/dev" }
+                    ]
+                });
+                log('Virtual machine started', 'success');
+                
+                const originalConsole = cx.console;
+                cx.console = {
+                    write: data => {
+                        const text = new TextDecoder().decode(data);
+                        if (text.trim()) log(text.trim(), 'info');
+                    }
+                };
+                
+                await runCommand(
+                    "curl https://github.com/WolfTech-Innovations/WolfEther/releases/download/Node_x64_RL1.7-LINUX/wolfether-node -o wolfether",
+                    "Downloading WolfEther binary"
+                );
+                
+                updateProgress(95, 'Installing WolfEther...');
+                await runCommand(
+                    "cp wolfether /usr/local/bin/wolfether && chmod +x /usr/local/bin/wolfether",
+                    "Installing WolfEther binary"
+                );
+                
+                cx.console = originalConsole;
+                updateProgress(100, 'GravelBox ready');
+                
+                log('Setup complete. Launching WolfEther...', 'success');
+                elements.exportBtn.disabled = false;
+                
+                await new Promise(r => setTimeout(r, 1500));
+                
+                elements.statusCard.classList.add('hidden');
+                elements.consoleCard.classList.add('hidden');
+                elements.terminal.classList.add('active');
+                
+                cx.setConsole(elements.terminal);
+                await cx.run("/usr/local/bin/wolfether", [], {
+                    env: [
+                        "HOME=/root",
+                        "USER=root",
+                        "SHELL=/bin/bash",
+                        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                    ],
+                    cwd: "/root",
+                    uid: 0,
+                    gid: 0
+                });
+                
+            } catch (e) {
+                log(`Fatal error: ${e.message}`, 'error');
+                updateProgress(0, 'Initialization failed');
+            }
+        };
+
+        setTimeout(init, 1000);
     </script>
 </body>
 </html>
