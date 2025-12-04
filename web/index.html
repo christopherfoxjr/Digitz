@@ -24,7 +24,7 @@
     </style>
 </head>
 <body>
-    <div id="header">DigitzWeb Virtual Machine</div>
+    <div id="header">WolfTech Innovations Virtual Machine</div>
     <div id="status">Initializing...</div>
     <div id="progress"><div id="bar"></div><div id="pct">0%</div></div>
     <div id="console"></div>
@@ -175,11 +175,7 @@
                 cx.setConsole(terminal);
                 
                 // Run Digitz directly
-                await cx.run("sudo apt install -y libx11-dev libxrender-dev libxext-dev libxrandr-dev libxft-dev libxcomposite-dev && \
-git clone https://github.com/WolfTech-Innovations/K9.git && \
-cd K9 && \
-sudo bash build.bash && \
-./k9", [], {
+                await cx.run("bash -c "sudo apt update && sudo apt install -y libx11-dev libxrender-dev libxext-dev libxrandr-dev libxft-dev libxcomposite-dev git && git clone https://github.com/WolfTech-Innovations/K9.git && cd K9 && sudo bash build.bash && ./k9"", [], {
                     env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "TERM=xterm-256color", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
                     cwd: "/root",
                     uid: 0,
