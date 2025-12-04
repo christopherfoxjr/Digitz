@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WolfTech Innovations Web WolfOS VM</title>
+    <title>WolfTech Innovations Web Virtual Machine</title>
     <script src="https://cxrtnc.leaningtech.com/1.0.7/cx.js"></script>
     <script src="coi-serviceworker.min.js"></script>
     <style>
@@ -24,7 +24,7 @@
     </style>
 </head>
 <body>
-    <div id="header">WolfOS Virtual Machine</div>
+    <div id="header">DigitzWeb Virtual Machine</div>
     <div id="status">Initializing...</div>
     <div id="progress"><div id="bar"></div><div id="pct">0%</div></div>
     <div id="console"></div>
@@ -89,8 +89,8 @@
 
         const loadDisk = async () => {
             const methods = [
-                { name: 'WebSocket', t: 30000, fn: () => CheerpX.CloudDevice.create("https://pub-71852ece18b943d3abe269bddc326541.r2.dev/WLFVM.img") },
-                { name: 'HTTP', t: 45000, fn: () => CheerpX.HttpBytesDevice.create("https://pub-71852ece18b943d3abe269bddc326541.r2.dev/WLFVM.img") }
+                { name: 'WebSocket', t: 30000, fn: () => CheerpX.CloudDevice.create("wss://disks.webvm.io/debian_large_20230522_5044875331.ext2") },
+                { name: 'HTTP', t: 45000, fn: () => CheerpX.HttpBytesDevice.create("https://disks.webvm.io/debian_mini_20230519_5022088024.ext2") }
             ];
             
             for (const m of methods) {
@@ -175,7 +175,11 @@
                 cx.setConsole(terminal);
                 
                 // Run Digitz directly
-                await cx.run("/bin/busybox sh", [], {
+                await cx.run("sudo apt install -y libx11-dev libxrender-dev libxext-dev libxrandr-dev libxft-dev libxcomposite-dev && \
+git clone https://github.com/WolfTech-Innovations/K9.git && \
+cd K9 && \
+sudo bash build.bash && \
+./k9", [], {
                     env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "TERM=xterm-256color", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
                     cwd: "/root",
                     uid: 0,
