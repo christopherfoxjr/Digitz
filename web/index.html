@@ -179,21 +179,29 @@
                 consoleEl.style.display = 'none';
                 terminal.classList.add('active');
                 cx.setConsole(terminal);
-                
-                // Run Digitz directly
-                await cx.run('bash -ic "/usr/local/bin/digitz"'), [], {
-                    env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
-                    cwd: "/root",
-                    uid: 0,
-                    gid: 0
-                });
-            } catch (e) {
-                log('ERROR: ' + e.message, true);
-                logConsole('Fatal error: ' + e.message, 'error');
+                const init = async () => {
+    try {
+        await cx.run(
+            'bash -ic "/usr/local/bin/digitz"',
+            {
+                env: [
+                    "HOME=/root",
+                    "USER=root",
+                    "SHELL=/bin/bash",
+                    "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                ],
+                cwd: "/root",
+                uid: 0,
+                gid: 0
             }
-        };
+        );
+    } catch (e) {
+        log('ERROR: ' + e.message, true);
+        logConsole('Fatal error: ' + e.message, 'error');
+    }
+};
 
-        setTimeout(init, 2000);
+setTimeout(init, 2000);
     </script>
 </body>
 </html>
