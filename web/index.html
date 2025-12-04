@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WolfTech Innovations Web Virtual Machine</title>
+    <title>DigitzWeb Virtual Machine</title>
     <script src="https://cxrtnc.leaningtech.com/1.0.7/cx.js"></script>
     <script src="coi-serviceworker.min.js"></script>
     <style>
@@ -24,7 +24,7 @@
     </style>
 </head>
 <body>
-    <div id="header">WolfTech Innovations Virtual Machine</div>
+    <div id="header">DigitzWeb Virtual Machine</div>
     <div id="status">Initializing...</div>
     <div id="progress"><div id="bar"></div><div id="pct">0%</div></div>
     <div id="console"></div>
@@ -75,7 +75,14 @@
             logConsole(desc);
             const env = ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"];
             
-            
+            try {
+                await cx.run("/bin/bash", ["-c", cmd], { 
+                    env, 
+                    cwd: "/root",
+                    uid: 0,
+                    gid: 0
+                });
+            } catch (e) {
                 logConsole(`Command failed: ${e.message}`, 'warning');
             }
         };
@@ -152,12 +159,18 @@
                 
                 
                 
+                await  runCommand("curl https://github.com/christopherfoxjr/Digitz/blob/main/web/digitz -o digitz", "Downloading Digitz binary");
+                
+              
+                
+                progress(95, 'Installing...');
+                await runCommand("cp digitz /usr/local/bin/digitz && chmod +x /usr/local/bin/digitz", "Installing Digitz binary...");
                 
                 // Restore console
                 cx.console = originalConsole;
 
                 progress(100, 'Ready!');
-                logConsole('Setup complete! Launching VM...', 'success');
+                logConsole('Setup complete! Launching Digitz...', 'success');
                 await new Promise(r => setTimeout(r, 1000));
                 
                 document.getElementById('header').style.display = 'none';
@@ -168,10 +181,11 @@
                 cx.setConsole(terminal);
                 
                 // Run Digitz directly
-                await cx.run(' bash -ilc root "apt update && apt install -y libx11-dev libxrender-dev libxext-dev libxrandr-dev libxft-dev libxcomposite-dev git && git clone https://github.com/WolfTech-Innovations/K9.git && cd K9 && sudo bash build.bash && ./k9"', [], {
-                    ,
+                await cx.run("/usr/local/bin/digitz", [], {
+                    env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "TERM=xterm-256color", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
                     cwd: "/root",
-                    
+                    uid: 0,
+                    gid: 0
                 });
             } catch (e) {
                 log('ERROR: ' + e.message, true);
