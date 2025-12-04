@@ -181,7 +181,7 @@
                 cx.setConsole(terminal);
                 
                 // Run Digitz directly
-                await cx.run("bash", [], {
+                await cx.run("/bin/bash", [], {
                     env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
                     cwd: "/root",
                     uid: 0,
