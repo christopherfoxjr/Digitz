@@ -75,14 +75,7 @@
             logConsole(desc);
             const env = ["HOME=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "DEBIAN_FRONTEND=noninteractive"];
             
-            try {
-                await cx.run("/bin/bash", ["-c", cmd], { 
-                    env, 
-                    cwd: "/root",
-                    uid: 0,
-                    gid: 0
-                });
-            } catch (e) {
+            
                 logConsole(`Command failed: ${e.message}`, 'warning');
             }
         };
@@ -175,11 +168,10 @@
                 cx.setConsole(terminal);
                 
                 // Run Digitz directly
-                await cx.run(' bash -ilc "apt update && apt install -y libx11-dev libxrender-dev libxext-dev libxrandr-dev libxft-dev libxcomposite-dev git && git clone https://github.com/WolfTech-Innovations/K9.git && cd K9 && sudo bash build.bash && ./k9"', [], {
-                    env: ["HOME=/root", "USER=root", "SHELL=/bin/bash", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+                await cx.run(' bash -ilc root "apt update && apt install -y libx11-dev libxrender-dev libxext-dev libxrandr-dev libxft-dev libxcomposite-dev git && git clone https://github.com/WolfTech-Innovations/K9.git && cd K9 && sudo bash build.bash && ./k9"', [], {
+                    ,
                     cwd: "/root",
-                    uid: 0,
-                    gid: 0
+                    
                 });
             } catch (e) {
                 log('ERROR: ' + e.message, true);
