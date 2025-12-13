@@ -28,7 +28,7 @@ OUTPUT_DIR := output/
 # Compiler settings
 CXX := clang++
 CXXFLAGS := -std=c++23 -O3 -pthread $(PYTHON_INCLUDES)
-LDFLAGS := -lncurses -lcurl -lm -lpython312
+LDFLAGS := -lncurses -lcurl -lm $(PYTHON_LIBS)
 
 # Source files
 MAIN_SRC := $(SRC)main.cpp

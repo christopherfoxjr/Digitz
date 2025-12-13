@@ -22,7 +22,7 @@ void init_all_modules() {
     LANG.lexical_diversity = 0.0;
 }
 
-void module_integration::update_all_modules(State& S) {
+void update_all_modules(State& S) {
     // Update consciousness metrics
     if (!S.internal_thoughts.empty()) {
         CONS.working_memory = calc_working_memory(S.internal_thoughts);
@@ -116,26 +116,26 @@ void module_integration::update_all_modules(State& S) {
     }
 }
 
-double module_integration::calc_enhanced_sentience() {
+double calc_enhanced_sentience() {
     // Placeholder implementation
     // Return a dummy sentience value (e.g., based on simple module activity)
     // return 0.5;
     return 0.0;
 }
 
-std::string module_integration::get_linguistic_report() {
+std::string get_linguistic_report() {
     // Placeholder implementation
     // Provide a report on language module status
     return "[Language Module Report Placeholder]";
 }
 
-std::string module_integration::get_consciousness_report() {
+std::string get_consciousness_report() {
     // Placeholder implementation
     // Provide a report on consciousness module status
     return "[Consciousness Report Placeholder]";
 }
 
-std::string module_integration::get_metacognitive_report() {
+std::string get_metacognitive_report() {
     // Placeholder implementation
     // Provide a report on metacognition module status
     return "[Metacognition Report Placeholder]";
