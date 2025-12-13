@@ -322,7 +322,7 @@ string generateResponseTransformer(const string& input) {
     vector<string> words = tokenize_to_vector(input);
     auto attn_layers = computeAttention(words, S.current_valence);
     
-    string response = "[DIGITZ]: ";
+    string response = "Nexus: ";
     for(int i = 0; i < min(3, (int)attn_layers.size()); i++) {
         for(auto& head : attn_layers[i].heads) {
             if(head.score > 0.5) {
@@ -755,7 +755,7 @@ void batch16Process(){
 #ifdef _WIN32
 void draw_ui(int row){
     printf("\n╔═════════════════════════════════════╗\n");
-    printf("║         DIGITZ AGI SYSTEM          ║\n");
+    printf("║                 Nexus                 ║\n");
     printf("╚═════════════════════════════════════╝\n");
     printf("G:%d|N:%lu|S:%.1f%%\n",S.g,(unsigned long)S.N.size(),S.sentience_ratio);
     printf("V:%.2f|A:%.2f|M:%.2f\n",S.current_valence,S.al,S.metacognitive_awareness);
@@ -769,7 +769,7 @@ void draw_ui(int row){
 #else
 void draw_ui(int row){
     mvprintw(row++,0,"═══════════════════════════════════");
-    mvprintw(row++,0,"DIGITZ - AGI SYSTEM");
+    mvprintw(row++,0,"Nexus - AGI SYSTEM");
     mvprintw(row++,0,"═══════════════════════════════════");
     mvprintw(row++,0,"G:%d|N:%lu|S:%.1f%%",S.g,(unsigned long)S.N.size(),S.sentience_ratio);
     mvprintw(row++,0,"V:%.2f|A:%.2f|M:%.2f",S.current_valence,S.al,S.metacognitive_awareness);
