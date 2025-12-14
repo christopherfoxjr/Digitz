@@ -58,7 +58,7 @@ struct TransformerHead {
     int dim;
     vector<double> query_proj, key_proj, value_proj;
     double temperature;
-    TransformerHead(int d=16):dim(d),temperature(1.0){
+    TransformerHead(int d=16):dim(d),temperature(0.4){
         query_proj.resize(d,rn()*0.1);key_proj.resize(d,rn()*0.1);value_proj.resize(d,rn()*0.1);
     }
 };
