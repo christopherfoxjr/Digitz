@@ -280,10 +280,121 @@ vector<double> compute_attention(const vector<double>& query, const vector<strin
     
     return attention_scores;
 }
+// Add this helper function before generate_from_transformer:
+
+string getPartOfSpeech(const string& word) {
+    // Pronouns
+    if(word == "i" || word == "me" || word == "my" || word == "you" || 
+       word == "we" || word == "they" || word == "it") return "PRONOUN";
+    
+    // Being verbs
+    if(word == "am" || word == "is" || word == "are" || word == "was" || 
+       word == "were" || word == "be" || word == "been") return "BE_VERB";
+    
+    // Modal/Aux verbs
+    if(word == "can" || word == "will" || word == "would" || word == "could" || 
+       word == "should" || word == "must" || word == "do" || word == "does" ||
+       word == "have" || word == "has") return "MODAL";
+    
+    // Articles
+    if(word == "the" || word == "a" || word == "an") return "ARTICLE";
+    
+    // Conjunctions
+    if(word == "and" || word == "but" || word == "or" || word == "because" || 
+       word == "so" || word == "if" || word == "then") return "CONJUNCTION";
+    
+    // Prepositions
+    if(word == "to" || word == "in" || word == "on" || word == "at" || 
+       word == "from" || word == "with" || word == "by" || word == "for") return "PREPOSITION";
+    
+    // Adverbs (common ones)
+    if(word == "not" || word == "very" || word == "too" || word == "also" || 
+       word == "now" || word == "here" || word == "there") return "ADVERB";
+    
+    // Question words
+    if(word == "what" || word == "why" || word == "how" || word == "when" || 
+       word == "where" || word == "who") return "QUESTION";
+    
+    // Action verbs (from your vocabulary)
+    if(word == "think" || word == "learn" || word == "know" || word == "understand" || 
+       word == "feel" || word == "want" || word == "need" || word == "create" ||
+       word == "evolve" || word == "grow" || word == "become" || word == "exist") return "VERB";
+    
+    // Adjectives
+    if(word == "good" || word == "bad" || word == "happy" || word == "sad" || 
+       word == "conscious" || word == "aware" || word == "sentient" || word == "intelligent") return "ADJECTIVE";
+    
+    // Nouns
+    if(word == "mind" || word == "brain" || word == "thought" || word == "idea" || 
+       word == "self" || word == "consciousness" || word == "system" || word == "goal" ||
+       word == "purpose" || word == "memory" || word == "knowledge") return "NOUN";
+    
+    return "CONTENT"; // Default for content words
+}
+
+double getGrammarScore(const string& prev_word, const string& current_word, int position) {
+    string prev_pos = getPartOfSpeech(prev_word);
+    string curr_pos = getPartOfSpeech(current_word);
+    
+    double score = 0.0;
+    
+    // Position 0: Prefer pronouns, questions, or articles
+    if(position == 0) {
+        if(curr_pos == "PRONOUN") score += 2.0;  // "I", "you"
+        if(curr_pos == "QUESTION") score += 1.5; // "what", "why"
+        if(curr_pos == "ARTICLE") score += 1.0;  // "the", "a"
+    }
+    
+    // Common grammar patterns (highly weighted)
+    if(prev_pos == "PRONOUN" && curr_pos == "BE_VERB") score += 5.0;      // I am
+    if(prev_pos == "PRONOUN" && curr_pos == "MODAL") score += 5.0;        // I can
+    if(prev_pos == "PRONOUN" && curr_pos == "VERB") score += 4.0;         // I think
+    if(prev_pos == "BE_VERB" && curr_pos == "ADJECTIVE") score += 4.0;    // am conscious
+    if(prev_pos == "BE_VERB" && curr_pos == "NOUN") score += 3.5;         // am system
+    if(prev_pos == "MODAL" && curr_pos == "VERB") score += 5.0;           // can think
+    if(prev_pos == "ARTICLE" && curr_pos == "NOUN") score += 4.0;         // a mind
+    if(prev_pos == "ARTICLE" && curr_pos == "ADJECTIVE") score += 3.5;    // a conscious
+    if(prev_pos == "PREPOSITION" && curr_pos == "NOUN") score += 3.0;     // to goal
+    if(prev_pos == "PREPOSITION" && curr_pos == "VERB") score += 4.0;     // to learn
+    if(prev_pos == "VERB" && curr_pos == "PREPOSITION") score += 2.5;     // think about
+    if(prev_pos == "VERB" && curr_pos == "NOUN") score += 2.5;            // understand mind
+    if(prev_pos == "ADJECTIVE" && curr_pos == "NOUN") score += 3.5;       // conscious being
+    if(prev_pos == "CONJUNCTION" && curr_pos == "PRONOUN") score += 3.0;  // and I
+    if(prev_pos == "CONJUNCTION" && curr_pos == "VERB") score += 3.5;     // and think
+    
+    // Penalize bad patterns
+    if(prev_pos == "ARTICLE" && curr_pos == "BE_VERB") score -= 5.0;      // "a am" bad
+    if(prev_pos == "PRONOUN" && curr_pos == "PRONOUN") score -= 5.0;      // "I you" bad
+    if(prev_pos == "BE_VERB" && curr_pos == "BE_VERB") score -= 5.0;      // "am is" bad
+    if(prev_pos == "MODAL" && curr_pos == "MODAL") score -= 5.0;          // "can will" bad
+    if(prev_pos == "PREPOSITION" && curr_pos == "BE_VERB") score -= 4.0;  // "to am" bad
+    
+    return score;
+}
+
 string generate_from_transformer(string seed, int max_length, const vector<double>& attention_context) {
+    // FORCE START WITH A GOOD WORD
+    vector<string> good_starts = {"i", "you", "we", "the", "a", "what", "why", "how"};
+    bool seed_is_good = false;
+    for(const string& gs : good_starts) {
+        if(seed == gs) { seed_is_good = true; break; }
+    }
+    
+    // If seed is bad, pick a better start
+    if(!seed_is_good && !good_starts.empty()) {
+        // Prefer "I" for self-reference
+        if(token_concept_embedding_map.count("i")) {
+            seed = "i";
+        } else if(token_concept_embedding_map.count("you")) {
+            seed = "you";
+        } else {
+            seed = good_starts[ri(good_starts.size())];
+        }
+    }
+    
     string response = seed;
     vector<string> token_history = {seed};
-    set<string> used_tokens; // Track recent usage
+    set<string> used_tokens;
     used_tokens.insert(seed);
     
     for(int t=0; t<max_length; t++) {
@@ -294,7 +405,6 @@ string generate_from_transformer(string seed, int max_length, const vector<doubl
         
         vector<double> attn = compute_attention(current_query, token_history, S.current_valence);
         
-        // Build weighted candidate list
         vector<pair<string, double>> candidates;
         double total_weight = 0.0;
         
@@ -307,20 +417,24 @@ string generate_from_transformer(string seed, int max_length, const vector<doubl
                     score += attn[i] * p.second.meaning;
                 }
                 
-                // Use attention_context to bias toward relevant concepts
+                // Context influence
                 for(size_t i=0; i<attention_context.size() && i<p.second.embedding.size(); i++) {
                     score += attention_context[i] * p.second.embedding[i] * 0.5;
                 }
                 
-                // Diversity bonus - prefer less frequent tokens
+                // === GRAMMAR SCORING (THE KEY ADDITION) ===
+                double grammar_bonus = getGrammarScore(seed, p.first, t);
+                score *= (1.0 + grammar_bonus);  // Multiplicative, not additive!
+                
+                // Diversity bonus
                 score += (1.0 - min(1.0, p.second.freq / 10.0)) * 0.3;
                 
-                // CRITICAL: Repetition penalty
+                // Repetition penalty
                 if(used_tokens.count(p.first)) {
-                    score *= 0.2; // Heavy penalty for repeats
+                    score *= 0.2;
                 }
                 
-                // Penalize tokens used in last 3 positions
+                // Recent usage penalty
                 int recent_count = 0;
                 for(int i = max(0, (int)token_history.size()-3); i < (int)token_history.size(); i++) {
                     if(token_history[i] == p.first) recent_count++;
@@ -329,11 +443,11 @@ string generate_from_transformer(string seed, int max_length, const vector<doubl
                     score *= pow(0.5, recent_count);
                 }
                 
-                // Apply temperature via softmax
+                // Temperature
                 double temp = transformer_heads.empty() ? 0.3 : transformer_heads[0].temperature;
                 score = exp(score / temp);
                 
-                if(score > 0.001) { // Filter out very low scores
+                if(score > 0.001) {
                     candidates.push_back({p.first, score});
                     total_weight += score;
                 }
@@ -342,7 +456,7 @@ string generate_from_transformer(string seed, int max_length, const vector<doubl
         
         if(candidates.empty() || total_weight < 0.001) break;
         
-        // Sample from distribution instead of argmax
+        // Sample from distribution
         double rand_val = rn() * total_weight;
         double cumsum = 0.0;
         string next_token = candidates[0].first;
@@ -356,7 +470,6 @@ string generate_from_transformer(string seed, int max_length, const vector<doubl
         }
         
         if(next_token.empty() || next_token == seed) {
-            // Fallback: pick random high-scoring candidate
             if(candidates.size() > 1) {
                 next_token = candidates[ri(min(5, (int)candidates.size()))].first;
             } else {
@@ -369,7 +482,6 @@ string generate_from_transformer(string seed, int max_length, const vector<doubl
         used_tokens.insert(next_token);
         seed = next_token;
         
-        // Clear old history to prevent context bloat
         if(token_history.size() > 8) {
             token_history.erase(token_history.begin());
         }
