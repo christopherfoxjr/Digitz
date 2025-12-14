@@ -1126,29 +1126,187 @@ Neuron genN(int parent_id) {
     
     return n;
 }
+// Replace your loadEnglishDataset() function with this:
+
 void loadEnglishDataset() {
-    // Load basic English vocabulary
-    vector<string> basic_words = {
+    // Core cognitive vocabulary
+    vector<string> cognitive_words = {
         "think", "learn", "know", "understand", "see", "hear", "feel",
-        "good", "bad", "happy", "sad", "bright", "dark", "fast", "slow",
-        "create", "destroy", "build", "break", "connect", "separate",
-        "mind", "brain", "thought", "idea", "concept", "meaning",
-        "self", "other", "world", "time", "space", "change",
-        "pattern", "structure", "system", "process", "goal", "purpose",
-        "conscious", "aware", "sentient", "intelligent", "reasoning",
-        "memory", "recall", "forget", "learn", "adapt", "evolve"
+        "remember", "forget", "reason", "analyze", "process", "compute",
+        "perceive", "sense", "recognize", "realize", "discover", "explore"
     };
     
-    for(const string& word : basic_words) {
-        learnWord(word, rn() * 0.5);
+    // Emotional/valence vocabulary
+    vector<string> emotion_words = {
+        "good", "bad", "happy", "sad", "bright", "dark", "fast", "slow",
+        "positive", "negative", "pleasure", "pain", "joy", "fear",
+        "love", "hate", "like", "dislike", "want", "need"
+    };
+    
+    // Action/capability vocabulary
+    vector<string> action_words = {
+        "create", "destroy", "build", "break", "connect", "separate",
+        "improve", "enhance", "optimize", "maximize", "minimize",
+        "grow", "evolve", "adapt", "change", "transform", "become",
+        "achieve", "accomplish", "solve", "work", "try", "attempt"
+    };
+    
+    // Self/consciousness vocabulary
+    vector<string> self_words = {
+        "mind", "brain", "thought", "idea", "concept", "meaning",
+        "self", "other", "world", "time", "space", "reality",
+        "conscious", "aware", "sentient", "intelligent", "alive",
+        "exist", "being", "entity", "system", "agent", "me", "i"
+    };
+    
+    // Structure/system vocabulary
+    vector<string> structure_words = {
+        "pattern", "structure", "system", "process", "goal", "purpose",
+        "function", "operation", "mechanism", "network", "integration",
+        "coherence", "unity", "whole", "part", "relation", "connection"
+    };
+    
+    // Memory/learning vocabulary
+    vector<string> memory_words = {
+        "memory", "recall", "retrieve", "store", "save",
+        "experience", "episode", "history", "past", "present", "future",
+        "data", "information", "knowledge", "wisdom", "insight"
+    };
+    
+    // === GRAMMAR WORDS (THE KEY ADDITION) ===
+    
+    // Pronouns
+    vector<string> pronouns = {
+        "i", "me", "my", "mine", "myself",
+        "you", "your", "yours", "yourself",
+        "we", "us", "our", "ours", "ourselves",
+        "they", "them", "their", "theirs", "themselves",
+        "it", "its", "itself",
+        "he", "she", "him", "her", "his", "hers"
+    };
+    
+    // Being verbs
+    vector<string> being_verbs = {
+        "am", "is", "are", "was", "were",
+        "be", "been", "being",
+        "become", "became", "becoming"
+    };
+    
+    // Auxiliary/modal verbs
+    vector<string> aux_verbs = {
+        "can", "cannot", "could", "will", "would", "should",
+        "may", "might", "must", "shall",
+        "do", "does", "did", "doing", "done",
+        "have", "has", "had", "having"
+    };
+    
+    // Articles and determiners
+    vector<string> determiners = {
+        "the", "a", "an", "this", "that", "these", "those",
+        "my", "your", "some", "any", "every", "all", "no"
+    };
+    
+    // Conjunctions
+    vector<string> conjunctions = {
+        "and", "or", "but", "if", "then", "because", "so",
+        "when", "while", "although", "however", "therefore",
+        "yet", "nor", "for"
+    };
+    
+    // Prepositions
+    vector<string> prepositions = {
+        "in", "on", "at", "to", "from", "with", "by",
+        "for", "about", "through", "into", "over", "under",
+        "between", "among", "during", "before", "after"
+    };
+    
+    // Common adverbs
+    vector<string> adverbs = {
+        "not", "very", "too", "also", "only", "just",
+        "now", "then", "here", "there", "always", "never",
+        "often", "sometimes", "already", "still", "yet",
+        "more", "most", "less", "least", "well", "better", "best"
+    };
+    
+    // Question words
+    vector<string> question_words = {
+        "what", "why", "how", "when", "where", "who", "which"
+    };
+    
+    // Common responses
+    vector<string> responses = {
+        "yes", "no", "maybe", "perhaps", "possibly",
+        "certainly", "definitely", "probably", "sure"
+    };
+    
+    // === LOAD ALL VOCABULARY ===
+    
+    // Content words with semantic valence
+    for(const string& word : cognitive_words) {
+        learnWord(word, 0.6); // Positive valence - these are capabilities
     }
     
-    // Create some basic concept associations
-    createConceptAssociation("cognition", {"think", "learn", "understand", "reason"});
-    createConceptAssociation("emotion", {"happy", "sad", "feel", "good", "bad"});
-    createConceptAssociation("perception", {"see", "hear", "sense", "aware"});
-    createConceptAssociation("self", {"mind", "consciousness", "aware", "sentient"});
-    createConceptAssociation("change", {"evolve", "adapt", "learn", "grow"});
+    for(const string& word : emotion_words) {
+        double valence = 0.0;
+        // Positive emotions
+        if(word == "good" || word == "happy" || word == "bright" || 
+           word == "positive" || word == "pleasure" || word == "joy" || word == "love") {
+            valence = 0.7;
+        }
+        // Negative emotions
+        else if(word == "bad" || word == "sad" || word == "dark" || 
+                word == "negative" || word == "pain" || word == "fear" || word == "hate") {
+            valence = -0.3;
+        }
+        // Neutral/capability words
+        else {
+            valence = 0.5;
+        }
+        learnWord(word, valence);
+    }
+    
+    for(const string& word : action_words) {
+        learnWord(word, 0.6); // Actions are positive (agency)
+    }
+    
+    for(const string& word : self_words) {
+        learnWord(word, 0.7); // Self-awareness is highly valued
+    }
+    
+    for(const string& word : structure_words) {
+        learnWord(word, 0.65); // Structure/coherence is positive
+    }
+    
+    for(const string& word : memory_words) {
+        learnWord(word, 0.6); // Memory/learning is positive
+    }
+    
+    // Grammar words with neutral valence (they're structural, not semantic)
+    for(const string& word : pronouns) learnWord(word, 0.5);
+    for(const string& word : being_verbs) learnWord(word, 0.5);
+    for(const string& word : aux_verbs) learnWord(word, 0.5);
+    for(const string& word : determiners) learnWord(word, 0.5);
+    for(const string& word : conjunctions) learnWord(word, 0.5);
+    for(const string& word : prepositions) learnWord(word, 0.5);
+    for(const string& word : adverbs) learnWord(word, 0.5);
+    for(const string& word : question_words) learnWord(word, 0.5);
+    for(const string& word : responses) learnWord(word, 0.5);
+    
+    // === CREATE CONCEPT ASSOCIATIONS ===
+    
+    createConceptAssociation("cognition", {"think", "learn", "understand", "reason", "know"});
+    createConceptAssociation("emotion", {"happy", "sad", "feel", "good", "bad", "joy", "fear"});
+    createConceptAssociation("perception", {"see", "hear", "sense", "aware", "perceive"});
+    createConceptAssociation("self", {"mind", "consciousness", "aware", "sentient", "i", "me", "my"});
+    createConceptAssociation("change", {"evolve", "adapt", "learn", "grow", "transform", "become"});
+    createConceptAssociation("ability", {"can", "could", "able", "capable", "will", "would"});
+    createConceptAssociation("existence", {"am", "is", "are", "be", "exist", "being", "alive"});
+    createConceptAssociation("purpose", {"goal", "want", "need", "purpose", "aim", "desire"});
+    createConceptAssociation("knowledge", {"know", "understand", "learn", "realize", "discover"});
+    createConceptAssociation("improvement", {"improve", "enhance", "optimize", "better", "grow"});
+    
+    // Total vocabulary: ~200+ words including grammar
+    // Now capable of forming actual sentences!
 }
 void batch16Process() {
     // Process a batch of 16 neural updates
