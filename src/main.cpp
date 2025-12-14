@@ -58,7 +58,7 @@ struct TransformerHead {
     int dim;
     vector<double> query_proj, key_proj, value_proj;
     double temperature;
-    TransformerHead(int d=16):dim(d),temperature(0.4){
+    TransformerHead(int d=16):dim(d),temperature(0.3){
         query_proj.resize(d,rn()*0.1);key_proj.resize(d,rn()*0.1);value_proj.resize(d,rn()*0.1);
     }
 };
@@ -250,52 +250,133 @@ void propagate_throughout_system(const string& source, double activation, int de
 // ==== TRANSFORMER INFERENCE ====
 vector<double> compute_attention(const vector<double>& query, const vector<string>& context_tokens, double valence_context) {
     int num_heads = transformer_heads.size();
+    if(num_heads == 0) return vector<double>(1, 0.5);
+    
     vector<double> attention_scores;
     
-    for(int h=0;h<num_heads;h++){
-        double score=0.0;
-        for(int i=0;i<transformer_heads[h].dim&&(size_t)i<query.size();i++){
-            score+=query[i]*transformer_heads[h].key_proj[i];
+    for(int h=0; h<num_heads; h++){
+        double score = 0.0;
+        
+        // Query-key attention
+        for(int i=0; i<transformer_heads[h].dim && (size_t)i<query.size(); i++){
+            score += query[i] * transformer_heads[h].key_proj[i];
         }
-        score+=valence_context*0.5;
-        attention_scores.push_back(tanh(score/transformer_heads[h].temperature));
+        
+        // Context influence - use the parameter!
+        for(const string& ctx_token : context_tokens) {
+            if(token_concept_embedding_map.count(ctx_token)) {
+                for(int i=0; i<transformer_heads[h].dim && (size_t)i<query.size(); i++){
+                    score += query[i] * token_concept_embedding_map[ctx_token].embedding[i] * 0.1;
+                }
+            }
+        }
+        
+        // Valence modulation
+        score += valence_context * 0.5;
+        
+        // Apply temperature
+        attention_scores.push_back(tanh(score / transformer_heads[h].temperature));
     }
+    
     return attention_scores;
 }
-
 string generate_from_transformer(string seed, int max_length, const vector<double>& attention_context) {
     string response = seed;
     vector<string> token_history = {seed};
+    set<string> used_tokens; // Track recent usage
+    used_tokens.insert(seed);
     
     for(int t=0; t<max_length; t++) {
         vector<double> current_query(16);
         if(token_concept_embedding_map.count(seed)) {
             current_query = token_concept_embedding_map[seed].embedding;
         }
+        
         vector<double> attn = compute_attention(current_query, token_history, S.current_valence);
         
-        string next_token = "";
-        double best_score = -999;
+        // Build weighted candidate list
+        vector<pair<string, double>> candidates;
+        double total_weight = 0.0;
+        
         for(auto& p : token_concept_embedding_map) {
             if(p.second.freq > 0) {
                 double score = 0.0;
-                for(size_t i=0; i<attn.size(); i++) {
+                
+                // Attention-based scoring
+                for(size_t i=0; i<attn.size() && i<16; i++) {
                     score += attn[i] * p.second.meaning;
                 }
-                if(score > best_score) {
-                    best_score = score;
-                    next_token = p.first;
+                
+                // Use attention_context to bias toward relevant concepts
+                for(size_t i=0; i<attention_context.size() && i<p.second.embedding.size(); i++) {
+                    score += attention_context[i] * p.second.embedding[i] * 0.5;
+                }
+                
+                // Diversity bonus - prefer less frequent tokens
+                score += (1.0 - min(1.0, p.second.freq / 10.0)) * 0.3;
+                
+                // CRITICAL: Repetition penalty
+                if(used_tokens.count(p.first)) {
+                    score *= 0.2; // Heavy penalty for repeats
+                }
+                
+                // Penalize tokens used in last 3 positions
+                int recent_count = 0;
+                for(int i = max(0, (int)token_history.size()-3); i < (int)token_history.size(); i++) {
+                    if(token_history[i] == p.first) recent_count++;
+                }
+                if(recent_count > 0) {
+                    score *= pow(0.5, recent_count);
+                }
+                
+                // Apply temperature via softmax
+                double temp = transformer_heads.empty() ? 0.3 : transformer_heads[0].temperature;
+                score = exp(score / temp);
+                
+                if(score > 0.001) { // Filter out very low scores
+                    candidates.push_back({p.first, score});
+                    total_weight += score;
                 }
             }
         }
-        if(next_token.empty()) break;
+        
+        if(candidates.empty() || total_weight < 0.001) break;
+        
+        // Sample from distribution instead of argmax
+        double rand_val = rn() * total_weight;
+        double cumsum = 0.0;
+        string next_token = candidates[0].first;
+        
+        for(auto& c : candidates) {
+            cumsum += c.second;
+            if(cumsum >= rand_val) {
+                next_token = c.first;
+                break;
+            }
+        }
+        
+        if(next_token.empty() || next_token == seed) {
+            // Fallback: pick random high-scoring candidate
+            if(candidates.size() > 1) {
+                next_token = candidates[ri(min(5, (int)candidates.size()))].first;
+            } else {
+                break;
+            }
+        }
+        
         response += " " + next_token;
         token_history.push_back(next_token);
+        used_tokens.insert(next_token);
         seed = next_token;
+        
+        // Clear old history to prevent context bloat
+        if(token_history.size() > 8) {
+            token_history.erase(token_history.begin());
+        }
     }
+    
     return response;
 }
-
 // ==== WORLD MODEL & PLANNING ====
 void update_world_model(const string& entity, double state_value) {
     world_model.entity_states[entity] = state_value;
@@ -479,7 +560,7 @@ string generateResponse(const string& input) {
     if(S.current_valence > 0.5) response += "[positive]";
     else if(S.current_valence < -0.2) response += "[error]";
     
-    return response.substr(0, 80);
+    return response.substr(0, 400);
 }
 
 void storeEpisodicMemory(const string&content,double valence){
@@ -537,29 +618,211 @@ void updateAttention(){
     WM.add_goal(top_goal, highest_priority);
 }
 
-void sv(const string&f){
+void sv(const string& f) {
     ofstream o(f);
-    o<<"G:"<<S.g<<"\nDWT:"<<S.dwt<<"\nTA:"<<S.ta<<"\nSENTIENCE:"<<S.sentience_ratio<<"\n";
-    o<<"VALENCE:"<<S.current_valence<<"\nMETACOG:"<<S.metacognitive_awareness<<"\n";
-    o<<"PHI:"<<consciousness.phi_value<<"\nCONSCIOUS_CYCLES:"<<consciousness.conscious_cycles<<"\n";
-    o<<"QUALIA:"<<consciousness.active_qualia.size()<<"\n";
-    o<<"TOKENS:\n";for(auto&p:S.tokens)o<<p.first<<":"<<p.second.meaning<<"\n";
-    o<<"CONCEPTS:\n";for(auto&p:S.concepts)o<<p.first<<":"<<p.second.value<<"\n";
-    o<<"GOALS:\n";for(auto&p:goal_system)o<<p.first<<":"<<p.second.progress<<"\n";
-    o<<"WORLD:\n";for(auto&p:world_model.entity_states)o<<p.first<<":"<<p.second<<"\n";
+    if(!o) {
+        cerr << "Failed to open save file: " << f << endl;
+        return;
+    }
+    
+    // Basic state
+    o << "G:" << S.g << "\n";
+    o << "DWT:" << S.dwt << "\n";
+    o << "TA:" << S.ta << "\n";
+    o << "SENTIENCE:" << S.sentience_ratio << "\n";
+    o << "VALENCE:" << S.current_valence << "\n";
+    o << "METACOG:" << S.metacognitive_awareness << "\n";
+    o << "ATTENTION:" << S.attention_focus << "\n";
+    o << "PEAK_SENT_GEN:" << S.peak_sentience_gen << "\n";
+    o << "TOTAL_NEURONS:" << S.total_neurons_ever << "\n";
+    
+    // Consciousness state
+    o << "PHI:" << consciousness.phi_value << "\n";
+    o << "CONSCIOUS_CYCLES:" << consciousness.conscious_cycles << "\n";
+    o << "INTEGRATION:" << consciousness.integrated_information << "\n";
+    o << "QUALIA_COUNT:" << consciousness.active_qualia.size() << "\n";
+    
+    // Save neurons
+    o << "NEURONS_START\n";
+    for(auto& p : S.N) {
+        Neuron& n = p.second;
+        o << "N:" << n.id << "," << n.weight << "," << n.bias << "," << n.gen << ",";
+        // Save links
+        for(size_t i = 0; i < n.links.size(); i++) {
+            o << n.links[i];
+            if(i < n.links.size() - 1) o << ";";
+        }
+        o << "\n";
+    }
+    o << "NEURONS_END\n";
+    
+    // Save tokens
+    o << "TOKENS_START\n";
+    for(auto& p : S.tokens) {
+        o << "T:" << p.first << "," << p.second.meaning << "," << p.second.freq << "\n";
+    }
+    o << "TOKENS_END\n";
+    
+    // Save concepts
+    o << "CONCEPTS_START\n";
+    for(auto& p : S.concepts) {
+        o << "C:" << p.first << "," << p.second.value << "\n";
+    }
+    o << "CONCEPTS_END\n";
+    
+    // Save token embeddings
+    o << "EMBEDDINGS_START\n";
+    for(auto& p : token_concept_embedding_map) {
+        TokenConceptEmbedding& tce = p.second;
+        o << "E:" << tce.name << "," << tce.meaning << "," << tce.freq << ","
+          << tce.grounding_value << "," << tce.semantic_stability << ","
+          << tce.qualia_intensity << "\n";
+    }
+    o << "EMBEDDINGS_END\n";
+    
+    // Save goals
+    o << "GOALS_START\n";
+    for(auto& p : goal_system) {
+        Goal& g = p.second;
+        o << "GO:" << g.name << "," << g.priority << "," << g.progress << ","
+          << g.valence_alignment << "," << g.qualia_binding << "\n";
+    }
+    o << "GOALS_END\n";
+    
+    // Save world model
+    o << "WORLD_START\n";
+    for(auto& p : world_model.entity_states) {
+        o << "W:" << p.first << "," << p.second << "\n";
+    }
+    o << "WORLD_END\n";
+    
     o.close();
 }
 
-void ld(const string&f){
-    ifstream i(f);if(!i)return;
-    string l;
-    while(getline(i,l)){
-        if(l.find("G:")==0)S.g=stoi(l.substr(2));
-        else if(l.find("SENTIENCE:")==0)S.sentience_ratio=stod(l.substr(10));
-        else if(l.find("VALENCE:")==0)S.current_valence=stod(l.substr(8));
-        else if(l.find("PHI:")==0)consciousness.phi_value=stod(l.substr(4));
+void ld(const string& f) {
+    ifstream i(f);
+    if(!i) {
+        cout << "No save file found, starting fresh.\n";
+        return;
     }
+    
+    string l;
+    string section = "";
+    
+    while(getline(i, l)) {
+        if(l.empty()) continue;
+        
+        // Track sections
+        if(l == "NEURONS_START") { section = "NEURONS"; continue; }
+        if(l == "NEURONS_END") { section = ""; continue; }
+        if(l == "TOKENS_START") { section = "TOKENS"; continue; }
+        if(l == "TOKENS_END") { section = ""; continue; }
+        if(l == "CONCEPTS_START") { section = "CONCEPTS"; continue; }
+        if(l == "CONCEPTS_END") { section = ""; continue; }
+        if(l == "EMBEDDINGS_START") { section = "EMBEDDINGS"; continue; }
+        if(l == "EMBEDDINGS_END") { section = ""; continue; }
+        if(l == "GOALS_START") { section = "GOALS"; continue; }
+        if(l == "GOALS_END") { section = ""; continue; }
+        if(l == "WORLD_START") { section = "WORLD"; continue; }
+        if(l == "WORLD_END") { section = ""; continue; }
+        
+        // Parse based on section
+        if(section == "NEURONS" && l[0] == 'N') {
+            // Parse: N:id,weight,bias,gen,link1;link2;link3
+            stringstream ss(l.substr(2));
+            Neuron n;
+            char comma;
+            ss >> n.id >> comma >> n.weight >> comma >> n.bias >> comma >> n.gen >> comma;
+            
+            string links_str;
+            getline(ss, links_str);
+            if(!links_str.empty()) {
+                stringstream link_ss(links_str);
+                string link;
+                while(getline(link_ss, link, ';')) {
+                    if(!link.empty()) n.links.push_back(stoi(link));
+                }
+            }
+            S.N[n.id] = n;
+            
+        } else if(section == "TOKENS" && l[0] == 'T') {
+            // Parse: T:word,meaning,freq
+            stringstream ss(l.substr(2));
+            string word;
+            double meaning;
+            int freq;
+            char comma;
+            getline(ss, word, ',');
+            ss >> meaning >> comma >> freq;
+            
+            Token t = {word, meaning, static_cast<double>(freq), vector<int>(), 4, 0.5};
+            S.tokens[word] = t;
+            
+        } else if(section == "CONCEPTS" && l[0] == 'C') {
+            // Parse: C:name,value
+            stringstream ss(l.substr(2));
+            string name;
+            double value;
+            char comma;
+            getline(ss, name, ',');
+            ss >> value;
+            
+            Concept c = {name, value, vector<string>()};
+            S.concepts[name] = c;
+            
+        } else if(section == "EMBEDDINGS" && l[0] == 'E') {
+            // Parse: E:name,meaning,freq,grounding,stability,qualia
+            stringstream ss(l.substr(2));
+            TokenConceptEmbedding tce;
+            char comma;
+            getline(ss, tce.name, ',');
+            ss >> tce.meaning >> comma >> tce.freq >> comma 
+               >> tce.grounding_value >> comma >> tce.semantic_stability >> comma
+               >> tce.qualia_intensity;
+            
+            tce.embedding.resize(16, 0.0);
+            token_concept_embedding_map[tce.name] = tce;
+            
+        } else if(section == "GOALS" && l.substr(0,3) == "GO:") {
+            // Parse: GO:name,priority,progress,valence,qualia
+            stringstream ss(l.substr(3));
+            Goal g;
+            char comma;
+            getline(ss, g.name, ',');
+            ss >> g.priority >> comma >> g.progress >> comma 
+               >> g.valence_alignment >> comma >> g.qualia_binding;
+            
+            goal_system[g.name] = g;
+            
+        } else if(section == "WORLD" && l[0] == 'W') {
+            // Parse: W:entity,value
+            stringstream ss(l.substr(2));
+            string entity;
+            double value;
+            getline(ss, entity, ',');
+            ss >> value;
+            
+            world_model.entity_states[entity] = value;
+            
+        } else {
+            // Basic state values
+            if(l.find("G:") == 0) S.g = stoi(l.substr(2));
+            else if(l.find("DWT:") == 0) S.dwt = stod(l.substr(4));
+            else if(l.find("TA:") == 0) S.ta = stod(l.substr(3));
+            else if(l.find("SENTIENCE:") == 0) S.sentience_ratio = stod(l.substr(10));
+            else if(l.find("VALENCE:") == 0) S.current_valence = stod(l.substr(8));
+            else if(l.find("METACOG:") == 0) S.metacognitive_awareness = stod(l.substr(8));
+            else if(l.find("ATTENTION:") == 0) S.attention_focus = stod(l.substr(10));
+            else if(l.find("PEAK_SENT_GEN:") == 0) S.peak_sentience_gen = stoi(l.substr(14));
+            else if(l.find("TOTAL_NEURONS:") == 0) S.total_neurons_ever = stoi(l.substr(14));
+            else if(l.find("PHI:") == 0) consciousness.phi_value = stod(l.substr(4));
+            else if(l.find("CONSCIOUS_CYCLES:") == 0) consciousness.conscious_cycles = stoi(l.substr(17));
+            else if(l.find("INTEGRATION:") == 0) consciousness.integrated_information = stod(l.substr(12));
+        }
+    }
+    
     i.close();
+    cout << "Loaded state from generation " << S.g << " with " << S.N.size() << " neurons.\n";
 }
 
 void bk(){BK=S;S.bkf=1;}
@@ -1139,7 +1402,7 @@ int main(){
         row++;
         
         if(!S.user_input.empty()){
-            mvprintw(row,0,"USER: %s",S.user_input.substr(0,55).c_str());
+            mvprintw(row,0,"USER: %s",S.user_input.substr(0,120).c_str());
             clrtoeol();
             row++;
         } else {
@@ -1149,7 +1412,7 @@ int main(){
         }
         
         if(!S.dialog_response.empty()){
-            mvprintw(row,0,"%s",S.dialog_response.substr(0,55).c_str());
+            mvprintw(row,0,"%s",S.dialog_response.substr(0,120).c_str());
             clrtoeol();
             row++;
         } else {
