@@ -1,6 +1,11 @@
-#include <windows.h> // Zig pulls in this internally
-#ifdef byte
-#undef byte
+#if defined(_WIN32) || defined(WINDOWS_BUILD) || defined(__WINDOWS__)
+    // Only include Windows headers when compiling for Windows
+    #include <windows.h>
+
+    // Remove the old Windows typedef that conflicts with std::byte
+    #ifdef byte
+        #undef byte
+    #endif
 #endif
 #include <iostream>
 #include <fstream>
