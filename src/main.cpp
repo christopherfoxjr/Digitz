@@ -2570,7 +2570,10 @@ int main(){
                     string resp = S.dialog_response;
                     int max_width = 60;
                     int start = 0;
-                    while(start < (int)resp.length() && row < LINES - 6) {
+                    int max_y, max_x;
+                    getmaxyx(stdscr, max_y, max_x);
+                    (void)max_x;  // Suppress unused warning
+                    while(start < (int)resp.length() && row < max_y - 6) {
                         string line = resp.substr(start, min(max_width, (int)resp.length() - start));
                         mvprintw(row, 0, "%s", line.c_str());
                         clrtoeol();
