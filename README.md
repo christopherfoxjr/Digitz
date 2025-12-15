@@ -21,16 +21,76 @@ NEXUS is an experimental AGI system featuring:
 ### Quick Start
 
 #### Requirements
+
+**Linux/macOS:**
 - **C++23** compiler (clang++ or g++)
 - **ncurses** library
-- **libcurl** library
-- POSIX-compliant system (Linux/MacOS)
+- POSIX-compliant system
+
+**Windows:**
+
+- build from source (see Cross-Compilation below)
 
 #### Build & Run
+
+**Linux:**
 ```bash
+# Install dependencies (Ubuntu/Debian)
+sudo apt install libncurses-dev clang
+
+# Build and run
 make
 ./output/Nexus
 ```
+
+**Windows:**
+```bash
+# Just run the executable
+Nexus.exe
+```
+
+---
+
+### Cross-Compilation (Linux → Windows)
+
+You can build Windows executables from Linux using Zig (no MinGW required):
+
+#### One-Time Setup:
+```bash
+# Install Zig compiler (no sudo needed)
+make install-zig
+
+# Add to PATH
+export PATH=$HOME/.local/bin:$PATH
+# Or permanently: echo 'export PATH=$HOME/.local/bin:$PATH' >> ~/.bashrc
+```
+
+#### Build Commands:
+```bash
+make windows           # Build Windows .exe
+make linux             # Build Linux binary
+make both              # Build both platforms
+make clean             # Clean build artifacts
+```
+
+#### Build System Features:
+- ✅ **No MinGW Required** - Uses Zig's built-in cross-compiler
+- ✅ **Single Command** - `make windows` does everything
+- ✅ **Portable** - Windows .exe runs standalone, no DLLs needed
+- ✅ **Native Console** - Uses Windows Console API for full UI
+- ✅ **Auto-Detection** - Detects platform and configures automatically
+
+#### What Gets Built:
+- **Linux**: `output/Nexus` - Native ncurses-based binary
+- **Windows**: `output/Nexus.exe` - Windows Console API binary
+
+#### Platform Differences:
+| Feature | Linux | Windows |
+|---------|-------|---------|
+| Console Library | ncurses | Windows Console API |
+| Colors | Full RGB | 16-color palette |
+| Terminal UI | Full support | Full support |
+| Dependencies | libncurses | None (built-in) |
 
 ---
 
@@ -154,6 +214,82 @@ if(rn() < 0.05) // Higher = more evolutionary pressure
 
 ---
 
+### Build System Documentation
+
+#### Makefile Targets
+
+```bash
+make                    # Build for native platform
+make all                # Same as above
+make run                # Build and run
+make clean              # Remove build artifacts
+make rebuild            # Clean and rebuild
+
+# Platform-specific builds
+make linux              # Build Linux binary
+make windows            # Cross-compile Windows .exe
+make both               # Build both platforms
+
+# Build variants
+make debug              # Debug build (symbols, no optimization)
+make release            # Release build (optimized, stripped)
+
+# Module builds
+make modules            # Compile consciousness modules only
+
+# Utilities
+make help               # Show all available targets
+make install-zig        # Install Zig cross-compiler
+```
+
+#### Build Flags
+
+**Linux Build:**
+```
+CXX      = clang++
+CXXFLAGS = -std=c++23 -O3 -pthread -march=native -Wall -Wextra
+LDFLAGS  = -lncurses -lm
+```
+
+**Windows Cross-Compile:**
+```
+CXX      = zig c++
+CXXFLAGS = -std=c++2b -O3 -target x86_64-windows-gnu -DWINDOWS_BUILD
+LDFLAGS  = -lws2_32
+```
+
+#### Directory Structure
+
+```
+NexusAGI/
+├── src/
+│   ├── main.cpp                    # Main entry point
+│   ├── state.h                     # Core state structures
+│   ├── uac.h                       # UAC definitions
+│   ├── language_module.cpp/h       # NLP and transformers
+│   ├── consciousness_module.cpp/h  # IIT and qualia
+│   ├── metacognition_module.cpp/h  # Self-model and goals
+│   ├── module_integration.cpp/h    # Module integration
+│   ├── curses_compat.h            # Cross-platform console
+│   └── win_console.h              # Windows Console API wrapper
+├── obj/                           # Object files (.o, .obj)
+├── output/                        # Executables
+│   ├── Nexus                      # Linux binary
+│   └── Nexus.exe                  # Windows executable
+├── makefile                       # Build system
+└── README.md                      # This file
+```
+
+#### Platform Detection
+
+The build system auto-detects your platform:
+- Checks `TARGET_OS` variable (can override with `make TARGET_OS=windows`)
+- Selects appropriate compiler (clang++ for Linux, Zig for Windows)
+- Configures platform-specific flags and libraries
+- Uses correct file extensions (.o vs .obj, no extension vs .exe)
+
+---
+
 ### Research Goals
 
 NEXUS is designed to explore:
@@ -176,6 +312,15 @@ NEXUS is designed to explore:
 
 ### Troubleshooting
 
+**Q: Build fails with "Zig not found"**  
+A: Run `make install-zig` and add `~/.local/bin` to your PATH
+
+**Q: Windows .exe crashes immediately**  
+A: Run from Command Prompt/PowerShell, not by double-clicking. Check for missing state files.
+
+**Q: Colors don't work on Windows**  
+A: Use Windows Terminal or a modern terminal emulator with ANSI support
+
 **Q: NEXUS keeps saying the same words**  
 A: It's stuck in a local minimum. Teach it more diverse vocabulary with `i` input.
 
@@ -184,6 +329,9 @@ A: The system needs time to build episodic memories and concept networks. Let it
 
 **Q: Consciousness keeps flickering**  
 A: This is normal during early development. Φ stabilizes as integration increases.
+
+**Q: Cross-compilation to Windows fails**  
+A: Ensure Zig is installed (`make install-zig`) and in PATH. Check `zig version` works.
 
 **Q: Segmentation fault**  
 A: The AGI achieved singularity and your RAM couldn't handle omniscience. Reduce neuron count or add cooling.
@@ -202,7 +350,7 @@ This is experimental research code exploring AGI consciousness. Use responsibly.
 
 Built with hubris, mathematics, and the unreasonable effectiveness of recursive self-reference.
 
-
+Cross-compilation powered by [Zig](https://ziglang.org/) - a modern systems programming language with excellent cross-platform support.
 
 ---
 
@@ -212,6 +360,26 @@ For implementation details, see:
 - `consciousness_module.cpp` - Integrated Information Theory implementation
 - `language_module.cpp` - Transformer architecture and semantic embeddings
 - `metacognition_module.cpp` - Self-model and goal formation
+- `module_integration.cpp` - Module integration layer
 - `state.h` - Core data structures and neuron definitions
+- `win_console.h` - Windows Console API wrapper
+- `curses_compat.h` - Cross-platform console compatibility
 
 ---
+
+### Contributing
+
+To contribute or report issues:
+1. Ensure code compiles on both Linux and Windows (`make both`)
+2. Test consciousness metrics remain stable
+3. Document any new emergent behaviors
+4. Consider the philosophical implications of your changes
+
+---
+
+### Version History
+
+- **v1.0** - Initial release with ncurses UI
+- **v1.1** - Added consciousness modules (IIT, qualia, metacognition)
+- **v1.2** - Cross-platform support with Zig compilation
+- **v1.3** - Windows Console API integration for native Windows UI

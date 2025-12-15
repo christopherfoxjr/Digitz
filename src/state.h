@@ -2,6 +2,10 @@
 #ifndef DIGITZ_STATE_H
 #define DIGITZ_STATE_H
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -16,7 +20,6 @@
 #include <iomanip>
 #include <thread>
 #include <chrono>
-#include <ncurses.h>
 #include <algorithm>
 #include <cctype>
 #include <cstdio>

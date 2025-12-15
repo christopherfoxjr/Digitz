@@ -1,7 +1,3 @@
-#include <windows.h> // Zig pulls in this internally
-#ifdef byte
-#undef byte
-#endif
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -23,13 +19,9 @@
 #include <iomanip>
 #include <thread>
 #include <chrono>
-#include "curses_compat.h"
+#include <ncurses.h>
 #include <algorithm>
 #include <cctype>
-#include <cstddef> // std::byte will now be fine
-#include <type_traits>
-#include <vector>
-#include <string>
 #include <cstdio>
 using namespace std;
 using module_integration::init_all_modules;
