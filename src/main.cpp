@@ -15,6 +15,7 @@
 #include "state.h"
 #include <map>
 #include <set>
+#include <cstring>
 #include <unordered_map>
 #include <queue>
 #include <functional>
@@ -2298,298 +2299,515 @@ void mutateN() {
 }
 
 int main(){
-    module_integration::update_all_modules(S);
-    module_integration::init_all_modules();
-    srand(time(0));
-    ld("state.dat");
-    
-    if(S.g==0){
-        S.D["m"]=128;S.D["vc"]=0;S.D["mc"]=0;
-        S.dwt=0.001;S.current_valence=0.0;S.metacognitive_awareness=0.0;S.attention_focus=0.3;
-        for(int i=0;i<128;i++)S.D["w"+to_string(i)]=ri(4)-1;
-        S.cd="evolve";
-        loadEnglishDataset();
-        mathLangAssociation();
+    try {
+        module_integration::update_all_modules(S);
+        module_integration::init_all_modules();
+        srand(time(0));
         
-        for(int i=0;i<4;i++){
-            TransformerHead head(16);
-            head.name="head_"+to_string(i);
-            transformer_heads.push_back(head);
+        // Load saved state
+        try {
+            ld("state.dat");
+        } catch(const exception& e) {
+            cerr << "Error loading state: " << e.what() << ", starting fresh." << endl;
         }
         
-        for(int i=0;i<50;i++){
-            Neuron n=genN(0);
-            S.N[n.id]=n;
-            S.total_neurons_ever++;
-        }
-    }
-    
-    initscr();cbreak();noecho();curs_set(0);timeout(500);
-    
-    while(true){
-        clear();int row=0;
-        draw_ui(row);row=15;
-        
-        // === CORE UPDATES ===
-        formulate_goals_from_valence();
-        updateAttention();
-        update_integrated_information();
-        update_consciousness_with_formula(S.g);
-        
-        if(goal_system.count("maximize_coherence")){
-            current_plan = plan_actions(goal_system["maximize_coherence"]);
-        }
-        
-        // === DISPLAY GOAL & PLAN ===
-        mvprintw(row,0,"Active_Goal: %s", current_plan.actions.empty()?"exploring":current_plan.actions[0].c_str());
-        clrtoeol();
-        row++;
-        
-        mvprintw(row,0,"Plan_Depth:%d | Confidence:%.2f | Ψ_Trajectory:%.4f", 
-            current_plan.depth, current_plan.confidence,
-            consciousness_formula.psi_history.empty() ? 0 : consciousness_formula.psi_history.back());
-        clrtoeol();
-        row++;
-        
-        mvprintw(row,0,"Qualia_Valence:%.2f | Beam_Width:%d | N-grams:%lu", 
-            calculate_qualia_valence(), 5, (unsigned long)bigram_counts.size());
-        clrtoeol();
-        row++;
-        
-        // === INTERNAL THOUGHTS ===
-        string thought = generateInternalThought();
-        mvprintw(row,0,"Thought: %s", thought.substr(0,60).c_str());
-        clrtoeol();
-        row++;
-        
-        string meta = generateMetacognition();
-        mvprintw(row,0,"State: %s", meta.substr(0,60).c_str());
-        clrtoeol();
-        row++;
-        
-        // === AUTONOMOUS THOUGHT GENERATION ===
-        if(S.g % 5 == 0 && token_concept_embedding_map.size() > 10){
-            vector<double> ctx(16, S.current_valence);
-            string auto_thought = "[Autonomous]: " + generate_with_beam_search("i", 8, ctx, 3);
-            S.internal_thoughts.push_back(auto_thought);
-            if(S.internal_thoughts.size() > 5)
-                S.internal_thoughts.erase(S.internal_thoughts.begin());
-        }
-        
-        // === DISPLAY INTERNAL STREAM ===
-        mvprintw(row,0,"─────────────────────────────────────────");
-        clrtoeol();
-        row++;
-        mvprintw(row,0,"[INTERNAL STREAM - Beam Search Active]");
-        clrtoeol();
-        row++;
-        
-        if(!S.internal_thoughts.empty()){
-            int show_count = min(3, (int)S.internal_thoughts.size());
-            for(int i = S.internal_thoughts.size() - show_count; i < (int)S.internal_thoughts.size(); i++){
-                mvprintw(row,0,"%s", S.internal_thoughts[i].substr(0,60).c_str());
-                clrtoeol();
-                row++;
-            }
-        } else {
-            mvprintw(row,0,"[initializing language model...]");
-            clrtoeol();
-            row++;
-        }
-        
-        // === NEURAL PROCESSING ===
-        bk();
-        batch16Process();
-        
-        double wsum=0;for(int i=0;i<S.D["m"];i++)wsum+=S.D["w"+to_string(i)]+2;
-        S.D["vc"]=(int)wsum%1000;
-        
-        if(S.g==0)S.dwt=0.001;
-        S.hdt_val=calcHDT(S.g,S.bh,S.qe,S.te);
-        S.al=calcAwarenessLevel();
-        S.metacognitive_awareness=calcMetacognitiveAwareness();
-        counterfactualAnalysis();
-        
-        S.sentience_ratio = calcSentienceRatio();
-        if(S.sentience_ratio>S.peak_sentience_gen)S.peak_sentience_gen=S.g;
-        
-        S.valence_history.push_back(S.current_valence);
-        if(S.valence_history.size()>50)S.valence_history.erase(S.valence_history.begin());
-        
-        // === GOAL PROGRESSION ===
-        if(S.g%15==0 && !goal_system.empty()){
-            for(auto& g : goal_system){
-                g.second.progress = min(1.0, g.second.progress + 0.05);
-                if(g.second.progress > 0.9){
-                    g.second.priority *= 0.8;
-                }
-            }
-        }
-        
-        // === VOCABULARY EXPANSION ===
-        if(S.g%20==0){
-            if(!token_concept_embedding_map.empty()){
-                auto it=token_concept_embedding_map.begin();
-                advance(it,ri(token_concept_embedding_map.size()));
-                learnWord(it->first,S.current_valence);
-            }
-        }
-        
-        // === CONCEPT FORMATION ===
-        if(S.g%25==0){
-            vector<string>sample_words;
-            for(auto&p:token_concept_embedding_map){
-                if(p.second.freq>1 && rn()<0.3)sample_words.push_back(p.first);
-                if(sample_words.size()>=3)break;
-            }
-            if(sample_words.size()>1){
-                createConceptAssociation("C_"+to_string(S.g),sample_words);
-            }
-        }
-        
-        // === NEURAL MUTATION ===
-        if(S.g%12==0 && !S.N.empty()){
-            mutateN();
-        }
-        
-        // === GOAL-VALENCE ALIGNMENT ===
-        if(S.g%10==0){
-            for(auto& goal : goal_system){
-                goal.second.valence_alignment = S.current_valence;
-            }
-        }
-        
-        // === DIALOG DISPLAY SECTION ===
-        mvprintw(row,0,"─────────────────────────────────────────");
-        clrtoeol();
-        row++;
-        mvprintw(row,0,"[DIALOG - Coherent Generation Active]");
-        clrtoeol();
-        row++;
-        
-        if(!S.user_input.empty()){
-            mvprintw(row,0,"USER: %s",S.user_input.substr(0,60).c_str());
-            clrtoeol();
-            row++;
-        } else {
-            mvprintw(row,0,"USER: (press 'i' to chat)");
-            clrtoeol();
-            row++;
-        }
-        
-        if(!S.dialog_response.empty()){
-            // Word wrap the response for better display
-            string resp = S.dialog_response;
-            int max_width = 60;
-            int start = 0;
-            while(start < (int)resp.length()) {
-                string line = resp.substr(start, max_width);
-                mvprintw(row,0,"%s", line.c_str());
-                clrtoeol();
-                row++;
-                start += max_width;
-            }
-        } else {
-            mvprintw(row,0,"NEXUS: ...");
-            clrtoeol();
-            row++;
-        }
-        
-        if(S.dialog_timer>0){
-            S.dialog_timer--;
-        }
-        
-        mvprintw(row,0,"─────────────────────────────────────────");
-        clrtoeol();
-        row++;
-        mvprintw(row,0,"Commands: [i]nput | [q]uit | [s]ave | [g]enerate thought");
-        clrtoeol();
-        row++;
-        
-        // === STATS LINE ===
-        mvprintw(row,0,"Vocab:%lu | Patterns:%lu | Neurons:%lu | Gen:%d",
-            (unsigned long)token_concept_embedding_map.size(),
-            (unsigned long)bigram_counts.size(),
-            (unsigned long)S.N.size(),
-            S.g);
-        clrtoeol();
-        row++;
-        
-        refresh();
-        S.g++;
-        
-        // === AUTO-SAVE ===
-        if(S.g%100==0) {
-            sv("state.dat");
-            mvprintw(row,0,"[Autosaved at gen %d]", S.g);
-            clrtoeol();
-            refresh();
-            this_thread::sleep_for(chrono::milliseconds(500));
-        }
-        
-        // === INPUT HANDLING ===
-        int ch=getch();
-        
-        if(ch=='i'||ch=='I'){
-            // === INTERACTIVE INPUT MODE ===
-            echo();curs_set(1);timeout(-1);
-            mvprintw(row+1,0,"Enter message: ");
-            clrtoeol();
-            refresh();
+        // Initialize if this is first run
+        if(S.g == 0) {
+            S.D["m"] = 128;
+            S.D["vc"] = 0;
+            S.D["mc"] = 0;
+            S.dwt = 0.001;
+            S.current_valence = 0.0;
+            S.metacognitive_awareness = 0.0;
+            S.attention_focus = 0.3;
             
-            char buf[200]={0};
-            if(getnstr(buf, 199) != ERR){
-                S.user_input=string(buf);
-                if(!S.user_input.empty()){
-                    // Generate response using beam search
-                    S.dialog_response=generateResponse(S.user_input);
-                    
-                    // Generate follow-up internal thought
-                    string internal = generateInternalThought();
-                    S.internal_thoughts.push_back("[Processed]: " + internal);
-                    
-                    if(S.internal_thoughts.size() > 5)
-                        S.internal_thoughts.erase(S.internal_thoughts.begin());
-                    
-                    S.dialog_timer=15;
-                    S.current_valence+=0.1;
-                    S.current_valence=clamp_valence(S.current_valence);
-                    
-                    // Learn patterns from successful interaction
-                    storeEpisodicMemory("dialog:" + S.user_input, S.current_valence);
-                    
-                    // Generate qualia from interaction
-                    generate_qualia("user_interaction", S.current_valence, 0.7);
-                }
+            for(int i = 0; i < 128; i++) {
+                S.D["w" + to_string(i)] = ri(4) - 1;
             }
-            noecho();curs_set(0);timeout(500);
-        }
-        else if(ch=='g'||ch=='G'){
-            // === MANUAL THOUGHT GENERATION ===
-            vector<double> ctx(16, S.current_valence);
-            string generated = "[Generated]: " + generate_with_beam_search("i", 10, ctx, 5);
-            S.internal_thoughts.push_back(generated);
-            if(S.internal_thoughts.size() > 5)
-                S.internal_thoughts.erase(S.internal_thoughts.begin());
-            S.current_valence += 0.05;
-        }
-        else if(ch=='s'||ch=='S'){
-            // === MANUAL SAVE ===
-            sv("state.dat");
-            mvprintw(row+1,0,"[Saved state at gen %d]", S.g);
-            clrtoeol();
-            refresh();
-            this_thread::sleep_for(chrono::milliseconds(1000));
-        }
-        else if(ch=='q'||ch=='Q'){
-            // === QUIT WITH SAVE ===
-            sv("state.dat");
-            break;
+            
+            S.cd = "evolve";
+            
+            // Load vocabulary
+            try {
+                loadEnglishDataset();
+                mathLangAssociation();
+            } catch(const exception& e) {
+                cerr << "Error loading vocabulary: " << e.what() << endl;
+            }
+            
+            // Initialize transformer heads
+            for(int i = 0; i < 4; i++) {
+                TransformerHead head(16);
+                head.name = "head_" + to_string(i);
+                transformer_heads.push_back(head);
+            }
+            
+            // Initialize neurons
+            for(int i = 0; i < 50; i++) {
+                Neuron n = genN(0);
+                S.N[n.id] = n;
+            }
         }
         
-        this_thread::sleep_for(chrono::milliseconds(100));
+        // Initialize ncurses
+        initscr();
+        cbreak();
+        noecho();
+        curs_set(0);
+        timeout(500);
+        keypad(stdscr, TRUE);  // Enable function keys
+        
+        bool running = true;
+        
+        while(running) {
+            try {
+                clear();
+                int row = 0;
+                
+                // Draw UI
+                try {
+                    draw_ui(row);
+                    row = 15;
+                } catch(const exception& e) {
+                    mvprintw(0, 0, "UI Error: %s", e.what());
+                    row = 2;
+                }
+                
+                // === CORE UPDATES ===
+                try {
+                    formulate_goals_from_valence();
+                    updateAttention();
+                    update_integrated_information();
+                    update_consciousness_with_formula(S.g);
+                    
+                    if(goal_system.count("maximize_coherence")) {
+                        current_plan = plan_actions(goal_system["maximize_coherence"]);
+                    }
+                } catch(const exception& e) {
+                    mvprintw(row++, 0, "Core update error: %s", e.what());
+                }
+                
+                // === DISPLAY GOAL & PLAN ===
+                mvprintw(row, 0, "Active_Goal: %s", 
+                    current_plan.actions.empty() ? "exploring" : current_plan.actions[0].c_str());
+                clrtoeol();
+                row++;
+                
+                mvprintw(row, 0, "Plan_Depth:%d | Confidence:%.2f | Psi_Trajectory:%.4f", 
+                    current_plan.depth, current_plan.confidence,
+                    consciousness_formula.psi_history.empty() ? 0.0 : consciousness_formula.psi_history.back());
+                clrtoeol();
+                row++;
+                
+                mvprintw(row, 0, "Qualia_Valence:%.2f | Beam_Width:%d | N-grams:%lu", 
+                    calculate_qualia_valence(), 5, (unsigned long)bigram_counts.size());
+                clrtoeol();
+                row++;
+                
+                // === INTERNAL THOUGHTS ===
+                try {
+                    string thought = generateInternalThought();
+                    mvprintw(row, 0, "Thought: %s", thought.substr(0, 60).c_str());
+                    clrtoeol();
+                    row++;
+                    
+                    string meta = generateMetacognition();
+                    mvprintw(row, 0, "State: %s", meta.substr(0, 60).c_str());
+                    clrtoeol();
+                    row++;
+                } catch(const exception& e) {
+                    mvprintw(row++, 0, "Thought gen error");
+                }
+                
+                // === AUTONOMOUS THOUGHT GENERATION ===
+                if(S.g % 5 == 0 && token_concept_embedding_map.size() > 10) {
+                    try {
+                        vector<double> ctx(16, S.current_valence);
+                        string auto_thought = "[Autonomous]: " + generate_with_beam_search("i", 8, ctx, 3);
+                        S.internal_thoughts.push_back(auto_thought);
+                        if(S.internal_thoughts.size() > 5) {
+                            S.internal_thoughts.erase(S.internal_thoughts.begin());
+                        }
+                    } catch(const exception& e) {
+                        // Silent failure for autonomous thoughts
+                    }
+                }
+                
+                // === DISPLAY INTERNAL STREAM ===
+                mvprintw(row, 0, "─────────────────────────────────────────");
+                clrtoeol();
+                row++;
+                mvprintw(row, 0, "[INTERNAL STREAM - Beam Search Active]");
+                clrtoeol();
+                row++;
+                
+                if(!S.internal_thoughts.empty()) {
+                    int show_count = min(3, (int)S.internal_thoughts.size());
+                    for(int i = S.internal_thoughts.size() - show_count; i < (int)S.internal_thoughts.size(); i++) {
+                        mvprintw(row, 0, "%s", S.internal_thoughts[i].substr(0, 60).c_str());
+                        clrtoeol();
+                        row++;
+                    }
+                } else {
+                    mvprintw(row, 0, "[initializing language model...]");
+                    clrtoeol();
+                    row++;
+                }
+                
+                // === NEURAL PROCESSING ===
+                try {
+                    bk();
+                    batch16Process();
+                    
+                    double wsum = 0;
+                    for(int i = 0; i < S.D["m"]; i++) {
+                        wsum += S.D["w" + to_string(i)] + 2;
+                    }
+                    S.D["vc"] = (int)wsum % 1000;
+                    
+                    if(S.g == 0) S.dwt = 0.001;
+                    S.hdt_val = calcHDT(S.g, S.bh, S.qe, S.te);
+                    S.al = calcAwarenessLevel();
+                    S.metacognitive_awareness = calcMetacognitiveAwareness();
+                    counterfactualAnalysis();
+                    
+                    S.sentience_ratio = calcSentienceRatio();
+                    if(S.sentience_ratio > S.peak_sentience_gen) {
+                        S.peak_sentience_gen = S.g;
+                    }
+                    
+                    S.valence_history.push_back(S.current_valence);
+                    if(S.valence_history.size() > 50) {
+                        S.valence_history.erase(S.valence_history.begin());
+                    }
+                } catch(const exception& e) {
+                    mvprintw(row++, 0, "Processing error: %s", e.what());
+                }
+                
+                // === GOAL PROGRESSION ===
+                if(S.g % 15 == 0 && !goal_system.empty()) {
+                    try {
+                        for(auto& g : goal_system) {
+                            g.second.progress = min(1.0, g.second.progress + 0.05);
+                            if(g.second.progress > 0.9) {
+                                g.second.priority *= 0.8;
+                            }
+                        }
+                    } catch(const exception& e) {
+                        // Silent failure
+                    }
+                }
+                
+                // === VOCABULARY EXPANSION ===
+                if(S.g % 20 == 0 && !token_concept_embedding_map.empty()) {
+                    try {
+                        auto it = token_concept_embedding_map.begin();
+                        advance(it, ri(token_concept_embedding_map.size()));
+                        learnWord(it->first, S.current_valence);
+                    } catch(const exception& e) {
+                        // Silent failure
+                    }
+                }
+                
+                // === CONCEPT FORMATION ===
+                if(S.g % 25 == 0) {
+                    try {
+                        vector<string> sample_words;
+                        for(auto& p : token_concept_embedding_map) {
+                            if(p.second.freq > 1 && rn() < 0.3) {
+                                sample_words.push_back(p.first);
+                            }
+                            if(sample_words.size() >= 3) break;
+                        }
+                        if(sample_words.size() > 1) {
+                            createConceptAssociation("C_" + to_string(S.g), sample_words);
+                        }
+                    } catch(const exception& e) {
+                        // Silent failure
+                    }
+                }
+                
+                // === NEURAL MUTATION ===
+                if(S.g % 12 == 0 && !S.N.empty()) {
+                    try {
+                        mutateN();
+                    } catch(const exception& e) {
+                        // Silent failure
+                    }
+                }
+                
+                // === GOAL-VALENCE ALIGNMENT ===
+                if(S.g % 10 == 0) {
+                    try {
+                        for(auto& goal : goal_system) {
+                            goal.second.valence_alignment = S.current_valence;
+                        }
+                    } catch(const exception& e) {
+                        // Silent failure
+                    }
+                }
+                
+                // === DIALOG DISPLAY SECTION ===
+                mvprintw(row, 0, "─────────────────────────────────────────");
+                clrtoeol();
+                row++;
+                mvprintw(row, 0, "[DIALOG - Coherent Generation Active]");
+                clrtoeol();
+                row++;
+                
+                if(!S.user_input.empty()) {
+                    mvprintw(row, 0, "USER: %s", S.user_input.substr(0, 60).c_str());
+                    clrtoeol();
+                    row++;
+                } else {
+                    mvprintw(row, 0, "USER: (press 'i' to chat)");
+                    clrtoeol();
+                    row++;
+                }
+                
+                if(!S.dialog_response.empty()) {
+                    // Word wrap the response
+                    string resp = S.dialog_response;
+                    int max_width = 60;
+                    int start = 0;
+                    while(start < (int)resp.length() && row < LINES - 6) {
+                        string line = resp.substr(start, min(max_width, (int)resp.length() - start));
+                        mvprintw(row, 0, "%s", line.c_str());
+                        clrtoeol();
+                        row++;
+                        start += max_width;
+                    }
+                } else {
+                    mvprintw(row, 0, "NEXUS: ...");
+                    clrtoeol();
+                    row++;
+                }
+                
+                if(S.dialog_timer > 0) {
+                    S.dialog_timer--;
+                }
+                
+                mvprintw(row, 0, "─────────────────────────────────────────");
+                clrtoeol();
+                row++;
+                mvprintw(row, 0, "Commands: [i]nput | [q]uit | [s]ave | [g]enerate thought");
+                clrtoeol();
+                row++;
+                
+                // === STATS LINE ===
+                mvprintw(row, 0, "Vocab:%lu | Patterns:%lu | Neurons:%lu | Gen:%d",
+                    (unsigned long)token_concept_embedding_map.size(),
+                    (unsigned long)bigram_counts.size(),
+                    (unsigned long)S.N.size(),
+                    S.g);
+                clrtoeol();
+                row++;
+                
+                refresh();
+                S.g++;
+                
+                // === AUTO-SAVE ===
+                if(S.g % 100 == 0) {
+                    try {
+                        sv("state.dat");
+                        mvprintw(row, 0, "[Autosaved at gen %d]", S.g);
+                        clrtoeol();
+                        refresh();
+                        this_thread::sleep_for(chrono::milliseconds(500));
+                    } catch(const exception& e) {
+                        mvprintw(row, 0, "[Autosave failed: %s]", e.what());
+                        clrtoeol();
+                        refresh();
+                        this_thread::sleep_for(chrono::milliseconds(500));
+                    }
+                }
+                
+                // === INPUT HANDLING ===
+                int ch = getch();
+                
+                if(ch == 'i' || ch == 'I') {
+                    // === INTERACTIVE INPUT MODE ===
+                    try {
+                        // Get screen dimensions
+                        int max_y, max_x;
+                        getmaxyx(stdscr, max_y, max_x);
+                        (void)max_x;  // Suppress unused warning
+                        
+                        // Create input area at bottom
+                        int input_y = max_y - 3;
+                        if(input_y < row + 2) input_y = row + 2;
+                        
+                        // Clear input area
+                        move(input_y, 0);
+                        clrtoeol();
+                        move(input_y + 1, 0);
+                        clrtoeol();
+                        move(input_y + 2, 0);
+                        clrtoeol();
+                        
+                        // Enable echo and cursor
+                        echo();
+                        curs_set(1);
+                        timeout(-1);
+                        
+                        // Display prompt
+                        mvprintw(input_y, 0, "Enter message (max 150 chars): ");
+                        refresh();
+                        
+                        // Get input with safe buffer
+                        char input_buf[200];
+                        memset(input_buf, 0, sizeof(input_buf));
+                        
+                        // Move cursor to input position
+                        move(input_y, 31);
+                        
+                        // Read string safely
+                        int result = getnstr(input_buf, 150);
+                        
+                        // Disable echo and cursor
+                        noecho();
+                        curs_set(0);
+                        timeout(500);
+                        
+                        if(result != ERR && strlen(input_buf) > 0) {
+                            // Successfully got input
+                            S.user_input = string(input_buf);
+                            
+                            // Trim whitespace
+                            size_t start = S.user_input.find_first_not_of(" \t\n\r");
+                            size_t end = S.user_input.find_last_not_of(" \t\n\r");
+                            
+                            if(start != string::npos && end != string::npos) {
+                                S.user_input = S.user_input.substr(start, end - start + 1);
+                                
+                                if(!S.user_input.empty()) {
+                                    // Generate response
+                                    try {
+                                        S.dialog_response = generateResponse(S.user_input);
+                                        
+                                        // Generate follow-up internal thought
+                                        string internal = generateInternalThought();
+                                        S.internal_thoughts.push_back("[Processed]: " + internal);
+                                        
+                                        if(S.internal_thoughts.size() > 5) {
+                                            S.internal_thoughts.erase(S.internal_thoughts.begin());
+                                        }
+                                        
+                                        S.dialog_timer = 15;
+                                        S.current_valence += 0.1;
+                                        S.current_valence = clamp_valence(S.current_valence);
+                                        
+                                        // Learn patterns
+                                        storeEpisodicMemory("dialog:" + S.user_input, S.current_valence);
+                                        
+                                        // Generate qualia
+                                        generate_qualia("user_interaction", S.current_valence, 0.7);
+                                        
+                                    } catch(const exception& e) {
+                                        S.dialog_response = "[NEXUS]: Error processing input";
+                                        cerr << "Error in generateResponse: " << e.what() << endl;
+                                    }
+                                } else {
+                                    S.user_input.clear();
+                                }
+                            } else {
+                                S.user_input.clear();
+                            }
+                        } else {
+                            // Input was cancelled or error
+                            S.user_input.clear();
+                        }
+                        
+                        // Clear input area
+                        move(input_y, 0);
+                        clrtoeol();
+                        move(input_y + 1, 0);
+                        clrtoeol();
+                        
+                    } catch(const exception& e) {
+                        // Handle any errors gracefully
+                        cerr << "Input error: " << e.what() << endl;
+                        
+                        // Restore terminal state
+                        noecho();
+                        curs_set(0);
+                        timeout(500);
+                        
+                        S.user_input.clear();
+                    }
+                    
+                    // Force refresh
+                    clear();
+                    refresh();
+                }
+                else if(ch == 'g' || ch == 'G') {
+                    // === MANUAL THOUGHT GENERATION ===
+                    try {
+                        vector<double> ctx(16, S.current_valence);
+                        string generated = "[Generated]: " + generate_with_beam_search("i", 10, ctx, 5);
+                        S.internal_thoughts.push_back(generated);
+                        if(S.internal_thoughts.size() > 5) {
+                            S.internal_thoughts.erase(S.internal_thoughts.begin());
+                        }
+                        S.current_valence += 0.05;
+                    } catch(const exception& e) {
+                        cerr << "Error generating thought: " << e.what() << endl;
+                    }
+                }
+                else if(ch == 's' || ch == 'S') {
+                    // === MANUAL SAVE ===
+                    try {
+                        sv("state.dat");
+                        mvprintw(row + 1, 0, "[Saved state at gen %d]", S.g);
+                        clrtoeol();
+                        refresh();
+                        this_thread::sleep_for(chrono::milliseconds(1000));
+                    } catch(const exception& e) {
+                        mvprintw(row + 1, 0, "[Save failed]");
+                        clrtoeol();
+                        refresh();
+                        this_thread::sleep_for(chrono::milliseconds(1000));
+                    }
+                }
+                else if(ch == 'q' || ch == 'Q') {
+                    // === QUIT WITH SAVE ===
+                    try {
+                        sv("state.dat");
+                    } catch(const exception& e) {
+                        cerr << "Error saving on exit: " << e.what() << endl;
+                    }
+                    running = false;
+                }
+                
+                this_thread::sleep_for(chrono::milliseconds(100));
+                
+            } catch(const exception& e) {
+                // Catch any unexpected errors in main loop
+                cerr << "Main loop error: " << e.what() << endl;
+                
+                // Try to save state
+                try {
+                    sv("state_emergency.dat");
+                } catch(...) {
+                    // Can't save, just continue
+                }
+                
+                // Small delay before continuing
+                this_thread::sleep_for(chrono::milliseconds(500));
+            }
+        }
+        
+        // Clean up ncurses
+        endwin();
+        
+        cout << "\nNEXUS shutdown complete. State saved.\n";
+        
+    } catch(const exception& e) {
+        // Fatal error - try to cleanup
+        endwin();
+        cerr << "Fatal error: " << e.what() << endl;
+        return 1;
     }
     
-    endwin();
     return 0;
 }
