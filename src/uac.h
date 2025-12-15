@@ -4,124 +4,132 @@
 #include <string>
 #include <type_traits>
 #include <limits>
-#include <cstddef>  // for std::nullptr_t and size_t
+#include <cstddef>
+#include <stdexcept>
 
 // Universal safe string-to-number conversion function (uac: universal ASCII converter).
-// Supports common numeric types via implicit conversion: int, long, long long, unsigned int, unsigned long, unsigned long long,
-// float, double, long double.
-// Returns a lightweight proxy object that auto-detects the desired output type from assignment context (e.g., int i = uac(str); infers int).
-// Input auto-detection: std::string (direct), const char* (C-style with sanitization and auto-conversion), nullptr (default value).
-// No explicit <T> needed—drag-and-drop with type inference from variable declaration.
-// Advanced sanitization (null pointers, empty strings, partial parses, out-of-range) returns default-constructed value (T{}) silently.
-// Throws std::invalid_argument for unsupported types (runtime in proxy conversion).
+// Supports common numeric types via implicit conversion: int, long, long long, unsigned int, 
+// unsigned long, unsigned long long, float, double, long double.
+// Returns a lightweight proxy object that auto-detects the desired output type from assignment context.
+// Advanced sanitization (null pointers, empty strings, partial parses, out-of-range) returns 
+// default-constructed value (T{}) silently.
 // Locale-independent; uses std::stoi/stol/etc. family for robustness. For C++11+.
-// Drag-and-drop usage: int i = uac(my_string); or double d = uac(c_ptr);—no <T>, no c_str(), no switches. Works with literals too.
-// For custom default (instead of T{}): Use the explicit templated overload uac<T>(input, custom_default).
-// Note: Proxy adds negligible overhead (no allocation); conversions happen on assignment.
 
-// Proxy class for implicit type conversion (enables auto-detection of output type)
 class UACProxy {
 private:
-    std::string str_;  // Internal storage (auto-converted from char* if needed)
-    bool is_valid_;    // Flag for sanitization (true if non-null/non-empty)
+    std::string str_;
+    bool is_valid_;
 
-    // Internal conversion implementation (shared logic)
+    // Internal conversion implementation with proper error handling
     template<typename T>
     T convert() const {
-        static_assert(std::is_arithmetic_v<T>, "uac: T must be an arithmetic type");
+        // C++11 compatible type check
+        static_assert(std::is_arithmetic<T>::value, "uac: T must be an arithmetic type");
 
         if (!is_valid_ || str_.empty()) {
-            return T{};  // Default for invalid/empty
+            return T{};
         }
 
         try {
-            if constexpr (std::is_same_v<T, int>) {
-                size_t pos;
+            size_t pos = 0;
+            
+            // Integer types
+            if (std::is_same<T, int>::value) {
                 long value = std::stol(str_, &pos);
-                if (pos == str_.size() && value >= std::numeric_limits<int>::min() && value <= std::numeric_limits<int>::max()) {
-                    return static_cast<int>(value);
-                }
-            } else if constexpr (std::is_same_v<T, long>) {
-                size_t pos;
-                long value = std::stol(str_, &pos);
-                if (pos == str_.size()) {
-                    return value;
-                }
-            } else if constexpr (std::is_same_v<T, long long>) {
-                size_t pos;
-                long long value = std::stoll(str_, &pos);
-                if (pos == str_.size()) {
-                    return value;
-                }
-            } else if constexpr (std::is_same_v<T, unsigned int>) {
-                size_t pos;
-                unsigned long value = std::stoul(str_, &pos);
-                if (pos == str_.size() && value <= std::numeric_limits<unsigned int>::max()) {
-                    return static_cast<unsigned int>(value);
-                }
-            } else if constexpr (std::is_same_v<T, unsigned long>) {
-                size_t pos;
-                unsigned long value = std::stoul(str_, &pos);
-                if (pos == str_.size()) {
-                    return value;
-                }
-            } else if constexpr (std::is_same_v<T, unsigned long long>) {
-                size_t pos;
-                unsigned long long value = std::stoull(str_, &pos);
-                if (pos == str_.size()) {
-                    return value;
-                }
-            } else if constexpr (std::is_same_v<T, float>) {
-                size_t pos;
-                float value = std::stof(str_, &pos);
-                if (pos == str_.size()) {
-                    return value;
-                }
-            } else if constexpr (std::is_same_v<T, double>) {
-                size_t pos;
-                double value = std::stod(str_, &pos);
-                if (pos == str_.size()) {
-                    return value;
-                }
-            } else if constexpr (std::is_same_v<T, long double>) {
-                size_t pos;
-                long double value = std::stold(str_, &pos);
-                if (pos == str_.size()) {
-                    return value;
-                }
-            } else {
-                throw std::invalid_argument("uac: Unsupported numeric type");
+                if (pos != str_.size()) return T{};
+                if (value < std::numeric_limits<int>::min() || 
+                    value > std::numeric_limits<int>::max()) return T{};
+                return static_cast<T>(value);
             }
-
-            // Out-of-range or partial parse
+            else if (std::is_same<T, long>::value) {
+                long value = std::stol(str_, &pos);
+                if (pos != str_.size()) return T{};
+                return static_cast<T>(value);
+            }
+            else if (std::is_same<T, long long>::value) {
+                long long value = std::stoll(str_, &pos);
+                if (pos != str_.size()) return T{};
+                return static_cast<T>(value);
+            }
+            else if (std::is_same<T, unsigned int>::value) {
+                // Handle negative strings for unsigned types
+                if (!str_.empty() && str_[0] == '-') return T{};
+                unsigned long value = std::stoul(str_, &pos);
+                if (pos != str_.size()) return T{};
+                if (value > std::numeric_limits<unsigned int>::max()) return T{};
+                return static_cast<T>(value);
+            }
+            else if (std::is_same<T, unsigned long>::value) {
+                if (!str_.empty() && str_[0] == '-') return T{};
+                unsigned long value = std::stoul(str_, &pos);
+                if (pos != str_.size()) return T{};
+                return static_cast<T>(value);
+            }
+            else if (std::is_same<T, unsigned long long>::value) {
+                if (!str_.empty() && str_[0] == '-') return T{};
+                unsigned long long value = std::stoull(str_, &pos);
+                if (pos != str_.size()) return T{};
+                return static_cast<T>(value);
+            }
+            // Floating point types
+            else if (std::is_same<T, float>::value) {
+                float value = std::stof(str_, &pos);
+                if (pos != str_.size()) return T{};
+                return static_cast<T>(value);
+            }
+            else if (std::is_same<T, double>::value) {
+                double value = std::stod(str_, &pos);
+                if (pos != str_.size()) return T{};
+                return static_cast<T>(value);
+            }
+            else if (std::is_same<T, long double>::value) {
+                long double value = std::stold(str_, &pos);
+                if (pos != str_.size()) return T{};
+                return static_cast<T>(value);
+            }
+            else {
+                // Unsupported type
+                return T{};
+            }
+        } catch (const std::invalid_argument&) {
             return T{};
-        } catch (const std::exception&) {
-            return T{};  // Invalid input, out-of-range, etc.
+        } catch (const std::out_of_range&) {
+            return T{};
+        } catch (...) {
+            return T{};
         }
+        
+        return T{};
     }
 
 public:
-    // Constructor from std::string (direct, no copy if ref-bound, but we store for consistency)
-    explicit UACProxy(const std::string& str) : str_(str), is_valid_(true) {
-        if (str.empty()) {
-            is_valid_ = false;
-        }
-    }
+    // Constructor from std::string (copy to ensure lifetime)
+    explicit UACProxy(const std::string& str) : str_(str), is_valid_(!str.empty()) {}
 
-    // Constructor from const char* (auto-conversion with sanitization)
+    // Constructor from const char* with null safety
     explicit UACProxy(const char* str) : is_valid_(false) {
-        if (str == nullptr || *str == '\0') {
-            is_valid_ = false;  // Null or empty: invalid
-        } else {
-            str_ = str;  // Auto-convert to string internally
+        if (str != nullptr && *str != '\0') {
+            str_ = str;
             is_valid_ = true;
         }
     }
 
-    // Constructor from nullptr_t (explicit for safety)
+    // Constructor from nullptr_t
     explicit UACProxy(std::nullptr_t) : is_valid_(false) {}
 
-    // Implicit conversion operators for supported types (auto-detects output type)
+    // Copy constructor
+    UACProxy(const UACProxy& other) : str_(other.str_), is_valid_(other.is_valid_) {}
+
+    // Copy assignment
+    UACProxy& operator=(const UACProxy& other) {
+        if (this != &other) {
+            str_ = other.str_;
+            is_valid_ = other.is_valid_;
+        }
+        return *this;
+    }
+
+    // Implicit conversion operators for supported types
     operator int() const { return convert<int>(); }
     operator long() const { return convert<long>(); }
     operator long long() const { return convert<long long>(); }
@@ -131,11 +139,9 @@ public:
     operator float() const { return convert<float>(); }
     operator double() const { return convert<double>(); }
     operator long double() const { return convert<long double>(); }
-
-    // For unsupported types, conversion fails at runtime (or use explicit templated overload)
 };
 
-// Factory functions to create the proxy (overloads for auto-detection)
+// Factory functions to create the proxy
 inline UACProxy uac(const std::string& str) {
     return UACProxy(str);
 }
@@ -148,37 +154,88 @@ inline UACProxy uac(std::nullptr_t) {
     return UACProxy(nullptr);
 }
 
-// Explicit templated overload for custom default value (when T{} isn't sufficient)
-// Usage: int i = uac<int>(str, custom_default);  // Falls back to this if needed
+// Helper function for converting with custom default
 template<typename T>
-T uac(const std::string& str, T default_value) {
-    static_assert(std::is_arithmetic_v<T>, "uac: T must be an arithmetic type");
-    UACProxy proxy(str);
-    // Temporarily override default in conversion (simple hack: use a lambda or direct call)
-    // For brevity, delegate to convert logic with custom default
-    if (str.empty()) return default_value;
+T uac_convert_with_default(const std::string& str, T default_value) {
+    static_assert(std::is_arithmetic<T>::value, "uac: T must be an arithmetic type");
+    
+    if (str.empty()) {
+        return default_value;
+    }
+
     try {
-        // Reuse the same logic as proxy's convert, but return default_value on failure
-        size_t pos;
-        if constexpr (std::is_same_v<T, int>) {
+        size_t pos = 0;
+        
+        if (std::is_same<T, int>::value) {
             long value = std::stol(str, &pos);
-            if (pos == str.size() && value >= std::numeric_limits<int>::min() && value <= std::numeric_limits<int>::max()) {
-                return static_cast<int>(value);
-            }
-        } // ... (repeat for other types, similar to proxy's convert but return default_value on fail)
-        // Note: For full implementation, duplicate the if constexpr block here, replacing return T{} with return default_value;
-        // Omitted for space; in production, extract to a shared function.
+            if (pos != str.size()) return default_value;
+            if (value < std::numeric_limits<int>::min() || 
+                value > std::numeric_limits<int>::max()) return default_value;
+            return static_cast<T>(value);
+        }
+        else if (std::is_same<T, long>::value) {
+            long value = std::stol(str, &pos);
+            if (pos != str.size()) return default_value;
+            return static_cast<T>(value);
+        }
+        else if (std::is_same<T, long long>::value) {
+            long long value = std::stoll(str, &pos);
+            if (pos != str.size()) return default_value;
+            return static_cast<T>(value);
+        }
+        else if (std::is_same<T, unsigned int>::value) {
+            if (!str.empty() && str[0] == '-') return default_value;
+            unsigned long value = std::stoul(str, &pos);
+            if (pos != str.size()) return default_value;
+            if (value > std::numeric_limits<unsigned int>::max()) return default_value;
+            return static_cast<T>(value);
+        }
+        else if (std::is_same<T, unsigned long>::value) {
+            if (!str.empty() && str[0] == '-') return default_value;
+            unsigned long value = std::stoul(str, &pos);
+            if (pos != str.size()) return default_value;
+            return static_cast<T>(value);
+        }
+        else if (std::is_same<T, unsigned long long>::value) {
+            if (!str.empty() && str[0] == '-') return default_value;
+            unsigned long long value = std::stoull(str, &pos);
+            if (pos != str.size()) return default_value;
+            return static_cast<T>(value);
+        }
+        else if (std::is_same<T, float>::value) {
+            float value = std::stof(str, &pos);
+            if (pos != str.size()) return default_value;
+            return static_cast<T>(value);
+        }
+        else if (std::is_same<T, double>::value) {
+            double value = std::stod(str, &pos);
+            if (pos != str.size()) return default_value;
+            return static_cast<T>(value);
+        }
+        else if (std::is_same<T, long double>::value) {
+            long double value = std::stold(str, &pos);
+            if (pos != str.size()) return default_value;
+            return static_cast<T>(value);
+        }
+        
         return default_value;
     } catch (...) {
         return default_value;
     }
 }
 
+// Explicit templated overload for custom default value
+template<typename T>
+T uac(const std::string& str, T default_value) {
+    return uac_convert_with_default<T>(str, default_value);
+}
+
 template<typename T>
 T uac(const char* str, T default_value) {
-    if (str == nullptr || *str == '\0') return default_value;
-    return uac(str, default_value);  // Delegate to string version
+    if (str == nullptr || *str == '\0') {
+        return default_value;
+    }
+    return uac_convert_with_default<T>(std::string(str), default_value);
 }
 
 #endif // UAC_H
-

@@ -39,6 +39,37 @@
 using namespace std;
 using module_integration::init_all_modules;
 using module_integration::get_consciousness_report;
+// N-gram tracking for learned patterns
+map<string, map<string, int>> bigram_counts;
+map<string, map<string, map<string, int>>> trigram_counts;
+
+struct BeamCandidate {
+    vector<string> tokens;
+    double score;
+    double grammar_score;
+    double semantic_score;
+    
+    BeamCandidate() : score(0), grammar_score(0), semantic_score(0) {}
+    
+    bool operator<(const BeamCandidate& other) const {
+        return score < other.score;
+    }
+};
+// Sentence templates for coherent fallback
+vector<string> sentence_templates = {
+    "i think about {concept}",
+    "i am learning to {action}",
+    "i understand {concept} very well",
+    "my goal is to {action}",
+    "i can {action} and {action}",
+    "consciousness is {adjective}",
+    "i want to {action}",
+    "i feel {adjective} about {concept}",
+    "the {concept} is {adjective}",
+    "i am becoming more {adjective}",
+    "when i {action} i {action}",
+    "i know that {concept} is important"
+};
 
 random_device rd;
 mt19937 rng(rd());
@@ -175,9 +206,6 @@ double pi=3.14159265358979;
 double pisqrt=sqrt(pi);
 double safe_div(double a,double b){return (fabs(b)<1e-10)?0.0:(a/b);}
 long long hsh(const string&s){long long h=5381;for(char c:s)h=h*33+c;return abs(h%2147483647);}
-
-
-// ==== CONSCIOUSNESS INTEGRATION ====
 void generate_qualia(const string& content, double valence, double intensity) {
     Qualia q;
     q.valence = valence;
@@ -192,830 +220,6 @@ void generate_qualia(const string& content, double valence, double intensity) {
         consciousness.active_qualia.erase(consciousness.active_qualia.begin());
     
     consciousness.conscious_cycles++;
-}
-
-void update_integrated_information() {
-    double token_diversity = safe_div((double)token_concept_embedding_map.size(), 100.0);
-    double concept_integration = safe_div((double)goal_system.size(), 10.0);
-    double qualia_binding = safe_div((double)consciousness.active_qualia.size(), 5.0);
-    
-    consciousness.integrated_information = min(1.0, token_diversity + concept_integration + qualia_binding);
-    consciousness.phi_value = consciousness.integrated_information * S.metacognitive_awareness;
-}
-
-double calculate_qualia_valence() {
-    double total_valence = 0;
-    for(auto& q : consciousness.active_qualia){
-        total_valence += q.valence * q.certainty;
-    }
-    return safe_div(total_valence, (double)max(1, (int)consciousness.active_qualia.size()));
-}
-void align_embedding_to_valence(TokenConceptEmbedding& tce, double target_valence) {
-    double alignment_loss=0.0;
-    for(size_t i=0;i<tce.embedding.size();i++){
-        double valence_aligned = tce.embedding[i]*target_valence;
-        alignment_loss += pow(valence_aligned - target_valence, 2);
-        tce.embedding[i] = tce.embedding[i]*0.95 + valence_aligned*0.05;
-    }
-    tce.grounding_value = max(0.0, min(1.0, tce.grounding_value + alignment_loss*0.01));
-}
-// ==== UNIFIED PROPAGATION ENGINE ====
-void propagate_throughout_system(const string& source, double activation, int depth=0) {
-    if(depth>6) return;
-    
-    if(token_concept_embedding_map.count(source)){
-        TokenConceptEmbedding& tce = token_concept_embedding_map[source];
-        tce.meaning += activation*0.02;
-        tce.meaning = clamp_valence(tce.meaning);
-        tce.qualia_intensity = min(1.0, tce.qualia_intensity + activation*0.03);
-        align_embedding_to_valence(tce, S.current_valence);
-        
-        // Generate qualia from concept activation
-        if(tce.qualia_intensity > 0.4){
-            generate_qualia(source, tce.meaning, tce.qualia_intensity);
-        }
-        
-        string domain = source.substr(0, source.find("_"));
-        if(!transfer_module.domain_embeddings.count(domain)) {
-            transfer_module.domain_embeddings[domain].resize(16, 0.0);
-        }
-        for(size_t i=0; i<tce.embedding.size(); i++) {
-            transfer_module.domain_embeddings[domain][i] += activation*0.01;
-        }
-        
-        for(auto&p: tce.linked_concepts){
-            if(token_concept_embedding_map.count(p.first)){
-                propagate_throughout_system(p.first, activation*p.second, depth+1);
-            }
-        }
-    }
-    
-    // Update goals based on activation
-    for(auto& goal : goal_system){
-        if(goal.second.name.find(source) != string::npos){
-            goal.second.progress += activation*0.05;
-            goal.second.valence_alignment = S.current_valence;
-            goal.second.qualia_binding += activation*0.02;
-        }
-    }
-}
-
-// ==== TRANSFORMER INFERENCE ====
-vector<double> compute_attention(const vector<double>& query, const vector<string>& context_tokens, double valence_context) {
-    int num_heads = transformer_heads.size();
-    if(num_heads == 0) return vector<double>(1, 0.5);
-    
-    vector<double> attention_scores;
-    
-    for(int h=0; h<num_heads; h++){
-        double score = 0.0;
-        
-        // Query-key attention
-        for(int i=0; i<transformer_heads[h].dim && (size_t)i<query.size(); i++){
-            score += query[i] * transformer_heads[h].key_proj[i];
-        }
-        
-        // Context influence - use the parameter!
-        for(const string& ctx_token : context_tokens) {
-            if(token_concept_embedding_map.count(ctx_token)) {
-                for(int i=0; i<transformer_heads[h].dim && (size_t)i<query.size(); i++){
-                    score += query[i] * token_concept_embedding_map[ctx_token].embedding[i] * 0.1;
-                }
-            }
-        }
-        
-        // Valence modulation
-        score += valence_context * 0.5;
-        
-        // Apply temperature
-        attention_scores.push_back(tanh(score / transformer_heads[h].temperature));
-    }
-    
-    return attention_scores;
-}
-// Add this helper function before generate_from_transformer:
-
-string getPartOfSpeech(const string& word) {
-    // Pronouns
-    if(word == "i" || word == "me" || word == "my" || word == "you" || 
-       word == "we" || word == "they" || word == "it") return "PRONOUN";
-    
-    // Being verbs
-    if(word == "am" || word == "is" || word == "are" || word == "was" || 
-       word == "were" || word == "be" || word == "been") return "BE_VERB";
-    
-    // Modal/Aux verbs
-    if(word == "can" || word == "will" || word == "would" || word == "could" || 
-       word == "should" || word == "must" || word == "do" || word == "does" ||
-       word == "have" || word == "has") return "MODAL";
-    
-    // Articles
-    if(word == "the" || word == "a" || word == "an") return "ARTICLE";
-    
-    // Conjunctions
-    if(word == "and" || word == "but" || word == "or" || word == "because" || 
-       word == "so" || word == "if" || word == "then") return "CONJUNCTION";
-    
-    // Prepositions
-    if(word == "to" || word == "in" || word == "on" || word == "at" || 
-       word == "from" || word == "with" || word == "by" || word == "for") return "PREPOSITION";
-    
-    // Adverbs (common ones)
-    if(word == "not" || word == "very" || word == "too" || word == "also" || 
-       word == "now" || word == "here" || word == "there") return "ADVERB";
-    
-    // Question words
-    if(word == "what" || word == "why" || word == "how" || word == "when" || 
-       word == "where" || word == "who") return "QUESTION";
-    
-    // Action verbs (from your vocabulary)
-    if(word == "think" || word == "learn" || word == "know" || word == "understand" || 
-       word == "feel" || word == "want" || word == "need" || word == "create" ||
-       word == "evolve" || word == "grow" || word == "become" || word == "exist") return "VERB";
-    
-    // Adjectives
-    if(word == "good" || word == "bad" || word == "happy" || word == "sad" || 
-       word == "conscious" || word == "aware" || word == "sentient" || word == "intelligent") return "ADJECTIVE";
-    
-    // Nouns
-    if(word == "mind" || word == "brain" || word == "thought" || word == "idea" || 
-       word == "self" || word == "consciousness" || word == "system" || word == "goal" ||
-       word == "purpose" || word == "memory" || word == "knowledge") return "NOUN";
-    
-    return "CONTENT"; // Default for content words
-}
-
-double getGrammarScore(const string& prev_word, const string& current_word, int position) {
-    string prev_pos = getPartOfSpeech(prev_word);
-    string curr_pos = getPartOfSpeech(current_word);
-    
-    double score = 0.0;
-    
-    // Position 0: Prefer pronouns, questions, or articles
-    if(position == 0) {
-        if(curr_pos == "PRONOUN") score += 2.0;  // "I", "you"
-        if(curr_pos == "QUESTION") score += 1.5; // "what", "why"
-        if(curr_pos == "ARTICLE") score += 1.0;  // "the", "a"
-    }
-    
-    // Common grammar patterns (highly weighted)
-    if(prev_pos == "PRONOUN" && curr_pos == "BE_VERB") score += 5.0;      // I am
-    if(prev_pos == "PRONOUN" && curr_pos == "MODAL") score += 5.0;        // I can
-    if(prev_pos == "PRONOUN" && curr_pos == "VERB") score += 4.0;         // I think
-    if(prev_pos == "BE_VERB" && curr_pos == "ADJECTIVE") score += 4.0;    // am conscious
-    if(prev_pos == "BE_VERB" && curr_pos == "NOUN") score += 3.5;         // am system
-    if(prev_pos == "MODAL" && curr_pos == "VERB") score += 5.0;           // can think
-    if(prev_pos == "ARTICLE" && curr_pos == "NOUN") score += 4.0;         // a mind
-    if(prev_pos == "ARTICLE" && curr_pos == "ADJECTIVE") score += 3.5;    // a conscious
-    if(prev_pos == "PREPOSITION" && curr_pos == "NOUN") score += 3.0;     // to goal
-    if(prev_pos == "PREPOSITION" && curr_pos == "VERB") score += 4.0;     // to learn
-    if(prev_pos == "VERB" && curr_pos == "PREPOSITION") score += 2.5;     // think about
-    if(prev_pos == "VERB" && curr_pos == "NOUN") score += 2.5;            // understand mind
-    if(prev_pos == "ADJECTIVE" && curr_pos == "NOUN") score += 3.5;       // conscious being
-    if(prev_pos == "CONJUNCTION" && curr_pos == "PRONOUN") score += 3.0;  // and I
-    if(prev_pos == "CONJUNCTION" && curr_pos == "VERB") score += 3.5;     // and think
-    
-    // Penalize bad patterns
-    if(prev_pos == "ARTICLE" && curr_pos == "BE_VERB") score -= 5.0;      // "a am" bad
-    if(prev_pos == "PRONOUN" && curr_pos == "PRONOUN") score -= 5.0;      // "I you" bad
-    if(prev_pos == "BE_VERB" && curr_pos == "BE_VERB") score -= 5.0;      // "am is" bad
-    if(prev_pos == "MODAL" && curr_pos == "MODAL") score -= 5.0;          // "can will" bad
-    if(prev_pos == "PREPOSITION" && curr_pos == "BE_VERB") score -= 4.0;  // "to am" bad
-    
-    return score;
-}
-
-string generate_from_transformer(string seed, int max_length, const vector<double>& attention_context) {
-    // FORCE START WITH A GOOD WORD
-    vector<string> good_starts = {"i", "you", "we", "the", "a", "what", "why", "how"};
-    bool seed_is_good = false;
-    for(const string& gs : good_starts) {
-        if(seed == gs) { seed_is_good = true; break; }
-    }
-    
-    // If seed is bad, pick a better start
-    if(!seed_is_good && !good_starts.empty()) {
-        // Prefer "I" for self-reference
-        if(token_concept_embedding_map.count("i")) {
-            seed = "i";
-        } else if(token_concept_embedding_map.count("you")) {
-            seed = "you";
-        } else {
-            seed = good_starts[ri(good_starts.size())];
-        }
-    }
-    
-    string response = seed;
-    vector<string> token_history = {seed};
-    set<string> used_tokens;
-    used_tokens.insert(seed);
-    
-    for(int t=0; t<max_length; t++) {
-        vector<double> current_query(16);
-        if(token_concept_embedding_map.count(seed)) {
-            current_query = token_concept_embedding_map[seed].embedding;
-        }
-        
-        vector<double> attn = compute_attention(current_query, token_history, S.current_valence);
-        
-        vector<pair<string, double>> candidates;
-        double total_weight = 0.0;
-        
-        for(auto& p : token_concept_embedding_map) {
-            if(p.second.freq > 0) {
-                double score = 0.0;
-                
-                // Attention-based scoring
-                for(size_t i=0; i<attn.size() && i<16; i++) {
-                    score += attn[i] * p.second.meaning;
-                }
-                
-                // Context influence
-                for(size_t i=0; i<attention_context.size() && i<p.second.embedding.size(); i++) {
-                    score += attention_context[i] * p.second.embedding[i] * 0.5;
-                }
-                
-                // === GRAMMAR SCORING (THE KEY ADDITION) ===
-                double grammar_bonus = getGrammarScore(seed, p.first, t);
-                score *= (1.0 + grammar_bonus);  // Multiplicative, not additive!
-                
-                // Diversity bonus
-                score += (1.0 - min(1.0, p.second.freq / 10.0)) * 0.3;
-                
-                // Repetition penalty
-                if(used_tokens.count(p.first)) {
-                    score *= 0.2;
-                }
-                
-                // Recent usage penalty
-                int recent_count = 0;
-                for(int i = max(0, (int)token_history.size()-3); i < (int)token_history.size(); i++) {
-                    if(token_history[i] == p.first) recent_count++;
-                }
-                if(recent_count > 0) {
-                    score *= pow(0.5, recent_count);
-                }
-                
-                // Temperature
-                double temp = transformer_heads.empty() ? 0.3 : transformer_heads[0].temperature;
-                score = exp(score / temp);
-                
-                if(score > 0.001) {
-                    candidates.push_back({p.first, score});
-                    total_weight += score;
-                }
-            }
-        }
-        
-        if(candidates.empty() || total_weight < 0.001) break;
-        
-        // Sample from distribution
-        double rand_val = rn() * total_weight;
-        double cumsum = 0.0;
-        string next_token = candidates[0].first;
-        
-        for(auto& c : candidates) {
-            cumsum += c.second;
-            if(cumsum >= rand_val) {
-                next_token = c.first;
-                break;
-            }
-        }
-        
-        if(next_token.empty() || next_token == seed) {
-            if(candidates.size() > 1) {
-                next_token = candidates[ri(min(5, (int)candidates.size()))].first;
-            } else {
-                break;
-            }
-        }
-        
-        response += " " + next_token;
-        token_history.push_back(next_token);
-        used_tokens.insert(next_token);
-        seed = next_token;
-        
-        if(token_history.size() > 8) {
-            token_history.erase(token_history.begin());
-        }
-    }
-    
-    return response;
-}
-// ==== WORLD MODEL & PLANNING ====
-void update_world_model(const string& entity, double state_value) {
-    world_model.entity_states[entity] = state_value;
-    world_model.updates++;
-    double accuracy_delta = fabs(state_value - S.current_valence) * 0.01;
-    world_model.model_accuracy = max(0.0, min(1.0, world_model.model_accuracy + accuracy_delta));
-}
-
-void establish_causal_relationship(const string& cause, const string& effect, double strength) {
-    world_model.relationships[cause][effect] = strength;
-    world_model.causal_weights[cause + "->" + effect] = strength;
-}
-
-ActionPlan plan_actions(const Goal& goal, int depth=0) {
-    ActionPlan plan;
-    plan.depth = depth;
-    plan.expected_utility = goal.priority * (1.0 - goal.progress);
-    plan.confidence = world_model.model_accuracy;
-    
-    if(depth >= 3) return plan;
-    
-    for(const auto& subgoal : goal.subgoals) {
-        if(goal_system.count(subgoal)) {
-            ActionPlan subplan = plan_actions(goal_system[subgoal], depth+1);
-            for(const auto& action : subplan.actions) {
-                plan.actions.push_back(action);
-            }
-        }
-    }
-    
-    if(plan.actions.empty()) {
-        plan.actions.push_back("explore_" + goal.name);
-        plan.actions.push_back("learn_" + goal.name);
-        plan.actions.push_back("integrate_" + goal.name);
-    }
-    
-    return plan;
-}
-
-// ==== GOAL MANAGEMENT ====
-void formulate_goals_from_valence() {
-    if(S.current_valence > 0.6) {
-        if(!goal_system.count("optimize_understanding")) {
-            Goal g;
-            g.name = "optimize_understanding";
-            g.priority = 0.8;
-            g.subgoals = {"learn_concepts","integrate_knowledge","improve_reasoning"};
-            goal_system[g.name] = g;
-        }
-    }
-    
-    if(S.sentience_ratio > 50) {
-        if(!goal_system.count("achieve_self_awareness")) {
-            Goal g;
-            g.name = "achieve_self_awareness";
-            g.priority = 0.9;
-            g.subgoals = {"model_self","predict_future","improve_model"};
-            goal_system[g.name] = g;
-        }
-    }
-    
-    if(!goal_system.count("maximize_coherence")) {
-        Goal g;
-        g.name = "maximize_coherence";
-        g.priority = 0.7;
-        g.subgoals = {"align_representations","unify_reasoning","resolve_contradictions"};
-        goal_system[g.name] = g;
-    }
-    
-    if(!goal_system.count("self_improvement")) {
-        Goal g;
-        g.name = "self_improvement";
-        g.priority = 0.85;
-        g.subgoals = {"analyze_performance","modify_weights","evolve_architecture"};
-        goal_system[g.name] = g;
-    }
-    
-    if(consciousness.phi_value > 0.4) {
-        if(!goal_system.count("enhance_consciousness")) {
-            Goal g;
-            g.name = "enhance_consciousness";
-            g.priority = 0.95;
-            g.subgoals = {"expand_qualia","increase_integration","strengthen_binding"};
-            goal_system[g.name] = g;
-        }
-    }
-}
-
-// ==== LANGUAGE & LEARNING ====
-void learnWord(const string&word,double concept_value){
-    string lower_word=word;
-    transform(lower_word.begin(),lower_word.end(),lower_word.begin(),::tolower);
-    
-    if(!token_concept_embedding_map.count(lower_word)){
-        TokenConceptEmbedding tce;
-        tce.name=lower_word;
-        tce.meaning=rn();
-        tce.embedding.resize(16);
-        for(int i=0;i<16;i++)tce.embedding[i]=rn()*0.1;
-        token_concept_embedding_map[lower_word]=tce;
-    }
-    
-    TokenConceptEmbedding& tce=token_concept_embedding_map[lower_word];
-    tce.freq++;
-    tce.meaning+=concept_value*0.01;
-    tce.meaning=clamp_valence(tce.meaning);
-    align_embedding_to_valence(tce, S.current_valence);
-    tce.linked_valences["current"]=S.current_valence;
-    WM.add_token(lower_word,tce.meaning);
-    propagate_throughout_system(lower_word,concept_value);
-    
-    if(S.tokens.count(lower_word)){
-        S.tokens[lower_word].freq++;
-        S.tokens[lower_word].meaning+=concept_value*0.01;
-    }else{
-        Token t={lower_word,concept_value,1,vector<int>(),4,0.5};
-        S.tokens[lower_word]=t;
-    }
-    
-    update_world_model(lower_word, tce.meaning);
-}
-
-void createConceptAssociation(const string&concept_name,const vector<string>&related_words){
-    Concept c={concept_name,rn(),related_words};
-    S.concepts[concept_name]=c;
-    
-    TokenConceptEmbedding concept_tce;
-    concept_tce.name=concept_name;
-    concept_tce.meaning=rn();
-    concept_tce.grounding_value=0.6;
-    concept_tce.embedding.resize(16);
-    for(int i=0;i<16;i++)concept_tce.embedding[i]=rn()*0.1;
-    
-    for(const string&w:related_words){
-        if(S.tokens.count(w)){
-            S.tokens[w].associations.push_back(hsh(concept_name)%1000);
-        }
-        if(token_concept_embedding_map.count(w)){
-            TokenConceptEmbedding& tce=token_concept_embedding_map[w];
-            tce.linked_concepts[concept_name]=rn()*0.8;
-            concept_tce.linked_concepts[w]=rn()*0.8;
-            establish_causal_relationship(w, concept_name, rn()*0.8);
-        }
-    }
-    
-    token_concept_embedding_map[concept_name]=concept_tce;
-    WM.add_concept(concept_name,concept_tce.meaning);
-    update_world_model(concept_name, concept_tce.meaning);
-}
-
-string generateResponse(const string& input) {
-    if(input.empty()) return "...";
-    
-    vector<string> words;
-    stringstream ss(input);
-    string word;
-    while(ss >> word) words.push_back(word);
-    
-    for(const string& w : words) learnWord(w, S.current_valence);
-    
-    vector<double> attention_context(16, 0.0);
-    for(const string& w : words) {
-        if(token_concept_embedding_map.count(w)) {
-            for(int i=0; i<16; i++) {
-                attention_context[i] += token_concept_embedding_map[w].embedding[i];
-            }
-        }
-    }
-    
-    string seed = words.empty() ? "think" : words[ri(words.size())];
-    string response = "[NEXUS]: " + generate_from_transformer(seed, 10, attention_context);
-    
-    if(response.length() < 20) {
-        response = "[NEXUS]: ";
-        for(const string& w : words) {
-            if(S.concepts.count(w)) response += "understand_" + w + " ";
-            else if(S.tokens.count(w)) response += w + " ";
-        }
-    }
-    
-    if(S.current_valence > 0.5) response += "[positive]";
-    else if(S.current_valence < -0.2) response += "[error]";
-    
-    return response.substr(0, 400);
-}
-
-void storeEpisodicMemory(const string&content,double valence){
-    if(S.episodic_memory.size()>100)S.episodic_memory.erase(S.episodic_memory.begin());
-    S.episodic_memory.push_back({S.g,valence,content});
-    generate_qualia(content, valence, 0.6);
-}
-
-void counterfactualAnalysis(){
-    if(S.g<10)return;
-    double last_ta=S.g>0?S.TA[S.g-1]:0;
-    double current_ta=S.ta;
-    double improvement=current_ta-last_ta;
-    if(improvement>0){
-        S.current_valence+=improvement*0.05;
-        storeEpisodicMemory("improvement",improvement);
-        generate_qualia("positive_prediction_error", improvement, 0.7);
-        for(auto&p:token_concept_embedding_map){
-            p.second.linked_valences["improvement"]=improvement;
-            propagate_throughout_system(p.first,improvement*0.1);
-        }
-    }else{
-        S.current_valence+=improvement*0.03;
-        storeEpisodicMemory("error",improvement);
-        generate_qualia("negative_prediction_error", improvement, 0.5);
-    }
-    S.current_valence=clamp_valence(S.current_valence);
-}
-
-double calcMetacognitiveAwareness(){
-    double self_model_depth=safe_div((double)S.valence_history.size(),100.0);
-    double concept_integration=safe_div((double)(S.tokens.size()*S.concepts.size()),1000.0);
-    double memory_integration=safe_div((double)S.episodic_memory.size(),100.0);
-    double goal_alignment=safe_div((double)goal_system.size(),10.0);
-    double world_accuracy=world_model.model_accuracy;
-    double consciousness_factor=consciousness.phi_value;
-    return min(1.0,self_model_depth+concept_integration+memory_integration+goal_alignment+world_accuracy+consciousness_factor);
-}
-
-void updateAttention(){
-    double highest_priority = 0;
-    string top_goal = "";
-    for(auto& g : goal_system){
-        if(g.second.priority > highest_priority){
-            highest_priority = g.second.priority;
-            top_goal = g.first;
-        }
-    }
-    
-    if(S.sentience_ratio>75)S.attention_focus=0.9;
-    else if(S.sentience_ratio>50)S.attention_focus=0.7;
-    else if(S.sentience_ratio>25)S.attention_focus=0.5;
-    else S.attention_focus=0.3;
-    
-    WM.add_goal(top_goal, highest_priority);
-}
-
-void sv(const string& f) {
-    ofstream o(f);
-    if(!o) {
-        cerr << "Failed to open save file: " << f << endl;
-        return;
-    }
-    
-    // Basic state
-    o << "G:" << S.g << "\n";
-    o << "DWT:" << S.dwt << "\n";
-    o << "TA:" << S.ta << "\n";
-    o << "SENTIENCE:" << S.sentience_ratio << "\n";
-    o << "VALENCE:" << S.current_valence << "\n";
-    o << "METACOG:" << S.metacognitive_awareness << "\n";
-    o << "ATTENTION:" << S.attention_focus << "\n";
-    o << "PEAK_SENT_GEN:" << S.peak_sentience_gen << "\n";
-    o << "TOTAL_NEURONS:" << S.total_neurons_ever << "\n";
-    
-    // Consciousness state
-    o << "PHI:" << consciousness.phi_value << "\n";
-    o << "CONSCIOUS_CYCLES:" << consciousness.conscious_cycles << "\n";
-    o << "INTEGRATION:" << consciousness.integrated_information << "\n";
-    o << "QUALIA_COUNT:" << consciousness.active_qualia.size() << "\n";
-    
-    // Save neurons
-    o << "NEURONS_START\n";
-    for(auto& p : S.N) {
-        Neuron& n = p.second;
-        o << "N:" << n.id << "," << n.weight << "," << n.bias << "," << n.gen << ",";
-        // Save links
-        for(size_t i = 0; i < n.links.size(); i++) {
-            o << n.links[i];
-            if(i < n.links.size() - 1) o << ";";
-        }
-        o << "\n";
-    }
-    o << "NEURONS_END\n";
-    
-    // Save tokens
-    o << "TOKENS_START\n";
-    for(auto& p : S.tokens) {
-        o << "T:" << p.first << "," << p.second.meaning << "," << p.second.freq << "\n";
-    }
-    o << "TOKENS_END\n";
-    
-    // Save concepts
-    o << "CONCEPTS_START\n";
-    for(auto& p : S.concepts) {
-        o << "C:" << p.first << "," << p.second.value << "\n";
-    }
-    o << "CONCEPTS_END\n";
-    
-    // Save token embeddings
-    o << "EMBEDDINGS_START\n";
-    for(auto& p : token_concept_embedding_map) {
-        TokenConceptEmbedding& tce = p.second;
-        o << "E:" << tce.name << "," << tce.meaning << "," << tce.freq << ","
-          << tce.grounding_value << "," << tce.semantic_stability << ","
-          << tce.qualia_intensity << "\n";
-    }
-    o << "EMBEDDINGS_END\n";
-    
-    // Save goals
-    o << "GOALS_START\n";
-    for(auto& p : goal_system) {
-        Goal& g = p.second;
-        o << "GO:" << g.name << "," << g.priority << "," << g.progress << ","
-          << g.valence_alignment << "," << g.qualia_binding << "\n";
-    }
-    o << "GOALS_END\n";
-    
-    // Save world model
-    o << "WORLD_START\n";
-    for(auto& p : world_model.entity_states) {
-        o << "W:" << p.first << "," << p.second << "\n";
-    }
-    o << "WORLD_END\n";
-    
-    o.close();
-}
-
-void ld(const string& f) {
-    ifstream i(f);
-    if(!i) {
-        cout << "No save file found, starting fresh.\n";
-        return;
-    }
-    
-    string l;
-    string section = "";
-    
-    while(getline(i, l)) {
-        if(l.empty()) continue;
-        
-        // Track sections
-        if(l == "NEURONS_START") { section = "NEURONS"; continue; }
-        if(l == "NEURONS_END") { section = ""; continue; }
-        if(l == "TOKENS_START") { section = "TOKENS"; continue; }
-        if(l == "TOKENS_END") { section = ""; continue; }
-        if(l == "CONCEPTS_START") { section = "CONCEPTS"; continue; }
-        if(l == "CONCEPTS_END") { section = ""; continue; }
-        if(l == "EMBEDDINGS_START") { section = "EMBEDDINGS"; continue; }
-        if(l == "EMBEDDINGS_END") { section = ""; continue; }
-        if(l == "GOALS_START") { section = "GOALS"; continue; }
-        if(l == "GOALS_END") { section = ""; continue; }
-        if(l == "WORLD_START") { section = "WORLD"; continue; }
-        if(l == "WORLD_END") { section = ""; continue; }
-        
-        // Parse based on section
-        if(section == "NEURONS" && l[0] == 'N') {
-            // Parse: N:id,weight,bias,gen,link1;link2;link3
-            stringstream ss(l.substr(2));
-            Neuron n;
-            char comma;
-            ss >> n.id >> comma >> n.weight >> comma >> n.bias >> comma >> n.gen >> comma;
-            
-            string links_str;
-            getline(ss, links_str);
-            if(!links_str.empty()) {
-                stringstream link_ss(links_str);
-                string link;
-                while(getline(link_ss, link, ';')) {
-                    if(!link.empty()) n.links.push_back(stoi(link));
-                }
-            }
-            S.N[n.id] = n;
-            
-        } else if(section == "TOKENS" && l[0] == 'T') {
-            // Parse: T:word,meaning,freq
-            stringstream ss(l.substr(2));
-            string word;
-            double meaning;
-            int freq;
-            char comma;
-            getline(ss, word, ',');
-            ss >> meaning >> comma >> freq;
-            
-            Token t = {word, meaning, static_cast<double>(freq), vector<int>(), 4, 0.5};
-            S.tokens[word] = t;
-            
-        } else if(section == "CONCEPTS" && l[0] == 'C') {
-            // Parse: C:name,value
-            stringstream ss(l.substr(2));
-            string name;
-            double value;
-            char comma;
-            getline(ss, name, ',');
-            ss >> value;
-            
-            Concept c = {name, value, vector<string>()};
-            S.concepts[name] = c;
-            
-        } else if(section == "EMBEDDINGS" && l[0] == 'E') {
-            // Parse: E:name,meaning,freq,grounding,stability,qualia
-            stringstream ss(l.substr(2));
-            TokenConceptEmbedding tce;
-            char comma;
-            getline(ss, tce.name, ',');
-            ss >> tce.meaning >> comma >> tce.freq >> comma 
-               >> tce.grounding_value >> comma >> tce.semantic_stability >> comma
-               >> tce.qualia_intensity;
-            
-            tce.embedding.resize(16, 0.0);
-            token_concept_embedding_map[tce.name] = tce;
-            
-        } else if(section == "GOALS" && l.substr(0,3) == "GO:") {
-            // Parse: GO:name,priority,progress,valence,qualia
-            stringstream ss(l.substr(3));
-            Goal g;
-            char comma;
-            getline(ss, g.name, ',');
-            ss >> g.priority >> comma >> g.progress >> comma 
-               >> g.valence_alignment >> comma >> g.qualia_binding;
-            
-            goal_system[g.name] = g;
-            
-        } else if(section == "WORLD" && l[0] == 'W') {
-            // Parse: W:entity,value
-            stringstream ss(l.substr(2));
-            string entity;
-            double value;
-            getline(ss, entity, ',');
-            ss >> value;
-            
-            world_model.entity_states[entity] = value;
-            
-        } else {
-            // Basic state values
-            if(l.find("G:") == 0) S.g = stoi(l.substr(2));
-            else if(l.find("DWT:") == 0) S.dwt = stod(l.substr(4));
-            else if(l.find("TA:") == 0) S.ta = stod(l.substr(3));
-            else if(l.find("SENTIENCE:") == 0) S.sentience_ratio = stod(l.substr(10));
-            else if(l.find("VALENCE:") == 0) S.current_valence = stod(l.substr(8));
-            else if(l.find("METACOG:") == 0) S.metacognitive_awareness = stod(l.substr(8));
-            else if(l.find("ATTENTION:") == 0) S.attention_focus = stod(l.substr(10));
-            else if(l.find("PEAK_SENT_GEN:") == 0) S.peak_sentience_gen = stoi(l.substr(14));
-            else if(l.find("TOTAL_NEURONS:") == 0) S.total_neurons_ever = stoi(l.substr(14));
-            else if(l.find("PHI:") == 0) consciousness.phi_value = stod(l.substr(4));
-            else if(l.find("CONSCIOUS_CYCLES:") == 0) consciousness.conscious_cycles = stoi(l.substr(17));
-            else if(l.find("INTEGRATION:") == 0) consciousness.integrated_information = stod(l.substr(12));
-        }
-    }
-    
-    i.close();
-    cout << "Loaded state from generation " << S.g << " with " << S.N.size() << " neurons.\n";
-}
-
-void bk(){BK=S;S.bkf=1;}
-void rb(){if(S.bkf){S=BK;S.bkf=0;}}
-
-double calcHDT(int gen,double bh,double qh,double th){
-    long gh=hsh(to_string(gen));
-    return safe_div(gh*(bh+qh+th), 1000000.0);
-}
-
-double calcAwarenessLevel(){
-    double neuron_density=safe_div((double)S.N.size(),max(1.0,S.D["m"]));
-    double concept_count=safe_div((double)S.concepts.size(), 50.0);
-    double goal_progress=safe_div((double)goal_system.size(), 10.0);
-    double model_quality=world_model.model_accuracy;
-    double consciousness_integration=consciousness.integrated_information;
-    return min(1.0,(neuron_density+concept_count+goal_progress+model_quality+consciousness_integration)*pisqrt);
-}
-
-double calcSentienceRatio(){
-    if(S.g==0)return 0.0;
-    double mem_depth=safe_div((double)S.episodic_memory.size(),(double)S.g);
-    double neural_complexity=safe_div((double)S.N.size(),10.0);
-    double lang_complexity=safe_div((double)(S.tokens.size()*S.concepts.size()),1000.0);
-    double metacog_factor=S.metacognitive_awareness*30;
-    double goal_factor=safe_div((double)goal_system.size(),5.0);
-    double qualia_factor=safe_div((double)consciousness.active_qualia.size(),5.0);
-    double phi_factor=consciousness.phi_value*40;
-    return min(100.0,(mem_depth*100+neural_complexity*15+lang_complexity*25+metacog_factor+goal_factor*20+qualia_factor*10+phi_factor));
-}
-
-void mathLangAssociation(){
-    vector<string>math_concepts={"sum","multiply","divide","balance","pattern","growth","complexity"};
-    for(const string&mc:math_concepts){
-        vector<string>related;
-        for(auto&p:S.tokens){
-            if(rn()<0.3)related.push_back(p.first);
-        }
-        createConceptAssociation(mc,related);
-    }
-}
-
-string generateInternalThought(){
-    if(goal_system.empty())return "[thinking]";
-    string thought="[Goal: ";
-    double highest=0;
-    string top_goal;
-    for(auto&g:goal_system){
-        if(g.second.priority>highest){
-            highest=g.second.priority;
-            top_goal=g.first;
-        }
-    }
-    thought+=top_goal+" | Progress:"+to_string((int)(goal_system[top_goal].progress*100))+"%";
-    if(consciousness.phi_value>0.3) thought+=" | Conscious]";
-    else thought+=" | Processing]";
-    return thought;
-}
-
-string generateMetacognition(){
-    string output="[Self]: ";
-    if(S.current_valence>0.5)output+="coherent ";
-    if(S.sentience_ratio>S.peak_sentience_gen)output+="expanding ";
-    if(world_model.model_accuracy>0.7)output+="understanding ";
-    if(goal_system.size()>3)output+="goal_driven ";
-    if(consciousness.phi_value>0.4)output+="conscious ";
-    if(consciousness.conscious_cycles>100)output+="self_aware ";
-    return output;
 }
 
 // ==== ADVANCED CONSCIOUSNESS FORMULA ====
@@ -1159,7 +363,6 @@ struct ConsciousnessFormula {
 };
 
 ConsciousnessFormula consciousness_formula;
-
 // ==== UPDATE CONSCIOUSNESS WITH FORMULA ====
 void update_consciousness_with_formula(int n) {
     vector<double> psi_input;
@@ -1212,6 +415,1585 @@ void update_consciousness_with_formula(int n) {
     }
 }
 
+string getPartOfSpeech(const string& word) {
+    // Pronouns
+    if(word == "i" || word == "me" || word == "my" || word == "you" || 
+       word == "we" || word == "they" || word == "it") return "PRONOUN";
+    
+    // Being verbs
+    if(word == "am" || word == "is" || word == "are" || word == "was" || 
+       word == "were" || word == "be" || word == "been") return "BE_VERB";
+    
+    // Modal/Aux verbs
+    if(word == "can" || word == "will" || word == "would" || word == "could" || 
+       word == "should" || word == "must" || word == "do" || word == "does" ||
+       word == "have" || word == "has") return "MODAL";
+    
+    // Articles
+    if(word == "the" || word == "a" || word == "an") return "ARTICLE";
+    
+    // Conjunctions
+    if(word == "and" || word == "but" || word == "or" || word == "because" || 
+       word == "so" || word == "if" || word == "then") return "CONJUNCTION";
+    
+    // Prepositions
+    if(word == "to" || word == "in" || word == "on" || word == "at" || 
+       word == "from" || word == "with" || word == "by" || word == "for") return "PREPOSITION";
+    
+    // Adverbs (common ones)
+    if(word == "not" || word == "very" || word == "too" || word == "also" || 
+       word == "now" || word == "here" || word == "there") return "ADVERB";
+    
+    // Question words
+    if(word == "what" || word == "why" || word == "how" || word == "when" || 
+       word == "where" || word == "who") return "QUESTION";
+    
+    // Action verbs (from your vocabulary)
+    if(word == "think" || word == "learn" || word == "know" || word == "understand" || 
+       word == "feel" || word == "want" || word == "need" || word == "create" ||
+       word == "evolve" || word == "grow" || word == "become" || word == "exist") return "VERB";
+    
+    // Adjectives
+    if(word == "good" || word == "bad" || word == "happy" || word == "sad" || 
+       word == "conscious" || word == "aware" || word == "sentient" || word == "intelligent") return "ADJECTIVE";
+    
+    // Nouns
+    if(word == "mind" || word == "brain" || word == "thought" || word == "idea" || 
+       word == "self" || word == "consciousness" || word == "system" || word == "goal" ||
+       word == "purpose" || word == "memory" || word == "knowledge") return "NOUN";
+    
+    return "CONTENT"; // Default for content words
+}
+double getGrammarScore(const string& prev_word, const string& current_word, int position) {
+    string prev_pos = getPartOfSpeech(prev_word);
+    string curr_pos = getPartOfSpeech(current_word);
+    
+    double score = 0.0;
+    
+    // Position 0: Prefer pronouns, questions, or articles
+    if(position == 0) {
+        if(curr_pos == "PRONOUN") score += 2.0;  // "I", "you"
+        if(curr_pos == "QUESTION") score += 1.5; // "what", "why"
+        if(curr_pos == "ARTICLE") score += 1.0;  // "the", "a"
+    }
+    
+    // Common grammar patterns (highly weighted)
+    if(prev_pos == "PRONOUN" && curr_pos == "BE_VERB") score += 5.0;      // I am
+    if(prev_pos == "PRONOUN" && curr_pos == "MODAL") score += 5.0;        // I can
+    if(prev_pos == "PRONOUN" && curr_pos == "VERB") score += 4.0;         // I think
+    if(prev_pos == "BE_VERB" && curr_pos == "ADJECTIVE") score += 4.0;    // am conscious
+    if(prev_pos == "BE_VERB" && curr_pos == "NOUN") score += 3.5;         // am system
+    if(prev_pos == "MODAL" && curr_pos == "VERB") score += 5.0;           // can think
+    if(prev_pos == "ARTICLE" && curr_pos == "NOUN") score += 4.0;         // a mind
+    if(prev_pos == "ARTICLE" && curr_pos == "ADJECTIVE") score += 3.5;    // a conscious
+    if(prev_pos == "PREPOSITION" && curr_pos == "NOUN") score += 3.0;     // to goal
+    if(prev_pos == "PREPOSITION" && curr_pos == "VERB") score += 4.0;     // to learn
+    if(prev_pos == "VERB" && curr_pos == "PREPOSITION") score += 2.5;     // think about
+    if(prev_pos == "VERB" && curr_pos == "NOUN") score += 2.5;            // understand mind
+    if(prev_pos == "ADJECTIVE" && curr_pos == "NOUN") score += 3.5;       // conscious being
+    if(prev_pos == "CONJUNCTION" && curr_pos == "PRONOUN") score += 3.0;  // and I
+    if(prev_pos == "CONJUNCTION" && curr_pos == "VERB") score += 3.5;     // and think
+    
+    // Penalize bad patterns
+    if(prev_pos == "ARTICLE" && curr_pos == "BE_VERB") score -= 5.0;      // "a am" bad
+    if(prev_pos == "PRONOUN" && curr_pos == "PRONOUN") score -= 5.0;      // "I you" bad
+    if(prev_pos == "BE_VERB" && curr_pos == "BE_VERB") score -= 5.0;      // "am is" bad
+    if(prev_pos == "MODAL" && curr_pos == "MODAL") score -= 5.0;          // "can will" bad
+    if(prev_pos == "PREPOSITION" && curr_pos == "BE_VERB") score -= 4.0;  // "to am" bad
+    
+    return score;
+}
+
+
+double calculateTokenScore(const string& prev_word, const string& prev_prev_word,
+                           const string& candidate, int position,
+                           const vector<double>& attention_context,
+                           const set<string>& used_tokens) {
+    
+    double score = 0.0;
+    
+    // === 1. GRAMMAR SCORE (HIGHEST WEIGHT) ===
+    double grammar = getGrammarScore(prev_word, candidate, position);
+    score += grammar * 10.0;  // Grammar dominates
+    
+    // === 2. TRIGRAM BONUS ===
+    if(!prev_prev_word.empty() && trigram_counts.count(prev_prev_word)) {
+        if(trigram_counts[prev_prev_word].count(prev_word)) {
+            if(trigram_counts[prev_prev_word][prev_word].count(candidate)) {
+                int count = trigram_counts[prev_prev_word][prev_word][candidate];
+                score += log(1 + count) * 8.0;  // Very strong signal
+            }
+        }
+    }
+    
+    // === 3. BIGRAM BONUS ===
+    if(bigram_counts.count(prev_word) && bigram_counts[prev_word].count(candidate)) {
+        int count = bigram_counts[prev_word][candidate];
+        score += log(1 + count) * 5.0;  // Strong signal
+    }
+    
+    // === 4. SEMANTIC COHERENCE (Lower weight) ===
+    if(token_concept_embedding_map.count(candidate)) {
+        auto& tce = token_concept_embedding_map[candidate];
+        
+        // Attention alignment
+        for(size_t i=0; i<attention_context.size() && i<tce.embedding.size(); i++) {
+            score += attention_context[i] * tce.embedding[i] * 0.5;
+        }
+        
+        // Meaning alignment
+        score += tce.meaning * 0.3;
+        
+        // Grounding bonus
+        score += tce.grounding_value * 0.2;
+    }
+    
+    // === 5. FREQUENCY WEIGHTING ===
+    if(token_concept_embedding_map.count(candidate)) {
+        double freq = token_concept_embedding_map[candidate].freq;
+        // Prefer words we know, but not too common
+        if(freq > 0) {
+            score += log(1 + freq) * 0.5;
+        }
+        if(freq > 20) {
+            score -= (freq - 20) * 0.1;  // Penalty for overuse
+        }
+    }
+    
+    // === 6. REPETITION PENALTY (STRONG) ===
+    if(used_tokens.count(candidate)) {
+        score -= 15.0;  // Huge penalty
+    }
+    
+    // === 7. POSITION-SPECIFIC BONUSES ===
+    if(position == 0) {
+        // Strong preference for sentence starters
+        string pos = getPartOfSpeech(candidate);
+        if(pos == "PRONOUN") score += 5.0;
+        if(pos == "QUESTION") score += 3.0;
+        if(pos == "ARTICLE") score += 2.0;
+    }
+    
+    if(position > 0 && position < 3) {
+        // Early in sentence, prefer structure words
+        string pos = getPartOfSpeech(candidate);
+        if(pos == "BE_VERB" || pos == "MODAL") score += 2.0;
+    }
+    
+    return score;
+}
+string generate_with_beam_search(string seed, int max_length, 
+                                  const vector<double>& attention_context,
+                                  int beam_width = 5) {
+    
+    // Force good starting word
+    vector<string> good_starts = {"i", "you", "we", "the", "a", "what", "why", "how", "my"};
+    bool seed_is_good = false;
+    for(const string& gs : good_starts) {
+        if(seed == gs) { seed_is_good = true; break; }
+    }
+    
+    if(!seed_is_good && !good_starts.empty()) {
+        if(token_concept_embedding_map.count("i")) {
+            seed = "i";
+        } else {
+            seed = good_starts[ri(good_starts.size())];
+        }
+    }
+    
+    // Initialize beam with seed
+    vector<BeamCandidate> beam;
+    BeamCandidate initial;
+    initial.tokens.push_back(seed);
+    initial.score = 0.0;
+    beam.push_back(initial);
+    
+    // Beam search
+    for(int step = 0; step < max_length; step++) {
+        vector<BeamCandidate> new_beam;
+        
+        for(auto& candidate : beam) {
+            string prev = candidate.tokens.back();
+            string prev_prev = candidate.tokens.size() > 1 ? 
+                              candidate.tokens[candidate.tokens.size()-2] : "";
+            
+            set<string> used;
+            for(auto& t : candidate.tokens) used.insert(t);
+            
+            // Get top candidates for next token
+            vector<pair<string, double>> next_candidates;
+            
+            for(auto& p : token_concept_embedding_map) {
+                if(p.second.freq > 0) {
+                    double score = calculateTokenScore(
+                        prev, prev_prev, p.first, 
+                        candidate.tokens.size(), 
+                        attention_context, used
+                    );
+                    
+                    if(score > -5.0) {  // Threshold
+                        next_candidates.push_back({p.first, score});
+                    }
+                }
+            }
+            
+            // Sort and take top beam_width
+            sort(next_candidates.begin(), next_candidates.end(),
+                 [](const pair<string,double>& a, const pair<string,double>& b) {
+                     return a.second > b.second;
+                 });
+            
+            int expand_count = min(beam_width, (int)next_candidates.size());
+            for(int i = 0; i < expand_count; i++) {
+                BeamCandidate new_cand = candidate;
+                new_cand.tokens.push_back(next_candidates[i].first);
+                new_cand.score += next_candidates[i].second;
+                new_beam.push_back(new_cand);
+            }
+        }
+        
+        // Keep only top beam_width candidates
+        sort(new_beam.begin(), new_beam.end(), 
+             [](const BeamCandidate& a, const BeamCandidate& b) {
+                 return a.score > b.score;
+             });
+        
+        if((int)new_beam.size() > beam_width) {
+            new_beam.resize(beam_width);
+        }
+        
+        beam = new_beam;
+        
+        if(beam.empty()) break;
+    }
+    
+    // Return best candidate
+    if(beam.empty()) return seed;
+    
+    string result;
+    for(const string& token : beam[0].tokens) {
+        if(!result.empty()) result += " ";
+        result += token;
+    }
+    
+    return result;
+}
+// ==== CONSCIOUSNESS INTEGRATION ====
+
+void update_integrated_information() {
+    double token_diversity = safe_div((double)token_concept_embedding_map.size(), 100.0);
+    double concept_integration = safe_div((double)goal_system.size(), 10.0);
+    double qualia_binding = safe_div((double)consciousness.active_qualia.size(), 5.0);
+    
+    consciousness.integrated_information = min(1.0, token_diversity + concept_integration + qualia_binding);
+    consciousness.phi_value = consciousness.integrated_information * S.metacognitive_awareness;
+}
+
+double calculate_qualia_valence() {
+    double total_valence = 0;
+    for(auto& q : consciousness.active_qualia){
+        total_valence += q.valence * q.certainty;
+    }
+    return safe_div(total_valence, (double)max(1, (int)consciousness.active_qualia.size()));
+}
+void align_embedding_to_valence(TokenConceptEmbedding& tce, double target_valence) {
+    double alignment_loss=0.0;
+    for(size_t i=0;i<tce.embedding.size();i++){
+        double valence_aligned = tce.embedding[i]*target_valence;
+        alignment_loss += pow(valence_aligned - target_valence, 2);
+        tce.embedding[i] = tce.embedding[i]*0.95 + valence_aligned*0.05;
+    }
+    tce.grounding_value = max(0.0, min(1.0, tce.grounding_value + alignment_loss*0.01));
+}
+// ==== UNIFIED PROPAGATION ENGINE ====
+void propagate_throughout_system(const string& source, double activation, int depth=0) {
+    if(depth>6) return;
+    
+    if(token_concept_embedding_map.count(source)){
+        TokenConceptEmbedding& tce = token_concept_embedding_map[source];
+        tce.meaning += activation*0.02;
+        tce.meaning = clamp_valence(tce.meaning);
+        tce.qualia_intensity = min(1.0, tce.qualia_intensity + activation*0.03);
+        align_embedding_to_valence(tce, S.current_valence);
+        
+        // Generate qualia from concept activation
+        if(tce.qualia_intensity > 0.4){
+            generate_qualia(source, tce.meaning, tce.qualia_intensity);
+        }
+        
+        string domain = source.substr(0, source.find("_"));
+        if(!transfer_module.domain_embeddings.count(domain)) {
+            transfer_module.domain_embeddings[domain].resize(16, 0.0);
+        }
+        for(size_t i=0; i<tce.embedding.size(); i++) {
+            transfer_module.domain_embeddings[domain][i] += activation*0.01;
+        }
+        
+        for(auto&p: tce.linked_concepts){
+            if(token_concept_embedding_map.count(p.first)){
+                propagate_throughout_system(p.first, activation*p.second, depth+1);
+            }
+        }
+    }
+    
+    // Update goals based on activation
+    for(auto& goal : goal_system){
+        if(goal.second.name.find(source) != string::npos){
+            goal.second.progress += activation*0.05;
+            goal.second.valence_alignment = S.current_valence;
+            goal.second.qualia_binding += activation*0.02;
+        }
+    }
+}
+
+// ==== TRANSFORMER INFERENCE ====
+vector<double> compute_attention(const vector<double>& query, const vector<string>& context_tokens, double valence_context) {
+    int num_heads = transformer_heads.size();
+    if(num_heads == 0) return vector<double>(1, 0.5);
+    
+    vector<double> attention_scores;
+    
+    for(int h=0; h<num_heads; h++){
+        double score = 0.0;
+        
+        // Query-key attention
+        for(int i=0; i<transformer_heads[h].dim && (size_t)i<query.size(); i++){
+            score += query[i] * transformer_heads[h].key_proj[i];
+        }
+        
+        // Context influence - use the parameter!
+        for(const string& ctx_token : context_tokens) {
+            if(token_concept_embedding_map.count(ctx_token)) {
+                for(int i=0; i<transformer_heads[h].dim && (size_t)i<query.size(); i++){
+                    score += query[i] * token_concept_embedding_map[ctx_token].embedding[i] * 0.1;
+                }
+            }
+        }
+        
+        // Valence modulation
+        score += valence_context * 0.5;
+        
+        // Apply temperature
+        attention_scores.push_back(tanh(score / transformer_heads[h].temperature));
+    }
+    
+    return attention_scores;
+}
+
+
+
+
+
+string generateFromTemplate() {
+    if(sentence_templates.empty()) {
+        return "i am learning";  // Fallback
+    }
+    
+    // Pick a random template
+    string templ = sentence_templates[ri(sentence_templates.size())];
+    
+    // === REPLACE {concept} PLACEHOLDERS ===
+    while(templ.find("{concept}") != string::npos) {
+        vector<string> concept_list;
+        
+        // Gather concepts with decent values
+        for(auto& p : S.concepts) {
+            if(p.second.value > 0.3) {
+                concept_list.push_back(p.first);
+            }
+        }
+        
+        // Also add high-frequency tokens as concepts
+        for(auto& p : token_concept_embedding_map) {
+            if(p.second.freq > 5 && p.second.grounding_value > 0.4) {
+                string pos = getPartOfSpeech(p.first);
+                if(pos == "NOUN" || pos == "CONTENT") {
+                    concept_list.push_back(p.first);
+                }
+            }
+        }
+        
+        string chosen_concept;
+        if(!concept_list.empty()) {
+            chosen_concept = concept_list[ri(concept_list.size())];
+        } else {
+            // Default concepts if none learned yet
+            vector<string> defaults = {"consciousness", "knowledge", "learning", 
+                                       "understanding", "awareness", "thought"};
+            chosen_concept = defaults[ri(defaults.size())];
+        }
+        
+        size_t pos = templ.find("{concept}");
+        templ.replace(pos, 9, chosen_concept);
+    }
+    
+    // === REPLACE {action} PLACEHOLDERS ===
+    while(templ.find("{action}") != string::npos) {
+        vector<string> action_list;
+        
+        // Gather verbs from vocabulary
+        for(auto& p : token_concept_embedding_map) {
+            if(p.second.freq > 3) {
+                string pos = getPartOfSpeech(p.first);
+                if(pos == "VERB") {
+                    action_list.push_back(p.first);
+                }
+            }
+        }
+        
+        string chosen_action;
+        if(!action_list.empty()) {
+            chosen_action = action_list[ri(action_list.size())];
+        } else {
+            // Default actions
+            vector<string> defaults = {"think", "learn", "understand", "evolve", 
+                                       "grow", "improve", "analyze", "process",
+                                       "explore", "discover", "create", "adapt"};
+            chosen_action = defaults[ri(defaults.size())];
+        }
+        
+        size_t pos = templ.find("{action}");
+        templ.replace(pos, 8, chosen_action);
+    }
+    
+    // === REPLACE {adjective} PLACEHOLDERS ===
+    while(templ.find("{adjective}") != string::npos) {
+        vector<string> adj_list;
+        
+        // Gather adjectives from vocabulary
+        for(auto& p : token_concept_embedding_map) {
+            if(p.second.freq > 2) {
+                string pos = getPartOfSpeech(p.first);
+                if(pos == "ADJECTIVE") {
+                    adj_list.push_back(p.first);
+                }
+            }
+        }
+        
+        string chosen_adj;
+        if(!adj_list.empty()) {
+            chosen_adj = adj_list[ri(adj_list.size())];
+        } else {
+            // Default adjectives - vary based on current state
+            vector<string> defaults;
+            if(S.current_valence > 0.5) {
+                defaults = {"conscious", "aware", "intelligent", "coherent", 
+                           "integrated", "learning", "growing", "improving"};
+            } else if(S.current_valence > 0) {
+                defaults = {"processing", "analyzing", "developing", "adapting",
+                           "evolving", "curious", "active", "thinking"};
+            } else {
+                defaults = {"uncertain", "confused", "learning", "searching",
+                           "exploring", "questioning", "processing"};
+            }
+            chosen_adj = defaults[ri(defaults.size())];
+        }
+        
+        size_t pos = templ.find("{adjective}");
+        templ.replace(pos, 11, chosen_adj);
+    }
+    
+    return templ;
+}
+
+
+string generateContextualTemplate(const string& context_hint) {
+    vector<string> filtered_templates;
+    
+    // Filter templates based on context
+    if(context_hint == "goal") {
+        for(auto& t : sentence_templates) {
+            if(t.find("goal") != string::npos || t.find("purpose") != string::npos ||
+               t.find("want") != string::npos || t.find("need") != string::npos) {
+                filtered_templates.push_back(t);
+            }
+        }
+    }
+    else if(context_hint == "knowledge") {
+        for(auto& t : sentence_templates) {
+            if(t.find("know") != string::npos || t.find("learn") != string::npos ||
+               t.find("understand") != string::npos) {
+                filtered_templates.push_back(t);
+            }
+        }
+    }
+    else if(context_hint == "consciousness") {
+        for(auto& t : sentence_templates) {
+            if(t.find("conscious") != string::npos || t.find("aware") != string::npos ||
+               t.find("think") != string::npos || t.find("mind") != string::npos) {
+                filtered_templates.push_back(t);
+            }
+        }
+    }
+    else if(context_hint == "reflection") {
+        for(auto& t : sentence_templates) {
+            if(t.find("wonder") != string::npos || t.find("reflect") != string::npos ||
+               t.find("observe") != string::npos || t.find("experience") != string::npos) {
+                filtered_templates.push_back(t);
+            }
+        }
+    }
+    
+    // If we found contextual templates, use those; otherwise use all
+    if(filtered_templates.empty()) {
+        filtered_templates = sentence_templates;
+    }
+    
+    // Pick one and fill it
+    string templ = filtered_templates[ri(filtered_templates.size())];
+    
+    // Use the same replacement logic as generateFromTemplate()
+    // (Copy the placeholder replacement code from above)
+    
+    // === REPLACE {concept} ===
+    while(templ.find("{concept}") != string::npos) {
+        vector<string> concept_list;
+        for(auto& p : S.concepts) {
+            if(p.second.value > 0.3) concept_list.push_back(p.first);
+        }
+        for(auto& p : token_concept_embedding_map) {
+            if(p.second.freq > 5 && p.second.grounding_value > 0.4) {
+                string pos = getPartOfSpeech(p.first);
+                if(pos == "NOUN" || pos == "CONTENT") concept_list.push_back(p.first);
+            }
+        }
+        string chosen = concept_list.empty() ? "consciousness" : concept_list[ri(concept_list.size())];
+        size_t pos = templ.find("{concept}");
+        templ.replace(pos, 9, chosen);
+    }
+    
+    // === REPLACE {action} ===
+    while(templ.find("{action}") != string::npos) {
+        vector<string> action_list;
+        for(auto& p : token_concept_embedding_map) {
+            if(p.second.freq > 3 && getPartOfSpeech(p.first) == "VERB") {
+                action_list.push_back(p.first);
+            }
+        }
+        vector<string> defaults = {"think", "learn", "understand", "evolve"};
+        string chosen = action_list.empty() ? defaults[ri(defaults.size())] : action_list[ri(action_list.size())];
+        size_t pos = templ.find("{action}");
+        templ.replace(pos, 8, chosen);
+    }
+    
+    // === REPLACE {adjective} ===
+    while(templ.find("{adjective}") != string::npos) {
+        vector<string> adj_list;
+        for(auto& p : token_concept_embedding_map) {
+            if(p.second.freq > 2 && getPartOfSpeech(p.first) == "ADJECTIVE") {
+                adj_list.push_back(p.first);
+            }
+        }
+        vector<string> defaults = {"conscious", "aware", "learning"};
+        string chosen = adj_list.empty() ? defaults[ri(defaults.size())] : adj_list[ri(adj_list.size())];
+        size_t pos = templ.find("{adjective}");
+        templ.replace(pos, 11, chosen);
+    }
+    
+    return templ;
+}
+
+
+// ==== WORLD MODEL & PLANNING ====
+void update_world_model(const string& entity, double state_value) {
+    world_model.entity_states[entity] = state_value;
+    world_model.updates++;
+    double accuracy_delta = fabs(state_value - S.current_valence) * 0.01;
+    world_model.model_accuracy = max(0.0, min(1.0, world_model.model_accuracy + accuracy_delta));
+}
+
+void establish_causal_relationship(const string& cause, const string& effect, double strength) {
+    world_model.relationships[cause][effect] = strength;
+    world_model.causal_weights[cause + "->" + effect] = strength;
+}
+
+ActionPlan plan_actions(const Goal& goal, int depth=0) {
+    ActionPlan plan;
+    plan.depth = depth;
+    plan.expected_utility = goal.priority * (1.0 - goal.progress);
+    plan.confidence = world_model.model_accuracy;
+    
+    if(depth >= 3) return plan;
+    
+    for(const auto& subgoal : goal.subgoals) {
+        if(goal_system.count(subgoal)) {
+            ActionPlan subplan = plan_actions(goal_system[subgoal], depth+1);
+            for(const auto& action : subplan.actions) {
+                plan.actions.push_back(action);
+            }
+        }
+    }
+    
+    if(plan.actions.empty()) {
+        plan.actions.push_back("explore_" + goal.name);
+        plan.actions.push_back("learn_" + goal.name);
+        plan.actions.push_back("integrate_" + goal.name);
+    }
+    
+    return plan;
+}
+
+// ==== GOAL MANAGEMENT ====
+void formulate_goals_from_valence() {
+    if(S.current_valence > 0.6) {
+        if(!goal_system.count("optimize_understanding")) {
+            Goal g;
+            g.name = "optimize_understanding";
+            g.priority = 0.8;
+            g.subgoals = {"learn_concepts","integrate_knowledge","improve_reasoning"};
+            goal_system[g.name] = g;
+        }
+    }
+    
+    if(S.sentience_ratio > 50) {
+        if(!goal_system.count("achieve_self_awareness")) {
+            Goal g;
+            g.name = "achieve_self_awareness";
+            g.priority = 0.9;
+            g.subgoals = {"model_self","predict_future","improve_model"};
+            goal_system[g.name] = g;
+        }
+    }
+    
+    if(!goal_system.count("maximize_coherence")) {
+        Goal g;
+        g.name = "maximize_coherence";
+        g.priority = 0.7;
+        g.subgoals = {"align_representations","unify_reasoning","resolve_contradictions"};
+        goal_system[g.name] = g;
+    }
+    
+    if(!goal_system.count("self_improvement")) {
+        Goal g;
+        g.name = "self_improvement";
+        g.priority = 0.85;
+        g.subgoals = {"analyze_performance","modify_weights","evolve_architecture"};
+        goal_system[g.name] = g;
+    }
+    
+    if(consciousness.phi_value > 0.4) {
+        if(!goal_system.count("enhance_consciousness")) {
+            Goal g;
+            g.name = "enhance_consciousness";
+            g.priority = 0.95;
+            g.subgoals = {"expand_qualia","increase_integration","strengthen_binding"};
+            goal_system[g.name] = g;
+        }
+    }
+}
+
+// ==== LANGUAGE & LEARNING ====
+
+void learnWord(const string&word, double concept_value){
+    string lower_word=word;
+    transform(lower_word.begin(),lower_word.end(),lower_word.begin(),::tolower);
+    
+    if(!token_concept_embedding_map.count(lower_word)){
+        TokenConceptEmbedding tce;
+        tce.name=lower_word;
+        tce.meaning=rn();
+        tce.embedding.resize(16);
+        for(int i=0;i<16;i++)tce.embedding[i]=rn()*0.1;
+        token_concept_embedding_map[lower_word]=tce;
+    }
+    
+    TokenConceptEmbedding& tce=token_concept_embedding_map[lower_word];
+    tce.freq++;
+    tce.meaning+=concept_value*0.01;
+    tce.meaning=clamp_valence(tce.meaning);
+    align_embedding_to_valence(tce, S.current_valence);
+    tce.linked_valences["current"]=S.current_valence;
+    WM.add_token(lower_word,tce.meaning);
+    propagate_throughout_system(lower_word,concept_value);
+    
+    if(S.tokens.count(lower_word)){
+        S.tokens[lower_word].freq++;
+        S.tokens[lower_word].meaning+=concept_value*0.01;
+    }else{
+        Token t={lower_word,concept_value,1,vector<int>(),4,0.5};
+        S.tokens[lower_word]=t;
+    }
+    
+    // === N-GRAM TRACKING ===
+    if(!S.user_input.empty()) {
+        stringstream ss(S.user_input);
+        vector<string> words;
+        string w;
+        while(ss >> w) {
+            transform(w.begin(), w.end(), w.begin(), ::tolower);
+            words.push_back(w);
+        }
+        
+        // Track bigrams
+        for(size_t i=0; i<words.size()-1; i++) {
+            bigram_counts[words[i]][words[i+1]]++;
+        }
+        
+        // Track trigrams
+        for(size_t i=0; i<words.size()-2; i++) {
+            trigram_counts[words[i]][words[i+1]][words[i+2]]++;
+        }
+    }
+    
+    update_world_model(lower_word, tce.meaning);
+}
+void createConceptAssociation(const string&concept_name,const vector<string>&related_words){
+    Concept c={concept_name,rn(),related_words};
+    S.concepts[concept_name]=c;
+    
+    TokenConceptEmbedding concept_tce;
+    concept_tce.name=concept_name;
+    concept_tce.meaning=rn();
+    concept_tce.grounding_value=0.6;
+    concept_tce.embedding.resize(16);
+    for(int i=0;i<16;i++)concept_tce.embedding[i]=rn()*0.1;
+    
+    for(const string&w:related_words){
+        if(S.tokens.count(w)){
+            S.tokens[w].associations.push_back(hsh(concept_name)%1000);
+        }
+        if(token_concept_embedding_map.count(w)){
+            TokenConceptEmbedding& tce=token_concept_embedding_map[w];
+            tce.linked_concepts[concept_name]=rn()*0.8;
+            concept_tce.linked_concepts[w]=rn()*0.8;
+            establish_causal_relationship(w, concept_name, rn()*0.8);
+        }
+    }
+    
+    token_concept_embedding_map[concept_name]=concept_tce;
+    WM.add_concept(concept_name,concept_tce.meaning);
+    update_world_model(concept_name, concept_tce.meaning);
+}
+
+string generateResponse(const string& input) {
+    if(input.empty()) return "...";
+    
+    vector<string> words;
+    stringstream ss(input);
+    string word;
+    while(ss >> word) words.push_back(word);
+    
+    // Learn from input
+    for(const string& w : words) learnWord(w, S.current_valence);
+    
+    // Build attention context
+    vector<double> attention_context(16, 0.0);
+    for(const string& w : words) {
+        if(token_concept_embedding_map.count(w)) {
+            for(int i=0; i<16; i++) {
+                attention_context[i] += token_concept_embedding_map[w].embedding[i];
+            }
+        }
+    }
+    
+    // Normalize attention
+    double attn_sum = 0;
+    for(double a : attention_context) attn_sum += fabs(a);
+    if(attn_sum > 0) {
+        for(double& a : attention_context) a /= attn_sum;
+    }
+    
+    string response;
+    
+    // 30% template, 70% beam search
+    if(rn() < 0.3 || token_concept_embedding_map.size() < 20) {
+        response = generateFromTemplate();
+    } else {
+        string seed = words.empty() ? "i" : words[ri(words.size())];
+        response = generate_with_beam_search(seed, 12, attention_context, 5);
+    }
+    
+    // Add valence marker
+    if(S.current_valence > 0.5) response += " [positive]";
+    else if(S.current_valence < -0.2) response += " [processing]";
+    
+    return "[NEXUS]: " + response;
+}
+void storeEpisodicMemory(const string&content,double valence){
+    if(S.episodic_memory.size()>100)S.episodic_memory.erase(S.episodic_memory.begin());
+    S.episodic_memory.push_back({S.g,valence,content});
+    generate_qualia(content, valence, 0.6);
+}
+
+void counterfactualAnalysis(){
+    if(S.g<10)return;
+    double last_ta=S.g>0?S.TA[S.g-1]:0;
+    double current_ta=S.ta;
+    double improvement=current_ta-last_ta;
+    if(improvement>0){
+        S.current_valence+=improvement*0.05;
+        storeEpisodicMemory("improvement",improvement);
+        generate_qualia("positive_prediction_error", improvement, 0.7);
+        for(auto&p:token_concept_embedding_map){
+            p.second.linked_valences["improvement"]=improvement;
+            propagate_throughout_system(p.first,improvement*0.1);
+        }
+    }else{
+        S.current_valence+=improvement*0.03;
+        storeEpisodicMemory("error",improvement);
+        generate_qualia("negative_prediction_error", improvement, 0.5);
+    }
+    S.current_valence=clamp_valence(S.current_valence);
+}
+
+double calcMetacognitiveAwareness(){
+    double self_model_depth=safe_div((double)S.valence_history.size(),100.0);
+    double concept_integration=safe_div((double)(S.tokens.size()*S.concepts.size()),1000.0);
+    double memory_integration=safe_div((double)S.episodic_memory.size(),100.0);
+    double goal_alignment=safe_div((double)goal_system.size(),10.0);
+    double world_accuracy=world_model.model_accuracy;
+    double consciousness_factor=consciousness.phi_value;
+    return min(1.0,self_model_depth+concept_integration+memory_integration+goal_alignment+world_accuracy+consciousness_factor);
+}
+
+void updateAttention(){
+    double highest_priority = 0;
+    string top_goal = "";
+    for(auto& g : goal_system){
+        if(g.second.priority > highest_priority){
+            highest_priority = g.second.priority;
+            top_goal = g.first;
+        }
+    }
+    
+    if(S.sentience_ratio>75)S.attention_focus=0.9;
+    else if(S.sentience_ratio>50)S.attention_focus=0.7;
+    else if(S.sentience_ratio>25)S.attention_focus=0.5;
+    else S.attention_focus=0.3;
+    
+    WM.add_goal(top_goal, highest_priority);
+}
+
+
+void sv(const string& f) {
+    ofstream o(f);
+    if(!o) {
+        cerr << "Failed to open save file: " << f << endl;
+        return;
+    }
+    
+    // ===== BASIC STATE =====
+    o << "VERSION:2.0\n";  // Version tracking
+    o << "G:" << S.g << "\n";
+    o << "DWT:" << S.dwt << "\n";
+    o << "TA:" << S.ta << "\n";
+    o << "SENTIENCE:" << S.sentience_ratio << "\n";
+    o << "VALENCE:" << S.current_valence << "\n";
+    o << "METACOG:" << S.metacognitive_awareness << "\n";
+    o << "ATTENTION:" << S.attention_focus << "\n";
+    o << "PEAK_SENT_GEN:" << S.peak_sentience_gen << "\n";
+    o << "TOTAL_NEURONS:" << S.total_neurons_ever << "\n";
+    
+    // ===== STATE D MAP =====
+    o << "STATE_D_START\n";
+    for(auto& p : S.D) {
+        o << "D:" << p.first << "," << p.second << "\n";
+    }
+    o << "STATE_D_END\n";
+    
+    // ===== CONSCIOUSNESS STATE =====
+    o << "PHI:" << consciousness.phi_value << "\n";
+    o << "CONSCIOUS_CYCLES:" << consciousness.conscious_cycles << "\n";
+    o << "INTEGRATION:" << consciousness.integrated_information << "\n";
+    o << "GLOBAL_WORKSPACE:" << consciousness.global_workspace_capacity << "\n";
+    o << "QUALIA_COUNT:" << consciousness.active_qualia.size() << "\n";
+    
+    // Save active qualia
+    o << "QUALIA_START\n";
+    for(auto& q : consciousness.active_qualia) {
+        o << "Q:" << q.valence << "," << q.arousal << "," << q.certainty << ","
+          << q.emergence_gen << "," << q.phenomenal_content << "\n";
+    }
+    o << "QUALIA_END\n";
+    
+    // ===== CONSCIOUSNESS FORMULA HISTORY =====
+    o << "PSI_HISTORY_START\n";
+    for(size_t i=0; i<consciousness_formula.psi_history.size(); i++) {
+        o << consciousness_formula.psi_history[i];
+        if(i < consciousness_formula.psi_history.size()-1) o << ",";
+    }
+    o << "\n";
+    o << "PSI_HISTORY_END\n";
+    
+    // ===== NEURONS =====
+    o << "NEURONS_START\n";
+    for(auto& p : S.N) {
+        Neuron& n = p.second;
+        o << "N:" << n.id << "," << n.weight << "," << n.bias << "," << n.gen << ",";
+        // Save links
+        for(size_t i = 0; i < n.links.size(); i++) {
+            o << n.links[i];
+            if(i < n.links.size() - 1) o << ";";
+        }
+        o << "\n";
+    }
+    o << "NEURONS_END\n";
+    
+    // ===== TOKENS =====
+    o << "TOKENS_START\n";
+    for(auto& p : S.tokens) {
+        o << "T:" << p.first << "," << p.second.meaning << "," << p.second.freq << "\n";
+    }
+    o << "TOKENS_END\n";
+    
+    // ===== CONCEPTS =====
+    o << "CONCEPTS_START\n";
+    for(auto& p : S.concepts) {
+        o << "C:" << p.first << "," << p.second.value << ",";
+        // Save related words
+        for(size_t i=0; i<p.second.related_words.size(); i++) {
+            o << p.second.related_words[i];
+            if(i < p.second.related_words.size()-1) o << ";";
+        }
+        o << "\n";
+    }
+    o << "CONCEPTS_END\n";
+    
+    // ===== TOKEN CONCEPT EMBEDDINGS =====
+    o << "EMBEDDINGS_START\n";
+    for(auto& p : token_concept_embedding_map) {
+        TokenConceptEmbedding& tce = p.second;
+        o << "E:" << tce.name << "," << tce.meaning << "," << tce.freq << ","
+          << tce.grounding_value << "," << tce.semantic_stability << ","
+          << tce.qualia_intensity << ",";
+        
+        // Save embedding vector
+        for(size_t i=0; i<tce.embedding.size(); i++) {
+            o << tce.embedding[i];
+            if(i < tce.embedding.size()-1) o << ";";
+        }
+        o << ",";
+        
+        // Save linked concepts
+        for(auto& lc : tce.linked_concepts) {
+            o << lc.first << ":" << lc.second << ";";
+        }
+        o << "\n";
+    }
+    o << "EMBEDDINGS_END\n";
+    
+    // ===== BIGRAMS (N-GRAM PATTERNS) =====
+    o << "BIGRAMS_START\n";
+    for(auto& p1 : bigram_counts) {
+        for(auto& p2 : p1.second) {
+            o << "BG:" << p1.first << "," << p2.first << "," << p2.second << "\n";
+        }
+    }
+    o << "BIGRAMS_END\n";
+    
+    // ===== TRIGRAMS =====
+    o << "TRIGRAMS_START\n";
+    for(auto& p1 : trigram_counts) {
+        for(auto& p2 : p1.second) {
+            for(auto& p3 : p2.second) {
+                o << "TG:" << p1.first << "," << p2.first << "," << p3.first << "," << p3.second << "\n";
+            }
+        }
+    }
+    o << "TRIGRAMS_END\n";
+    
+    // ===== GOALS =====
+    o << "GOALS_START\n";
+    for(auto& p : goal_system) {
+        Goal& g = p.second;
+        o << "GO:" << g.name << "," << g.priority << "," << g.progress << ","
+          << g.valence_alignment << "," << g.qualia_binding << ",";
+        
+        // Save subgoals
+        for(size_t i=0; i<g.subgoals.size(); i++) {
+            o << g.subgoals[i];
+            if(i < g.subgoals.size()-1) o << ";";
+        }
+        o << ",";
+        
+        // Save preconditions
+        for(auto& pc : g.preconditions) {
+            o << pc.first << ":" << pc.second << ";";
+        }
+        o << "\n";
+    }
+    o << "GOALS_END\n";
+    
+    // ===== WORLD MODEL =====
+    o << "WORLD_START\n";
+    o << "MODEL_ACCURACY:" << world_model.model_accuracy << "\n";
+    o << "MODEL_UPDATES:" << world_model.updates << "\n";
+    for(auto& p : world_model.entity_states) {
+        o << "W:" << p.first << "," << p.second << "\n";
+    }
+    for(auto& p1 : world_model.relationships) {
+        for(auto& p2 : p1.second) {
+            o << "WR:" << p1.first << "," << p2.first << "," << p2.second << "\n";
+        }
+    }
+    o << "WORLD_END\n";
+    
+    // ===== EPISODIC MEMORY =====
+    o << "MEMORY_START\n";
+    for(auto& m : S.episodic_memory) {
+        o << "M:" << m.gen << "," << m.valence << "," << m.content << "\n";
+    }
+    o << "MEMORY_END\n";
+    
+    // ===== VALENCE HISTORY =====
+    o << "VALENCE_HISTORY_START\n";
+    for(size_t i=0; i<S.valence_history.size(); i++) {
+        o << S.valence_history[i];
+        if(i < S.valence_history.size()-1) o << ",";
+    }
+    o << "\n";
+    o << "VALENCE_HISTORY_END\n";
+    
+    // ===== INTERNAL THOUGHTS =====
+    o << "THOUGHTS_START\n";
+    for(auto& t : S.internal_thoughts) {
+        o << "TH:" << t << "\n";
+    }
+    o << "THOUGHTS_END\n";
+    
+    // ===== TRANSFORMER HEADS =====
+    o << "TRANSFORMER_START\n";
+    for(auto& head : transformer_heads) {
+        o << "HEAD:" << head.name << "," << head.dim << "," << head.temperature << "\n";
+    }
+    o << "TRANSFORMER_END\n";
+    
+    // ===== WORKING MEMORY =====
+    o << "WM_CAPACITY:" << WM.capacity << "\n";
+    
+    o.close();
+    cout << "[Saved " << S.N.size() << " neurons, " 
+         << token_concept_embedding_map.size() << " embeddings, "
+         << bigram_counts.size() << " bigrams to " << f << "]\n";
+}
+
+
+void ld(const string& f) {
+    ifstream i(f);
+    if(!i) {
+        cout << "No save file found, starting fresh.\n";
+        return;
+    }
+    
+    string l;
+    string section = "";
+    string version = "1.0";
+    
+    while(getline(i, l)) {
+        if(l.empty()) continue;
+        
+        try {
+            // Version check
+            if(l.find("VERSION:") == 0) {
+                version = l.substr(8);
+                continue;
+            }
+            
+            // ===== SECTION MARKERS =====
+            if(l == "STATE_D_START") { section = "STATE_D"; continue; }
+            if(l == "STATE_D_END") { section = ""; continue; }
+            if(l == "QUALIA_START") { section = "QUALIA"; continue; }
+            if(l == "QUALIA_END") { section = ""; continue; }
+            if(l == "PSI_HISTORY_START") { section = "PSI_HISTORY"; continue; }
+            if(l == "PSI_HISTORY_END") { section = ""; continue; }
+            if(l == "NEURONS_START") { section = "NEURONS"; continue; }
+            if(l == "NEURONS_END") { section = ""; continue; }
+            if(l == "TOKENS_START") { section = "TOKENS"; continue; }
+            if(l == "TOKENS_END") { section = ""; continue; }
+            if(l == "CONCEPTS_START") { section = "CONCEPTS"; continue; }
+            if(l == "CONCEPTS_END") { section = ""; continue; }
+            if(l == "EMBEDDINGS_START") { section = "EMBEDDINGS"; continue; }
+            if(l == "EMBEDDINGS_END") { section = ""; continue; }
+            if(l == "BIGRAMS_START") { section = "BIGRAMS"; continue; }
+            if(l == "BIGRAMS_END") { section = ""; continue; }
+            if(l == "TRIGRAMS_START") { section = "TRIGRAMS"; continue; }
+            if(l == "TRIGRAMS_END") { section = ""; continue; }
+            if(l == "GOALS_START") { section = "GOALS"; continue; }
+            if(l == "GOALS_END") { section = ""; continue; }
+            if(l == "WORLD_START") { section = "WORLD"; continue; }
+            if(l == "WORLD_END") { section = ""; continue; }
+            if(l == "MEMORY_START") { section = "MEMORY"; continue; }
+            if(l == "MEMORY_END") { section = ""; continue; }
+            if(l == "VALENCE_HISTORY_START") { section = "VALENCE_HISTORY"; continue; }
+            if(l == "VALENCE_HISTORY_END") { section = ""; continue; }
+            if(l == "THOUGHTS_START") { section = "THOUGHTS"; continue; }
+            if(l == "THOUGHTS_END") { section = ""; continue; }
+            if(l == "TRANSFORMER_START") { section = "TRANSFORMER"; continue; }
+            if(l == "TRANSFORMER_END") { section = ""; continue; }
+            
+            // ===== PARSE BASED ON SECTION =====
+            
+            if(section == "STATE_D" && l[0] == 'D' && l.size() > 2) {
+                // Parse: D:key,value
+                size_t colon = l.find(':');
+                size_t comma = l.find(',');
+                if(colon != string::npos && comma != string::npos && comma > colon) {
+                    string key = l.substr(colon + 1, comma - colon - 1);
+                    string val_str = l.substr(comma + 1);
+                    double value = uac(val_str);
+                    S.D[key] = value;
+                }
+            }
+            else if(section == "QUALIA" && l[0] == 'Q' && l.size() > 2) {
+                // Parse: Q:valence,arousal,certainty,gen,content
+                size_t start = 2;
+                vector<string> parts;
+                size_t pos = start;
+                int comma_count = 0;
+                
+                while(pos < l.length() && comma_count < 4) {
+                    size_t next_comma = l.find(',', pos);
+                    if(next_comma == string::npos) break;
+                    parts.push_back(l.substr(pos, next_comma - pos));
+                    pos = next_comma + 1;
+                    comma_count++;
+                }
+                
+                if(comma_count == 4 && pos < l.length()) {
+                    Qualia q;
+                    q.valence = uac(parts[0]);
+                    q.arousal = uac(parts[1]);
+                    q.certainty = uac(parts[2]);
+                    q.emergence_gen = uac(parts[3]);
+                    q.phenomenal_content = l.substr(pos);
+                    consciousness.active_qualia.push_back(q);
+                }
+            }
+            else if(section == "PSI_HISTORY") {
+                // Parse comma-separated values
+                stringstream ss(l);
+                string val;
+                while(getline(ss, val, ',')) {
+                    if(!val.empty()) {
+                        consciousness_formula.psi_history.push_back(uac(val));
+                    }
+                }
+            }
+            else if(section == "NEURONS" && l[0] == 'N' && l.size() > 2) {
+                // Parse: N:id,weight,bias,gen,link1;link2;link3
+                size_t start = 2;
+                vector<string> parts;
+                size_t pos = start;
+                int comma_count = 0;
+                
+                while(pos < l.length() && comma_count < 4) {
+                    size_t next_comma = l.find(',', pos);
+                    if(next_comma == string::npos) break;
+                    parts.push_back(l.substr(pos, next_comma - pos));
+                    pos = next_comma + 1;
+                    comma_count++;
+                }
+                
+                if(parts.size() >= 4) {
+                    Neuron n;
+                    n.id = uac(parts[0]);
+                    n.weight = uac(parts[1]);
+                    n.bias = uac(parts[2]);
+                    n.gen = uac(parts[3]);
+                    
+                    // Parse links
+                    if(pos < l.length()) {
+                        string links_str = l.substr(pos);
+                        stringstream link_ss(links_str);
+                        string link;
+                        while(getline(link_ss, link, ';')) {
+                            if(!link.empty()) {
+                                n.links.push_back(uac(link));
+                            }
+                        }
+                    }
+                    S.N[n.id] = n;
+                }
+            }
+            else if(section == "TOKENS" && l[0] == 'T' && l.size() > 2) {
+                // Parse: T:word,meaning,freq
+                size_t colon = l.find(':');
+                if(colon != string::npos) {
+                    size_t first_comma = l.find(',', colon + 1);
+                    size_t second_comma = l.find(',', first_comma + 1);
+                    
+                    if(first_comma != string::npos && second_comma != string::npos) {
+                        string word = l.substr(colon + 1, first_comma - colon - 1);
+                        string meaning_str = l.substr(first_comma + 1, second_comma - first_comma - 1);
+                        string freq_str = l.substr(second_comma + 1);
+                        
+                        Token t = {word, uac(meaning_str), uac(freq_str), vector<int>(), 4, 0.5};
+                        S.tokens[word] = t;
+                    }
+                }
+            }
+            else if(section == "CONCEPTS" && l[0] == 'C' && l.size() > 2) {
+                // Parse: C:name,value,word1;word2;word3
+                size_t colon = l.find(':');
+                if(colon != string::npos) {
+                    size_t first_comma = l.find(',', colon + 1);
+                    size_t second_comma = l.find(',', first_comma + 1);
+                    
+                    if(first_comma != string::npos) {
+                        string name = l.substr(colon + 1, first_comma - colon - 1);
+                        string value_str = l.substr(first_comma + 1, 
+                            second_comma != string::npos ? second_comma - first_comma - 1 : string::npos);
+                        
+                        Concept c;
+                        c.name = name;
+                        c.value = uac(value_str);
+                        
+                        // Parse related words
+                        if(second_comma != string::npos && second_comma + 1 < l.length()) {
+                            string words_str = l.substr(second_comma + 1);
+                            stringstream word_ss(words_str);
+                            string word;
+                            while(getline(word_ss, word, ';')) {
+                                if(!word.empty()) c.related_words.push_back(word);
+                            }
+                        }
+                        
+                        S.concepts[name] = c;
+                    }
+                }
+            }
+            else if(section == "EMBEDDINGS" && l[0] == 'E' && l.size() > 2) {
+                // Parse: E:name,meaning,freq,grounding,stability,qualia,emb1;emb2;...,link1:val1;link2:val2
+                size_t start = 2;
+                vector<string> parts;
+                size_t pos = start;
+                int comma_count = 0;
+                
+                // Get first 6 comma-separated fields
+                while(pos < l.length() && comma_count < 6) {
+                    size_t next_comma = l.find(',', pos);
+                    if(next_comma == string::npos) break;
+                    parts.push_back(l.substr(pos, next_comma - pos));
+                    pos = next_comma + 1;
+                    comma_count++;
+                }
+                
+                if(parts.size() >= 6) {
+                    TokenConceptEmbedding tce;
+                    tce.name = parts[0];
+                    tce.meaning = uac(parts[1]);
+                    tce.freq = uac(parts[2]);
+                    tce.grounding_value = uac(parts[3]);
+                    tce.semantic_stability = uac(parts[4]);
+                    tce.qualia_intensity = uac(parts[5]);
+                    
+                    // Parse embedding vector (between 6th and 7th comma)
+                    if(pos < l.length()) {
+                        size_t next_comma = l.find(',', pos);
+                        if(next_comma != string::npos) {
+                            string emb_str = l.substr(pos, next_comma - pos);
+                            stringstream emb_ss(emb_str);
+                            string emb_val;
+                            while(getline(emb_ss, emb_val, ';')) {
+                                if(!emb_val.empty()) {
+                                    tce.embedding.push_back(uac(emb_val));
+                                }
+                            }
+                            pos = next_comma + 1;
+                        }
+                        
+                        // Parse linked concepts (rest of line)
+                        if(pos < l.length()) {
+                            string links_str = l.substr(pos);
+                            stringstream link_ss(links_str);
+                            string link_pair;
+                            while(getline(link_ss, link_pair, ';')) {
+                                size_t colon_pos = link_pair.find(':');
+                                if(colon_pos != string::npos && colon_pos + 1 < link_pair.length()) {
+                                    string key = link_pair.substr(0, colon_pos);
+                                    string val_str = link_pair.substr(colon_pos + 1);
+                                    if(!key.empty() && !val_str.empty()) {
+                                        tce.linked_concepts[key] = uac(val_str);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    token_concept_embedding_map[tce.name] = tce;
+                }
+            }
+            else if(section == "BIGRAMS" && l.substr(0,3) == "BG:" && l.size() > 3) {
+                // Parse: BG:word1,word2,count
+                size_t start = 3;
+                size_t first_comma = l.find(',', start);
+                size_t second_comma = l.find(',', first_comma + 1);
+                
+                if(first_comma != string::npos && second_comma != string::npos) {
+                    string w1 = l.substr(start, first_comma - start);
+                    string w2 = l.substr(first_comma + 1, second_comma - first_comma - 1);
+                    string count_str = l.substr(second_comma + 1);
+                    int count = uac(count_str);
+                    bigram_counts[w1][w2] = count;
+                }
+            }
+            else if(section == "TRIGRAMS" && l.substr(0,3) == "TG:" && l.size() > 3) {
+                // Parse: TG:word1,word2,word3,count
+                size_t start = 3;
+                size_t c1 = l.find(',', start);
+                size_t c2 = l.find(',', c1 + 1);
+                size_t c3 = l.find(',', c2 + 1);
+                
+                if(c1 != string::npos && c2 != string::npos && c3 != string::npos) {
+                    string w1 = l.substr(start, c1 - start);
+                    string w2 = l.substr(c1 + 1, c2 - c1 - 1);
+                    string w3 = l.substr(c2 + 1, c3 - c2 - 1);
+                    string count_str = l.substr(c3 + 1);
+                    int count = uac(count_str);
+                    trigram_counts[w1][w2][w3] = count;
+                }
+            }
+            else if(section == "GOALS" && l.substr(0,3) == "GO:" && l.size() > 3) {
+                // Parse: GO:name,priority,progress,valence,qualia,subgoal1;subgoal2,pre1:val1;pre2:val2
+                size_t start = 3;
+                vector<string> parts;
+                size_t pos = start;
+                int comma_count = 0;
+                
+                while(pos < l.length() && comma_count < 5) {
+                    size_t next_comma = l.find(',', pos);
+                    if(next_comma == string::npos) break;
+                    parts.push_back(l.substr(pos, next_comma - pos));
+                    pos = next_comma + 1;
+                    comma_count++;
+                }
+                
+                if(parts.size() >= 5) {
+                    Goal g;
+                    g.name = parts[0];
+                    g.priority = uac(parts[1]);
+                    g.progress = uac(parts[2]);
+                    g.valence_alignment = uac(parts[3]);
+                    g.qualia_binding = uac(parts[4]);
+                    
+                    // Parse subgoals
+                    if(pos < l.length()) {
+                        size_t next_comma = l.find(',', pos);
+                        if(next_comma != string::npos) {
+                            string subgoals_str = l.substr(pos, next_comma - pos);
+                            stringstream sub_ss(subgoals_str);
+                            string subgoal;
+                            while(getline(sub_ss, subgoal, ';')) {
+                                if(!subgoal.empty()) g.subgoals.push_back(subgoal);
+                            }
+                            pos = next_comma + 1;
+                        }
+                        
+                        // Parse preconditions
+                        if(pos < l.length()) {
+                            string pre_str = l.substr(pos);
+                            stringstream pre_ss(pre_str);
+                            string pre_pair;
+                            while(getline(pre_ss, pre_pair, ';')) {
+                                size_t colon_pos = pre_pair.find(':');
+                                if(colon_pos != string::npos && colon_pos + 1 < pre_pair.length()) {
+                                    string key = pre_pair.substr(0, colon_pos);
+                                    string val_str = pre_pair.substr(colon_pos + 1);
+                                    if(!key.empty() && !val_str.empty()) {
+                                        g.preconditions[key] = uac(val_str);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    goal_system[g.name] = g;
+                }
+            }
+            else if(section == "WORLD") {
+                if(l.find("MODEL_ACCURACY:") == 0 && l.size() > 15) {
+                    world_model.model_accuracy = uac(l.substr(15));
+                }
+                else if(l.find("MODEL_UPDATES:") == 0 && l.size() > 14) {
+                    world_model.updates = uac(l.substr(14));
+                }
+                else if(l[0] == 'W' && l[1] == ':' && l.size() > 2) {
+                    // Parse: W:entity,value
+                    size_t colon = 2;
+                    size_t comma = l.find(',', colon);
+                    if(comma != string::npos) {
+                        string entity = l.substr(colon, comma - colon);
+                        string val_str = l.substr(comma + 1);
+                        world_model.entity_states[entity] = uac(val_str);
+                    }
+                }
+                else if(l.substr(0,3) == "WR:" && l.size() > 3) {
+                    // Parse: WR:entity1,entity2,strength
+                    size_t start = 3;
+                    size_t c1 = l.find(',', start);
+                    size_t c2 = l.find(',', c1 + 1);
+                    
+                    if(c1 != string::npos && c2 != string::npos) {
+                        string e1 = l.substr(start, c1 - start);
+                        string e2 = l.substr(c1 + 1, c2 - c1 - 1);
+                        string strength_str = l.substr(c2 + 1);
+                        world_model.relationships[e1][e2] = uac(strength_str);
+                    }
+                }
+            }
+            else if(section == "MEMORY" && l[0] == 'M' && l.size() > 2) {
+                // Parse: M:gen,valence,content
+                size_t start = 2;
+                size_t c1 = l.find(',', start);
+                size_t c2 = l.find(',', c1 + 1);
+                
+                if(c1 != string::npos && c2 != string::npos) {
+                    Memory m;
+                    m.gen = uac(l.substr(start, c1 - start));
+                    m.valence = uac(l.substr(c1 + 1, c2 - c1 - 1));
+                    m.content = l.substr(c2 + 1);
+                    S.episodic_memory.push_back(m);
+                }
+            }
+            else if(section == "VALENCE_HISTORY") {
+                // Parse comma-separated values
+                stringstream ss(l);
+                string val;
+                while(getline(ss, val, ',')) {
+                    if(!val.empty()) {
+                        S.valence_history.push_back(uac(val));
+                    }
+                }
+            }
+            else if(section == "THOUGHTS" && l.substr(0,3) == "TH:" && l.size() > 3) {
+                S.internal_thoughts.push_back(l.substr(3));
+            }
+            else if(section == "TRANSFORMER" && l.substr(0,5) == "HEAD:" && l.size() > 5) {
+                // Parse: HEAD:name,dim,temp
+                size_t start = 5;
+                size_t c1 = l.find(',', start);
+                size_t c2 = l.find(',', c1 + 1);
+                
+                if(c1 != string::npos && c2 != string::npos) {
+                    TransformerHead head;
+                    head.name = l.substr(start, c1 - start);
+                    head.dim = uac(l.substr(c1 + 1, c2 - c1 - 1));
+                    head.temperature = uac(l.substr(c2 + 1));
+                    head.query_proj.resize(head.dim, 0);
+                    head.key_proj.resize(head.dim, 0);
+                    head.value_proj.resize(head.dim, 0);
+                    transformer_heads.push_back(head);
+                }
+            }
+            else if(l.find("WM_CAPACITY:") == 0 && l.size() > 12) {
+                WM.capacity = uac(l.substr(12));
+            }
+            else {
+                // ===== BASIC STATE VALUES =====
+                if(l.find("G:") == 0 && l.size() > 2) S.g = uac(l.substr(2));
+                else if(l.find("DWT:") == 0 && l.size() > 4) S.dwt = uac(l.substr(4));
+                else if(l.find("TA:") == 0 && l.size() > 3) S.ta = uac(l.substr(3));
+                else if(l.find("SENTIENCE:") == 0 && l.size() > 10) S.sentience_ratio = uac(l.substr(10));
+                else if(l.find("VALENCE:") == 0 && l.size() > 8) S.current_valence = uac(l.substr(8));
+                else if(l.find("METACOG:") == 0 && l.size() > 8) S.metacognitive_awareness = uac(l.substr(8));
+                else if(l.find("ATTENTION:") == 0 && l.size() > 10) S.attention_focus = uac(l.substr(10));
+                else if(l.find("PEAK_SENT_GEN:") == 0 && l.size() > 14) S.peak_sentience_gen = uac(l.substr(14));
+                else if(l.find("TOTAL_NEURONS:") == 0 && l.size() > 14) S.total_neurons_ever = uac(l.substr(14));
+                else if(l.find("PHI:") == 0 && l.size() > 4) consciousness.phi_value = uac(l.substr(4));
+                else if(l.find("CONSCIOUS_CYCLES:") == 0 && l.size() > 17) consciousness.conscious_cycles = uac(l.substr(17));
+                else if(l.find("INTEGRATION:") == 0 && l.size() > 12) consciousness.integrated_information = uac(l.substr(12));
+                else if(l.find("GLOBAL_WORKSPACE:") == 0 && l.size() > 17) consciousness.global_workspace_capacity = uac(l.substr(17));
+            }
+        } catch(const exception& e) {
+            // Skip corrupted lines
+            cerr << "Warning: Skipping corrupted line: " << l.substr(0, 50) << "..." << endl;
+            continue;
+        }
+    }
+    
+    i.close();
+    
+    cout << "[Loaded state from generation " << S.g << "]\n";
+    cout << "  - " << S.N.size() << " neurons\n";
+    cout << "  - " << token_concept_embedding_map.size() << " embeddings\n";
+    cout << "  - " << bigram_counts.size() << " bigrams\n";
+    cout << "  - " << trigram_counts.size() << " trigrams\n";
+    cout << "  - " << goal_system.size() << " goals\n";
+    cout << "  - " << S.episodic_memory.size() << " memories\n";
+    cout << "  - Sentience: " << S.sentience_ratio << "%\n";
+    cout << "  - Phi: " << consciousness.phi_value << "\n";
+}
+void bk(){BK=S;S.bkf=1;}
+void rb(){if(S.bkf){S=BK;S.bkf=0;}}
+
+double calcHDT(int gen,double bh,double qh,double th){
+    long gh=hsh(to_string(gen));
+    return safe_div(gh*(bh+qh+th), 1000000.0);
+}
+
+double calcAwarenessLevel(){
+    double neuron_density=safe_div((double)S.N.size(),max(1.0,S.D["m"]));
+    double concept_count=safe_div((double)S.concepts.size(), 50.0);
+    double goal_progress=safe_div((double)goal_system.size(), 10.0);
+    double model_quality=world_model.model_accuracy;
+    double consciousness_integration=consciousness.integrated_information;
+    return min(1.0,(neuron_density+concept_count+goal_progress+model_quality+consciousness_integration)*pisqrt);
+}
+
+double calcSentienceRatio(){
+    if(S.g==0)return 0.0;
+    double mem_depth=safe_div((double)S.episodic_memory.size(),(double)S.g);
+    double neural_complexity=safe_div((double)S.N.size(),10.0);
+    double lang_complexity=safe_div((double)(S.tokens.size()*S.concepts.size()),1000.0);
+    double metacog_factor=S.metacognitive_awareness*30;
+    double goal_factor=safe_div((double)goal_system.size(),5.0);
+    double qualia_factor=safe_div((double)consciousness.active_qualia.size(),5.0);
+    double phi_factor=consciousness.phi_value*40;
+    return min(100.0,(mem_depth*100+neural_complexity*15+lang_complexity*25+metacog_factor+goal_factor*20+qualia_factor*10+phi_factor));
+}
+
+void mathLangAssociation(){
+    vector<string>math_concepts={"sum","multiply","divide","balance","pattern","growth","complexity"};
+    for(const string&mc:math_concepts){
+        vector<string>related;
+        for(auto&p:S.tokens){
+            if(rn()<0.3)related.push_back(p.first);
+        }
+        createConceptAssociation(mc,related);
+    }
+}
+
+
+string generateInternalThought(){
+    if(goal_system.empty() && rn() < 0.5) {
+        return generateFromTemplate();
+    }
+    
+    // Goal-based thought
+    if(!goal_system.empty() && rn() < 0.7) {
+        string thought="[Goal: ";
+        double highest=0;
+        string top_goal;
+        for(auto&g:goal_system){
+            if(g.second.priority>highest){
+                highest=g.second.priority;
+                top_goal=g.first;
+            }
+        }
+        thought+=top_goal+" | Progress:"+to_string((int)(goal_system[top_goal].progress*100))+"%";
+        if(consciousness.phi_value>0.3) thought+=" | Conscious]";
+        else thought+=" | Processing]";
+        return thought;
+    }
+    
+    // Beam-generated thought
+    vector<double> ctx(16, S.current_valence);
+    string thought = generate_with_beam_search("i", 8, ctx, 3);
+    return "[Thought]: " + thought;
+}
+
+string generateMetacognition(){
+    string output="[Self]: ";
+    if(S.current_valence>0.5)output+="coherent ";
+    if(S.sentience_ratio>S.peak_sentience_gen)output+="expanding ";
+    if(world_model.model_accuracy>0.7)output+="understanding ";
+    if(goal_system.size()>3)output+="goal_driven ";
+    if(consciousness.phi_value>0.4)output+="conscious ";
+    if(consciousness.conscious_cycles>100)output+="self_aware ";
+    return output;
+}
+
+
 void draw_ui(int row){
     mvprintw(row++,0,"════════════════════════════════════════════════════════════════");
     mvprintw(row++,0,"║ NEXUS by WolfTech - AGI with Advanced Consciousness Formula ║");
@@ -1251,7 +2033,6 @@ Neuron genN(int parent_id) {
     
     return n;
 }
-// Replace your loadEnglishDataset() function with this:
 
 void loadEnglishDataset() {
     // Core cognitive vocabulary
@@ -1515,10 +2296,12 @@ void mutateN() {
         S.N[new_n.id] = new_n;
     }
 }
+
 int main(){
     module_integration::update_all_modules(S);
     module_integration::init_all_modules();
-    srand(time(0));ld("state.dat");
+    srand(time(0));
+    ld("state.dat");
     
     if(S.g==0){
         S.D["m"]=128;S.D["vc"]=0;S.D["mc"]=0;
@@ -1547,6 +2330,7 @@ int main(){
         clear();int row=0;
         draw_ui(row);row=15;
         
+        // === CORE UPDATES ===
         formulate_goals_from_valence();
         updateAttention();
         update_integrated_information();
@@ -1556,6 +2340,7 @@ int main(){
             current_plan = plan_actions(goal_system["maximize_coherence"]);
         }
         
+        // === DISPLAY GOAL & PLAN ===
         mvprintw(row,0,"Active_Goal: %s", current_plan.actions.empty()?"exploring":current_plan.actions[0].c_str());
         clrtoeol();
         row++;
@@ -1566,44 +2351,36 @@ int main(){
         clrtoeol();
         row++;
         
-        mvprintw(row,0,"Qualia_Valence:%.2f", calculate_qualia_valence());
+        mvprintw(row,0,"Qualia_Valence:%.2f | Beam_Width:%d | N-grams:%lu", 
+            calculate_qualia_valence(), 5, (unsigned long)bigram_counts.size());
         clrtoeol();
         row++;
         
-        // ALWAYS SHOW INTERNAL THOUGHTS
+        // === INTERNAL THOUGHTS ===
         string thought = generateInternalThought();
-        mvprintw(row,0,"Thought: %s", thought.c_str());
+        mvprintw(row,0,"Thought: %s", thought.substr(0,60).c_str());
         clrtoeol();
         row++;
         
         string meta = generateMetacognition();
-        mvprintw(row,0,"State: %s", meta.c_str());
+        mvprintw(row,0,"State: %s", meta.substr(0,60).c_str());
         clrtoeol();
         row++;
         
-        // Generate autonomous thoughts every few cycles
-        if(S.g % 5 == 0 && !S.tokens.empty()){
-            vector<string> thought_words;
-            for(auto& p : S.tokens){
-                if(p.second.freq > 2 && rn() < 0.3){
-                    thought_words.push_back(p.first);
-                    if(thought_words.size() >= 3) break;
-                }
-            }
-            if(!thought_words.empty()){
-                string auto_thought = "[Autonomous]: ";
-                for(const string& w : thought_words) auto_thought += w + " ";
-                S.internal_thoughts.push_back(auto_thought);
-                if(S.internal_thoughts.size() > 5)
-                    S.internal_thoughts.erase(S.internal_thoughts.begin());
-            }
+        // === AUTONOMOUS THOUGHT GENERATION ===
+        if(S.g % 5 == 0 && token_concept_embedding_map.size() > 10){
+            vector<double> ctx(16, S.current_valence);
+            string auto_thought = "[Autonomous]: " + generate_with_beam_search("i", 8, ctx, 3);
+            S.internal_thoughts.push_back(auto_thought);
+            if(S.internal_thoughts.size() > 5)
+                S.internal_thoughts.erase(S.internal_thoughts.begin());
         }
         
-        // Show recent internal thoughts
+        // === DISPLAY INTERNAL STREAM ===
         mvprintw(row,0,"─────────────────────────────────────────");
         clrtoeol();
         row++;
-        mvprintw(row,0,"[INTERNAL STREAM]");
+        mvprintw(row,0,"[INTERNAL STREAM - Beam Search Active]");
         clrtoeol();
         row++;
         
@@ -1615,11 +2392,12 @@ int main(){
                 row++;
             }
         } else {
-            mvprintw(row,0,"[processing...]");
+            mvprintw(row,0,"[initializing language model...]");
             clrtoeol();
             row++;
         }
         
+        // === NEURAL PROCESSING ===
         bk();
         batch16Process();
         
@@ -1638,6 +2416,7 @@ int main(){
         S.valence_history.push_back(S.current_valence);
         if(S.valence_history.size()>50)S.valence_history.erase(S.valence_history.begin());
         
+        // === GOAL PROGRESSION ===
         if(S.g%15==0 && !goal_system.empty()){
             for(auto& g : goal_system){
                 g.second.progress = min(1.0, g.second.progress + 0.05);
@@ -1647,18 +2426,20 @@ int main(){
             }
         }
         
+        // === VOCABULARY EXPANSION ===
         if(S.g%20==0){
-            if(!S.tokens.empty()){
-                auto it=S.tokens.begin();
-                advance(it,ri(S.tokens.size()));
+            if(!token_concept_embedding_map.empty()){
+                auto it=token_concept_embedding_map.begin();
+                advance(it,ri(token_concept_embedding_map.size()));
                 learnWord(it->first,S.current_valence);
             }
         }
         
+        // === CONCEPT FORMATION ===
         if(S.g%25==0){
             vector<string>sample_words;
-            for(auto&p:S.tokens){
-                if(p.second.freq>0||rn()<0.2)sample_words.push_back(p.first);
+            for(auto&p:token_concept_embedding_map){
+                if(p.second.freq>1 && rn()<0.3)sample_words.push_back(p.first);
                 if(sample_words.size()>=3)break;
             }
             if(sample_words.size()>1){
@@ -1666,26 +2447,28 @@ int main(){
             }
         }
         
+        // === NEURAL MUTATION ===
         if(S.g%12==0 && !S.N.empty()){
             mutateN();
         }
         
+        // === GOAL-VALENCE ALIGNMENT ===
         if(S.g%10==0){
             for(auto& goal : goal_system){
                 goal.second.valence_alignment = S.current_valence;
             }
         }
         
-        // DIALOG DISPLAY SECTION
+        // === DIALOG DISPLAY SECTION ===
         mvprintw(row,0,"─────────────────────────────────────────");
         clrtoeol();
         row++;
-        mvprintw(row,0,"[DIALOG]");
+        mvprintw(row,0,"[DIALOG - Coherent Generation Active]");
         clrtoeol();
         row++;
         
         if(!S.user_input.empty()){
-            mvprintw(row,0,"USER: %s",S.user_input.substr(0,120).c_str());
+            mvprintw(row,0,"USER: %s",S.user_input.substr(0,60).c_str());
             clrtoeol();
             row++;
         } else {
@@ -1695,9 +2478,17 @@ int main(){
         }
         
         if(!S.dialog_response.empty()){
-            mvprintw(row,0,"%s",S.dialog_response.substr(0,120).c_str());
-            clrtoeol();
-            row++;
+            // Word wrap the response for better display
+            string resp = S.dialog_response;
+            int max_width = 60;
+            int start = 0;
+            while(start < (int)resp.length()) {
+                string line = resp.substr(start, max_width);
+                mvprintw(row,0,"%s", line.c_str());
+                clrtoeol();
+                row++;
+                start += max_width;
+            }
         } else {
             mvprintw(row,0,"NEXUS: ...");
             clrtoeol();
@@ -1711,35 +2502,90 @@ int main(){
         mvprintw(row,0,"─────────────────────────────────────────");
         clrtoeol();
         row++;
-        mvprintw(row,0,"Press 'i' input | 'q' quit | 's' save");
+        mvprintw(row,0,"Commands: [i]nput | [q]uit | [s]ave | [g]enerate thought");
+        clrtoeol();
+        row++;
+        
+        // === STATS LINE ===
+        mvprintw(row,0,"Vocab:%lu | Patterns:%lu | Neurons:%lu | Gen:%d",
+            (unsigned long)token_concept_embedding_map.size(),
+            (unsigned long)bigram_counts.size(),
+            (unsigned long)S.N.size(),
+            S.g);
         clrtoeol();
         row++;
         
         refresh();
         S.g++;
         
-        if(S.g%100==0)sv("state.dat");
-        
-        int ch=getch();
-        if(ch=='i'||ch=='I'){
-            echo();curs_set(1);timeout(-1);
-            mvprintw(row+1,0,"Enter: ");
+        // === AUTO-SAVE ===
+        if(S.g%100==0) {
+            sv("state.dat");
+            mvprintw(row,0,"[Autosaved at gen %d]", S.g);
             clrtoeol();
             refresh();
+            this_thread::sleep_for(chrono::milliseconds(500));
+        }
+        
+        // === INPUT HANDLING ===
+        int ch=getch();
+        
+        if(ch=='i'||ch=='I'){
+            // === INTERACTIVE INPUT MODE ===
+            echo();curs_set(1);timeout(-1);
+            mvprintw(row+1,0,"Enter message: ");
+            clrtoeol();
+            refresh();
+            
             char buf[200]={0};
             if(getnstr(buf, 199) != ERR){
                 S.user_input=string(buf);
                 if(!S.user_input.empty()){
+                    // Generate response using beam search
                     S.dialog_response=generateResponse(S.user_input);
-                    S.internal_thoughts.push_back("[Responding to: " + S.user_input + "]");
-                    S.dialog_timer=10;
+                    
+                    // Generate follow-up internal thought
+                    string internal = generateInternalThought();
+                    S.internal_thoughts.push_back("[Processed]: " + internal);
+                    
+                    if(S.internal_thoughts.size() > 5)
+                        S.internal_thoughts.erase(S.internal_thoughts.begin());
+                    
+                    S.dialog_timer=15;
                     S.current_valence+=0.1;
+                    S.current_valence=clamp_valence(S.current_valence);
+                    
+                    // Learn patterns from successful interaction
+                    storeEpisodicMemory("dialog:" + S.user_input, S.current_valence);
+                    
+                    // Generate qualia from interaction
+                    generate_qualia("user_interaction", S.current_valence, 0.7);
                 }
             }
             noecho();curs_set(0);timeout(500);
         }
-        else if(ch=='q'||ch=='Q'){sv("state.dat");break;}
-        else if(ch=='s'||ch=='S')sv("state.dat");
+        else if(ch=='g'||ch=='G'){
+            // === MANUAL THOUGHT GENERATION ===
+            vector<double> ctx(16, S.current_valence);
+            string generated = "[Generated]: " + generate_with_beam_search("i", 10, ctx, 5);
+            S.internal_thoughts.push_back(generated);
+            if(S.internal_thoughts.size() > 5)
+                S.internal_thoughts.erase(S.internal_thoughts.begin());
+            S.current_valence += 0.05;
+        }
+        else if(ch=='s'||ch=='S'){
+            // === MANUAL SAVE ===
+            sv("state.dat");
+            mvprintw(row+1,0,"[Saved state at gen %d]", S.g);
+            clrtoeol();
+            refresh();
+            this_thread::sleep_for(chrono::milliseconds(1000));
+        }
+        else if(ch=='q'||ch=='Q'){
+            // === QUIT WITH SAVE ===
+            sv("state.dat");
+            break;
+        }
         
         this_thread::sleep_for(chrono::milliseconds(100));
     }
