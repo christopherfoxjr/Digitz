@@ -43,11 +43,11 @@ namespace NexusUI
 
     public class MainWindow : Window
     {
-        private TextBox messageInput;
-        private TextBlock chatDisplay;
-        private ScrollViewer scrollViewer;
-        private TextBlock statusBar;
-        private Process nexusProcess;
+        private TextBox messageInput = null!;
+        private TextBlock chatDisplay = null!;
+        private ScrollViewer scrollViewer = null!;
+        private TextBlock statusBar = null!;
+        private Process? nexusProcess;
         private StringBuilder chatHistory = new StringBuilder();
         private bool isTraining = false;
 
@@ -110,7 +110,7 @@ namespace NexusUI
             };
         }
 
-        private Panel CreateChatPanel()
+        private Control CreateChatPanel()
         {
             chatDisplay = new TextBlock
             {
@@ -197,7 +197,7 @@ namespace NexusUI
             {
                 if (e.Key == Avalonia.Input.Key.Enter)
                 {
-                    SendMessage(s, e);
+                    SendMessage(null, new RoutedEventArgs());
                 }
             };
 
@@ -224,7 +224,7 @@ namespace NexusUI
             return panel;
         }
 
-        private void SendMessage(object sender, RoutedEventArgs e)
+        private void SendMessage(object? sender, RoutedEventArgs e)
         {
             var message = messageInput.Text?.Trim();
             if (string.IsNullOrEmpty(message)) return;
@@ -352,7 +352,7 @@ namespace NexusUI
             }
         }
 
-        private void UpdateMetrics(object sender, EventArgs e)
+        private void UpdateMetrics(object? sender, EventArgs e)
         {
             // Update status bar with metrics (would read from Nexus stdout in real implementation)
             var gen = new Random().Next(100, 1000);

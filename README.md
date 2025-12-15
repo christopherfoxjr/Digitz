@@ -20,6 +20,8 @@ NEXUS is an experimental AGI system featuring:
 
 ### Quick Start
 
+Run: make build both && make build-ui
+
 #### Requirements
 
 **Linux/macOS:**
