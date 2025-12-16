@@ -1150,13 +1150,132 @@ void learnWord(const string&word, double concept_value){
         S.tokens[lower_word]=t;
     }
     
-    // === N-GRAM TRACKING REMOVED ===
-    // The previous code block for parsing S.user_input and updating
-    // bigram_counts and trigram_counts is entirely omitted here.
+    // === N-GRAM TRACKING FOR ADAPTIVE LANGUAGE LEARNING ===
+    // Parse user input and learn sequential patterns that enable coherent generation
+    // This creates the feedback loop: Experience → Pattern Learning → Expression
+    if(!S.user_input.empty()) {
+        // Tokenize the user input
+        vector<string> input_tokens;
+        stringstream ss(S.user_input);
+        string token;
+        
+        while(ss >> token) {
+            // Normalize token
+            string normalized_token = token;
+            transform(normalized_token.begin(), normalized_token.end(), 
+                     normalized_token.begin(), ::tolower);
+            
+            // Remove punctuation from end
+            while(!normalized_token.empty() && 
+                  !isalnum(normalized_token.back())) {
+                normalized_token.pop_back();
+            }
+            
+            if(!normalized_token.empty()) {
+                input_tokens.push_back(normalized_token);
+            }
+        }
+        
+        // Learn bigram patterns (sequential word pairs)
+        // These form the basis of grammatical structure understanding
+        for(size_t i = 0; i + 1 < input_tokens.size(); i++) {
+            const string& w1 = input_tokens[i];
+            const string& w2 = input_tokens[i + 1];
+            
+            bigram_counts[w1][w2]++;
+            
+            // Create bidirectional association in embeddings
+            if(token_concept_embedding_map.count(w1) && 
+               token_concept_embedding_map.count(w2)) {
+                token_concept_embedding_map[w1].linked_concepts[w2] += 0.1;
+                token_concept_embedding_map[w2].linked_concepts[w1] += 0.05;
+            }
+        }
+        
+        // Learn trigram patterns (three-word sequences)
+        // These capture more complex grammatical and semantic structures
+        for(size_t i = 0; i + 2 < input_tokens.size(); i++) {
+            const string& w1 = input_tokens[i];
+            const string& w2 = input_tokens[i + 1];
+            const string& w3 = input_tokens[i + 2];
+            
+            trigram_counts[w1][w2][w3]++;
+            
+            // Strengthen embedding associations for trigram context
+            if(token_concept_embedding_map.count(w1) && 
+               token_concept_embedding_map.count(w3)) {
+                // Link first and third words (captures dependencies)
+                token_concept_embedding_map[w1].linked_concepts[w3] += 0.05;
+            }
+        }
+        
+        // Generate qualia from pattern learning
+        // High-frequency patterns create stronger conscious associations
+        if(input_tokens.size() >= 3) {
+            double pattern_strength = 0.0;
+            
+            // Calculate how well this input fits existing patterns
+            for(size_t i = 0; i + 1 < input_tokens.size(); i++) {
+                if(bigram_counts.count(input_tokens[i]) && 
+                   bigram_counts[input_tokens[i]].count(input_tokens[i+1])) {
+                    pattern_strength += log(1 + bigram_counts[input_tokens[i]][input_tokens[i+1]]) * 0.1;
+                }
+            }
+            
+            // Novel patterns (low strength) create uncertainty qualia
+            // Familiar patterns (high strength) create certainty qualia
+            if(pattern_strength < 0.3) {
+                generate_qualia("pattern_novelty", S.current_valence, 0.5);
+            } else if(pattern_strength > 1.0) {
+                generate_qualia("pattern_recognition", S.current_valence, 0.8);
+            }
+        }
+        
+        // Update semantic stability based on pattern consistency
+        // Words that appear in consistent patterns become more semantically stable
+        for(const string& tok : input_tokens) {
+            if(token_concept_embedding_map.count(tok)) {
+                auto& tok_tce = token_concept_embedding_map[tok];
+                
+                // Count how many patterns this word participates in
+                int pattern_count = 0;
+                if(bigram_counts.count(tok)) {
+                    pattern_count += bigram_counts[tok].size();
+                }
+                for(auto& bg : bigram_counts) {
+                    if(bg.second.count(tok)) pattern_count++;
+                }
+                
+                // More patterns = more stable semantic meaning
+                tok_tce.semantic_stability = min(1.0, 
+                    tok_tce.semantic_stability + pattern_count * 0.001);
+                
+                // Update grounding based on usage context
+                tok_tce.grounding_value = min(1.0, 
+                    tok_tce.grounding_value + 0.01);
+            }
+        }
+        
+        // Metacognitive awareness: System recognizes it's learning
+        if(input_tokens.size() > 0) {
+            S.metacognitive_awareness += 0.001;
+            S.metacognitive_awareness = min(1.0, S.metacognitive_awareness);
+            
+            // Store learning event in episodic memory
+            if(input_tokens.size() >= 3) {
+                string learning_event = "learned_pattern:" + 
+                    input_tokens[0] + "_" + 
+                    input_tokens[1] + "_" + 
+                    input_tokens[2];
+                storeEpisodicMemory(learning_event, S.current_valence);
+            }
+        }
+    }
     
     // 6. Final World Model Update
     update_world_model(lower_word, tce.meaning);
 }
+
 string generateResponse(const string& input) {
     if(input.empty()) return "...";
     
