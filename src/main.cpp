@@ -43,7 +43,13 @@ using module_integration::get_consciousness_report;
 // N-gram tracking for learned patterns
 map<string, map<string, int>> bigram_counts;
 map<string, map<string, map<string, int>>> trigram_counts;
-
+struct ConceptGrounding {
+    string concept_id;
+    vector<string> linked_concepts;
+    vector<int> linked_tokens;
+    double valence_affinity;
+    double state_binding;
+};
 struct BeamCandidate {
     vector<string> tokens;
     double score;
@@ -94,6 +100,30 @@ struct ConsciousnessState {
     double phi_value;
     int conscious_cycles;
     ConsciousnessState():integrated_information(0),global_workspace_capacity(0.7),phi_value(0),conscious_cycles(0){}
+};
+struct WorkingMemory {
+    vector<pair<string,double>> active_tokens;
+    vector<pair<string,double>> active_concepts;
+    priority_queue<pair<double,string>> active_goals;
+    map<string,double> valence_map;
+    vector<Qualia> conscious_buffer;
+    int capacity;
+    WorkingMemory(int cap=32):capacity(cap){}
+    void add_token(const string& t, double val){
+        active_tokens.push_back({t,val});
+        if((int)active_tokens.size()>capacity)active_tokens.erase(active_tokens.begin());
+    }
+    void add_concept(const string& c, double val){
+        active_concepts.push_back({c,val});
+        if((int)active_concepts.size()>capacity)active_concepts.erase(active_concepts.begin());
+    }
+    void add_goal(const string& g, double priority){
+        active_goals.push({priority,g});
+    }
+    void add_qualia(const Qualia& q){
+        conscious_buffer.push_back(q);
+        if((int)conscious_buffer.size()>capacity/2)conscious_buffer.erase(conscious_buffer.begin());
+    }
 };
 
 // ==== UNIFIED AGI CORE STRUCTURES ====
@@ -155,32 +185,6 @@ struct TransferLearningModule {
     double knowledge_distillation_loss;
     TransferLearningModule():knowledge_distillation_loss(0.0){}
 };
-
-struct WorkingMemory {
-    vector<pair<string,double>> active_tokens;
-    vector<pair<string,double>> active_concepts;
-    priority_queue<pair<double,string>> active_goals;
-    map<string,double> valence_map;
-    vector<Qualia> conscious_buffer;
-    int capacity;
-    WorkingMemory(int cap=32):capacity(cap){}
-    void add_token(const string& t, double val){
-        active_tokens.push_back({t,val});
-        if((int)active_tokens.size()>capacity)active_tokens.erase(active_tokens.begin());
-    }
-    void add_concept(const string& c, double val){
-        active_concepts.push_back({c,val});
-        if((int)active_concepts.size()>capacity)active_concepts.erase(active_concepts.begin());
-    }
-    void add_goal(const string& g, double priority){
-        active_goals.push({priority,g});
-    }
-    void add_qualia(const Qualia& q){
-        conscious_buffer.push_back(q);
-        if((int)conscious_buffer.size()>capacity/2)conscious_buffer.erase(conscious_buffer.begin());
-    }
-};
-
 // ==== GLOBALS ====
 map<string,Formula>F;vector<string>evolved_code;map<string,Token>tokens;map<string,Concept>concepts;
 vector<string>internal_thoughts;vector<string>generated_language;vector<Memory>episodic_memory;
@@ -199,6 +203,20 @@ ActionPlan current_plan;
 ConsciousnessState consciousness;
 vector<TransformerHead> transformer_heads;
 TransferLearningModule transfer_module;
+void groundConcept(const string& concept_name, const vector<string>& related_words, double valence) {
+    ConceptGrounding grounding;
+    grounding.concept_id = concept_name;
+    grounding.valence_affinity = valence;
+    grounding.state_binding = S.current_valence;
+    
+    for(const string& w : related_words) {
+        grounding.linked_tokens.push_back(hsh(w) % 10000);
+        grounding.linked_concepts.push_back(w);
+    }
+    
+    vector<int> tokens;
+
+}
 
 double clamp_valence(double v){return max(-0.5,min(0.9,v));}
 double rn(){return uniform_real_distribution<>(0,1)(rng);}
@@ -207,6 +225,16 @@ double pi=3.14159265358979;
 double pisqrt=sqrt(pi);
 double safe_div(double a,double b){return (fabs(b)<1e-10)?0.0:(a/b);}
 long long hsh(const string&s){long long h=5381;for(char c:s)h=h*33+c;return abs(h%2147483647);}
+// ==================== BIDIRECTIONAL GROUNDING ====================
+
+
+struct MemoryEntry {
+    int gen;
+    double valence;
+    string content;
+    vector<ConceptGrounding> groundings;
+    vector<TransformerHead> context;
+};
 void generate_qualia(const string& content, double valence, double intensity) {
     Qualia q;
     q.valence = valence;
@@ -1086,27 +1114,34 @@ void formulate_goals_from_valence() {
 // ==== LANGUAGE & LEARNING ====
 
 void learnWord(const string&word, double concept_value){
+    // 1. Normalization
     string lower_word=word;
     transform(lower_word.begin(),lower_word.end(),lower_word.begin(),::tolower);
     
+    // 2. Initialization of TokenConceptEmbedding (TCE) if new
     if(!token_concept_embedding_map.count(lower_word)){
         TokenConceptEmbedding tce;
         tce.name=lower_word;
-        tce.meaning=rn();
+        tce.meaning=rn(); 
         tce.embedding.resize(16);
         for(int i=0;i<16;i++)tce.embedding[i]=rn()*0.1;
         token_concept_embedding_map[lower_word]=tce;
     }
     
     TokenConceptEmbedding& tce=token_concept_embedding_map[lower_word];
+    
+    // 3. Update TCE Stats and Valence Alignment
     tce.freq++;
     tce.meaning+=concept_value*0.01;
     tce.meaning=clamp_valence(tce.meaning);
     align_embedding_to_valence(tce, S.current_valence);
     tce.linked_valences["current"]=S.current_valence;
+    
+    // 4. System Propagation
     WM.add_token(lower_word,tce.meaning);
     propagate_throughout_system(lower_word,concept_value);
     
+    // 5. Update System State (S.tokens)
     if(S.tokens.count(lower_word)){
         S.tokens[lower_word].freq++;
         S.tokens[lower_word].meaning+=concept_value*0.01;
@@ -1115,57 +1150,13 @@ void learnWord(const string&word, double concept_value){
         S.tokens[lower_word]=t;
     }
     
-    // === N-GRAM TRACKING ===
-    if(!S.user_input.empty()) {
-        stringstream ss(S.user_input);
-        vector<string> words;
-        string w;
-        while(ss >> w) {
-            transform(w.begin(), w.end(), w.begin(), ::tolower);
-            words.push_back(w);
-        }
-        
-        // Track bigrams
-        for(size_t i=0; i<words.size()-1; i++) {
-            bigram_counts[words[i]][words[i+1]]++;
-        }
-        
-        // Track trigrams
-        for(size_t i=0; i<words.size()-2; i++) {
-            trigram_counts[words[i]][words[i+1]][words[i+2]]++;
-        }
-    }
+    // === N-GRAM TRACKING REMOVED ===
+    // The previous code block for parsing S.user_input and updating
+    // bigram_counts and trigram_counts is entirely omitted here.
     
+    // 6. Final World Model Update
     update_world_model(lower_word, tce.meaning);
 }
-void createConceptAssociation(const string&concept_name,const vector<string>&related_words){
-    Concept c={concept_name,rn(),related_words};
-    S.concepts[concept_name]=c;
-    
-    TokenConceptEmbedding concept_tce;
-    concept_tce.name=concept_name;
-    concept_tce.meaning=rn();
-    concept_tce.grounding_value=0.6;
-    concept_tce.embedding.resize(16);
-    for(int i=0;i<16;i++)concept_tce.embedding[i]=rn()*0.1;
-    
-    for(const string&w:related_words){
-        if(S.tokens.count(w)){
-            S.tokens[w].associations.push_back(hsh(concept_name)%1000);
-        }
-        if(token_concept_embedding_map.count(w)){
-            TokenConceptEmbedding& tce=token_concept_embedding_map[w];
-            tce.linked_concepts[concept_name]=rn()*0.8;
-            concept_tce.linked_concepts[w]=rn()*0.8;
-            establish_causal_relationship(w, concept_name, rn()*0.8);
-        }
-    }
-    
-    token_concept_embedding_map[concept_name]=concept_tce;
-    WM.add_concept(concept_name,concept_tce.meaning);
-    update_world_model(concept_name, concept_tce.meaning);
-}
-
 string generateResponse(const string& input) {
     if(input.empty()) return "...";
     
@@ -1920,6 +1911,17 @@ void rb(){if(S.bkf){S=BK;S.bkf=0;}}
 double calcHDT(int gen,double bh,double qh,double th){
     long gh=hsh(to_string(gen));
     return safe_div(gh*(bh+qh+th), 1000000.0);
+}
+
+void createConceptAssociation(const string&concept_name,const vector<string>&related_words){
+    Concept c={concept_name,rn(),related_words};
+    S.concepts[concept_name]=c;
+    groundConcept(concept_name, related_words, rn());
+    for(const string&w:related_words){
+        if(S.tokens.count(w)){
+            S.tokens[w].associations.push_back(hsh(concept_name)%1000);
+        }
+    }
 }
 
 double calcAwarenessLevel(){
