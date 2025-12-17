@@ -5,7 +5,7 @@
 ## I - Intelligence (problem-solving, reasoning, language)
 ## S - System (integrated architecture, not separate modules)
 <img width="946" height="520" alt="{34C1D880-FABA-4296-9F7A-F2D9A707868C}" src="https://github.com/user-attachments/assets/4a3ba548-c11f-4cdd-84d2-b6e744cc1420" />
-
+## WebUI default port: localhost:8080
 ---
 
 ### What is NEXUS?
