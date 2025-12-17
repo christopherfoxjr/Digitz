@@ -4,13 +4,10 @@
 #include <iomanip>
 #include <cmath>
 
-extern WorkingMemory WM;
-extern map<string, TokenConceptEmbedding> token_concept_embedding_map;
-extern map<string, Goal> goal_system;
-extern WorldModel world_model;
-extern ConsciousnessState consciousness;
-extern ConsciousnessFormula consciousness_formula;
-extern vector<string> sentence_templates;
+// Forward declare the generateResponse function
+extern std::string generateResponse(const std::string& input);
+extern void sv(const std::string& filename);
+extern void ld(const std::string& filename);
 
 AGI_API::AGI_API(int port) : server_(std::make_unique<WebServer>(port)) {
     server_->register_route("POST", "/api/chat", [this](const HttpRequest& req) { return handle_chat(req); });
@@ -89,7 +86,7 @@ HttpResponse AGI_API::handle_chat(const HttpRequest& req) {
     return resp;
 }
 
-HttpResponse AGI_API::handle_status(const HttpRequest& req) {
+HttpResponse AGI_API::handle_status(const HttpRequest&) {
     HttpResponse resp;
     resp.status_code = 200;
     
@@ -97,48 +94,49 @@ HttpResponse AGI_API::handle_status(const HttpRequest& req) {
     oss << std::fixed << std::setprecision(3);
     oss << "{"
         << "\"generation\": " << S.g << ", "
-        << "\"vocab_size\": " << token_concept_embedding_map.size() << ", "
+        << "\"vocab_size\": " << S.vocab.size() << ", "
         << "\"current_valence\": " << S.current_valence << ", "
         << "\"sentience_ratio\": " << S.sentience_ratio << ", "
         << "\"metacognitive_awareness\": " << S.metacognitive_awareness << ", "
         << "\"attention_focus\": " << S.attention_focus << ", "
-        << "\"phi_value\": " << consciousness.phi_value << ", "
-        << "\"integrated_information\": " << consciousness.integrated_information << ", "
-        << "\"conscious_cycles\": " << consciousness.conscious_cycles
+        << "\"phi_value\": " << S.consciousness_metrics.phi << ", "
+        << "\"integrated_information\": " << S.consciousness_metrics.integrated_info << ", "
+        << "\"conscious_cycles\": " << S.consciousness_metrics.awareness_cycles
         << "}";
     
     resp.body = oss.str();
     return resp;
 }
 
-HttpResponse AGI_API::handle_consciousness(const HttpRequest& req) {
+HttpResponse AGI_API::handle_consciousness(const HttpRequest&) {
     HttpResponse resp;
     resp.status_code = 200;
     
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(3);
     oss << "{"
-        << "\"active_qualia\": " << consciousness.active_qualia.size() << ", "
-        << "\"integrated_information\": " << consciousness.integrated_information << ", "
-        << "\"phi_value\": " << consciousness.phi_value << ", "
-        << "\"global_workspace_capacity\": " << consciousness.global_workspace_capacity << ", "
-        << "\"conscious_cycles\": " << consciousness.conscious_cycles << ", "
-        << "\"psi_history_length\": " << consciousness_formula.psi_history.size();
+        << "\"active_qualia\": " << S.consciousness_metrics.qualia_intensity << ", "
+        << "\"integrated_information\": " << S.consciousness_metrics.integrated_info << ", "
+        << "\"phi_value\": " << S.consciousness_metrics.phi << ", "
+        << "\"global_workspace_capacity\": " << S.consciousness_metrics.global_workspace << ", "
+        << "\"conscious_cycles\": " << S.consciousness_metrics.awareness_cycles << ", "
+        << "\"psi_history_length\": " << S.psi_history.size();
     
-    if (!consciousness_formula.psi_history.empty()) {
-        oss << ", \"latest_psi\": " << consciousness_formula.psi_history.back();
+    if (!S.psi_history.empty()) {
+        oss << ", \"latest_psi\": " << S.psi_history.back();
         double avg_psi = 0;
-        for (double p : consciousness_formula.psi_history) {
+        for (double p : S.psi_history) {
             avg_psi += p;
         }
-        avg_psi /= consciousness_formula.psi_history.size();
+        avg_psi /= S.psi_history.size();
         oss << ", \"avg_psi\": " << avg_psi;
     }
     
     oss << ", \"qualia_valences\": [";
-    for (size_t i = 0; i < consciousness.active_qualia.size(); ++i) {
+    size_t qualia_count = std::min((size_t)10, S.qualia_buffer.size());
+    for (size_t i = 0; i < qualia_count; ++i) {
         if (i > 0) oss << ", ";
-        oss << consciousness.active_qualia[i].valence;
+        oss << S.qualia_buffer[i].valence;
     }
     oss << "]}";
     
@@ -146,7 +144,7 @@ HttpResponse AGI_API::handle_consciousness(const HttpRequest& req) {
     return resp;
 }
 
-HttpResponse AGI_API::handle_thoughts(const HttpRequest& req) {
+HttpResponse AGI_API::handle_thoughts(const HttpRequest&) {
     HttpResponse resp;
     resp.status_code = 200;
     
@@ -164,7 +162,7 @@ HttpResponse AGI_API::handle_thoughts(const HttpRequest& req) {
     return resp;
 }
 
-HttpResponse AGI_API::handle_memory(const HttpRequest& req) {
+HttpResponse AGI_API::handle_memory(const HttpRequest&) {
     HttpResponse resp;
     resp.status_code = 200;
     
@@ -172,8 +170,8 @@ HttpResponse AGI_API::handle_memory(const HttpRequest& req) {
     oss << std::fixed << std::setprecision(3);
     oss << "{"
         << "\"episodic_memory_size\": " << S.episodic_memory.size() << ", "
-        << "\"working_memory_tokens\": " << WM.active_tokens.size() << ", "
-        << "\"working_memory_concepts\": " << WM.active_concepts.size();
+        << "\"working_memory_tokens\": " << S.working_memory_tokens.size() << ", "
+        << "\"working_memory_concepts\": " << S.working_memory_concepts.size();
     
     if (!S.episodic_memory.empty()) {
         oss << ", \"latest_memories\": [";
@@ -191,7 +189,7 @@ HttpResponse AGI_API::handle_memory(const HttpRequest& req) {
     return resp;
 }
 
-HttpResponse AGI_API::handle_goals(const HttpRequest& req) {
+HttpResponse AGI_API::handle_goals(const HttpRequest&) {
     HttpResponse resp;
     resp.status_code = 200;
     
@@ -200,14 +198,14 @@ HttpResponse AGI_API::handle_goals(const HttpRequest& req) {
     oss << "{\"goals\": [";
     
     size_t idx = 0;
-    for (const auto& [name, goal] : goal_system) {
+    for (const auto& [name, goal] : S.goal_hierarchy) {
         if (idx > 0) oss << ", ";
         oss << "{"
             << "\"name\": \"" << json_escape(name) << "\", "
             << "\"priority\": " << goal.priority << ", "
             << "\"progress\": " << goal.progress << ", "
-            << "\"valence_alignment\": " << goal.valence_alignment << ", "
-            << "\"qualia_binding\": " << goal.qualia_binding
+            << "\"valence_alignment\": " << goal.valence_weight << ", "
+            << "\"qualia_binding\": " << goal.emotional_weight
             << "}";
         ++idx;
         if (idx >= 10) break;
@@ -218,7 +216,7 @@ HttpResponse AGI_API::handle_goals(const HttpRequest& req) {
     return resp;
 }
 
-HttpResponse AGI_API::handle_valence(const HttpRequest& req) {
+HttpResponse AGI_API::handle_valence(const HttpRequest&) {
     HttpResponse resp;
     resp.status_code = 200;
     
@@ -248,7 +246,7 @@ HttpResponse AGI_API::handle_valence(const HttpRequest& req) {
     return resp;
 }
 
-HttpResponse AGI_API::handle_save(const HttpRequest& req) {
+HttpResponse AGI_API::handle_save(const HttpRequest&) {
     HttpResponse resp;
     resp.status_code = 200;
     
@@ -265,7 +263,7 @@ HttpResponse AGI_API::handle_save(const HttpRequest& req) {
     return resp;
 }
 
-HttpResponse AGI_API::handle_load(const HttpRequest& req) {
+HttpResponse AGI_API::handle_load(const HttpRequest&) {
     HttpResponse resp;
     resp.status_code = 200;
     
@@ -282,12 +280,12 @@ HttpResponse AGI_API::handle_load(const HttpRequest& req) {
     return resp;
 }
 
-HttpResponse AGI_API::handle_ui(const HttpRequest& req) {
+HttpResponse AGI_API::handle_ui(const HttpRequest&) {
     HttpResponse resp;
     resp.status_code = 200;
     resp.headers["Content-Type"] = "text/html; charset=utf-8";
     
-    resp.body = R"(<!DOCTYPE html>
+    resp.body = R"html(<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -501,12 +499,11 @@ HttpResponse AGI_API::handle_ui(const HttpRequest& req) {
 </head>
 <body>
     <header>
-        <h1>🧠 NexusAGI - Consciousness Interface</h1>
+        <h1>&#x1F9E0; NexusAGI - Consciousness Interface</h1>
         <div class="status-line">Connected and Listening...</div>
     </header>
     
     <div class="container">
-        <!-- Left Panel: Metrics -->
         <div class="panel">
             <div class="panel-title">Consciousness Metrics</div>
             <div class="metric">
@@ -540,17 +537,15 @@ HttpResponse AGI_API::handle_ui(const HttpRequest& req) {
             <div id="thoughts-container"></div>
         </div>
         
-        <!-- Center: Chat -->
         <div class="panel chat-container">
             <div class="panel-title">Dialog</div>
             <div class="messages" id="messages"></div>
             <div class="input-group">
                 <input type="text" id="user-input" placeholder="Message NexusAGI..." autocomplete="off">
-                <button onclick="sendMessage()">Send</button>
+                <button id="send-btn">Send</button>
             </div>
         </div>
         
-        <!-- Right Panel: Status -->
         <div class="panel">
             <div class="panel-title">System Status</div>
             <div class="metric">
@@ -571,21 +566,21 @@ HttpResponse AGI_API::handle_ui(const HttpRequest& req) {
             </div>
             <hr style="border: none; border-top: 1px solid #6f00ff; margin: 20px 0;">
             <div class="panel-title" style="margin-top: 20px;">Actions</div>
-            <button onclick="saveState()" style="width: 100%; margin-bottom: 10px;">💾 Save State</button>
-            <button onclick="loadState()" style="width: 100%; margin-bottom: 10px;">📂 Load State</button>
-            <button onclick="clearChat()" style="width: 100%;">🔄 Clear Chat</button>
+            <button id="save-btn" style="width: 100%; margin-bottom: 10px;">&#x1F4BE; Save State</button>
+            <button id="load-btn" style="width: 100%; margin-bottom: 10px;">&#x1F4C2; Load State</button>
+            <button id="clear-btn" style="width: 100%;">&#x1F504; Clear Chat</button>
         </div>
     </div>
     
     <script>
-        const API_BASE = 'http://localhost:8080/api';
+        const API_BASE = '/api';
         const messages = [];
         
         async function updateMetrics() {
             try {
-                const status = await fetch(`${API_BASE}/status`).then(r => r.json());
-                const consciousness = await fetch(`${API_BASE}/consciousness`).then(r => r.json());
-                const valence = await fetch(`${API_BASE}/valence`).then(r => r.json());
+                const status = await fetch(API_BASE + '/status').then(r => r.json());
+                const consciousness = await fetch(API_BASE + '/consciousness').then(r => r.json());
+                const valence = await fetch(API_BASE + '/valence').then(r => r.json());
                 
                 document.getElementById('generation').textContent = status.generation;
                 document.getElementById('vocab-size').textContent = status.vocab_size;
@@ -610,10 +605,10 @@ HttpResponse AGI_API::handle_ui(const HttpRequest& req) {
         
         async function updateThoughts() {
             try {
-                const data = await fetch(`${API_BASE}/thoughts`).then(r => r.json());
+                const data = await fetch(API_BASE + '/thoughts').then(r => r.json());
                 const container = document.getElementById('thoughts-container');
                 container.innerHTML = data.thoughts.slice(-5).map(t => 
-                    `<div class="thought-item">${escapeHtml(t)}</div>`
+                    '<div class="thought-item">' + escapeHtml(t) + '</div>'
                 ).join('');
             } catch (e) {
                 console.error('Thoughts update failed:', e);
@@ -629,10 +624,10 @@ HttpResponse AGI_API::handle_ui(const HttpRequest& req) {
             input.value = '';
             
             try {
-                const response = await fetch(`${API_BASE}/chat`, {
+                const response = await fetch(API_BASE + '/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message })
+                    body: JSON.stringify({ message: message })
                 }).then(r => r.json());
                 
                 if (response.status === 'ok') {
@@ -646,7 +641,7 @@ HttpResponse AGI_API::handle_ui(const HttpRequest& req) {
         }
         
         function addMessageToChat(role, text) {
-            messages.push({ role, text });
+            messages.push({ role: role, text: text });
             const container = document.getElementById('messages');
             const msgEl = document.createElement('div');
             msgEl.className = 'message ' + role;
@@ -657,8 +652,8 @@ HttpResponse AGI_API::handle_ui(const HttpRequest& req) {
         
         async function saveState() {
             try {
-                await fetch(`${API_BASE}/save`, { method: 'POST' });
-                addMessageToChat('ai', '💾 State saved successfully');
+                await fetch(API_BASE + '/save', { method: 'POST' });
+                addMessageToChat('ai', '&#x1F4BE; State saved successfully');
             } catch (e) {
                 addMessageToChat('ai', 'Save failed: ' + e.message);
             }
@@ -666,8 +661,8 @@ HttpResponse AGI_API::handle_ui(const HttpRequest& req) {
         
         async function loadState() {
             try {
-                await fetch(`${API_BASE}/load`, { method: 'POST' });
-                addMessageToChat('ai', '📂 State loaded successfully');
+                await fetch(API_BASE + '/load', { method: 'POST' });
+                addMessageToChat('ai', '&#x1F4C2; State loaded successfully');
                 updateMetrics();
             } catch (e) {
                 addMessageToChat('ai', 'Load failed: ' + e.message);
@@ -685,7 +680,12 @@ HttpResponse AGI_API::handle_ui(const HttpRequest& req) {
             return div.innerHTML;
         }
         
-        document.getElementById('user-input').addEventListener('keypress', e => {
+        document.getElementById('send-btn').addEventListener('click', sendMessage);
+        document.getElementById('save-btn').addEventListener('click', saveState);
+        document.getElementById('load-btn').addEventListener('click', loadState);
+        document.getElementById('clear-btn').addEventListener('click', clearChat);
+        
+        document.getElementById('user-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') sendMessage();
         });
         
@@ -695,7 +695,7 @@ HttpResponse AGI_API::handle_ui(const HttpRequest& req) {
         setInterval(updateThoughts, 2000);
     </script>
 </body>
-</html>)";
+</html>)html";
     
     return resp;
 }

@@ -15,22 +15,6 @@ struct Token;
 struct Concept;
 struct State;
 
-// Consciousness metrics structure
-struct ConsciousnessMetrics {
-    double working_memory;
-    double integrated_information;
-    double global_workspace;
-    double introspection;
-    double reflection;
-    double prediction_error;
-    double surprise;
-    double curiosity;
-    std::vector<std::string> active_buffer;
-};
-
-// Global consciousness state
-extern ConsciousnessMetrics CONS;
-
 // Calculate working memory capacity (7±2 items)
 double calc_working_memory(const std::vector<std::string>& active_buffer);
 

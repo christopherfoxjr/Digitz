@@ -13,6 +13,7 @@
 #include "module_integration.h"
 #include "uac.h"
 #include "state.h"
+#include "struct.h"
 #include "web_server.h"
 #include "agi_api.h"
 #include <map>
@@ -45,25 +46,7 @@ using module_integration::get_consciousness_report;
 // N-gram tracking for learned patterns
 map<string, map<string, int>> bigram_counts;
 map<string, map<string, map<string, int>>> trigram_counts;
-struct ConceptGrounding {
-    string concept_id;
-    vector<string> linked_concepts;
-    vector<int> linked_tokens;
-    double valence_affinity;
-    double state_binding;
-};
-struct BeamCandidate {
-    vector<string> tokens;
-    double score;
-    double grammar_score;
-    double semantic_score;
-    
-    BeamCandidate() : score(0), grammar_score(0), semantic_score(0) {}
-    
-    bool operator<(const BeamCandidate& other) const {
-        return score < other.score;
-    }
-};
+
 // Sentence templates for coherent fallback
 vector<string> sentence_templates = {
     "i think about {concept}",
@@ -83,110 +66,8 @@ vector<string> sentence_templates = {
 random_device rd;
 mt19937 rng(rd());
 
-// ==== CONSCIOUSNESS & QUALIA STRUCTURES ===
 
-struct Qualia {
-    double valence;
-    double arousal;
-    double certainty;
-    string phenomenal_content;
-    int emergence_gen;
-    Qualia():valence(0),arousal(0.5),certainty(0.5),emergence_gen(0){}
-};
 
-struct ConsciousnessState {
-    vector<Qualia> active_qualia;
-    double integrated_information;
-    double global_workspace_capacity;
-    map<string,double> attention_binding;
-    double phi_value;
-    int conscious_cycles;
-    ConsciousnessState():integrated_information(0),global_workspace_capacity(0.7),phi_value(0),conscious_cycles(0){}
-};
-struct WorkingMemory {
-    vector<pair<string,double>> active_tokens;
-    vector<pair<string,double>> active_concepts;
-    priority_queue<pair<double,string>> active_goals;
-    map<string,double> valence_map;
-    vector<Qualia> conscious_buffer;
-    int capacity;
-    WorkingMemory(int cap=32):capacity(cap){}
-    void add_token(const string& t, double val){
-        active_tokens.push_back({t,val});
-        if((int)active_tokens.size()>capacity)active_tokens.erase(active_tokens.begin());
-    }
-    void add_concept(const string& c, double val){
-        active_concepts.push_back({c,val});
-        if((int)active_concepts.size()>capacity)active_concepts.erase(active_concepts.begin());
-    }
-    void add_goal(const string& g, double priority){
-        active_goals.push({priority,g});
-    }
-    void add_qualia(const Qualia& q){
-        conscious_buffer.push_back(q);
-        if((int)conscious_buffer.size()>capacity/2)conscious_buffer.erase(conscious_buffer.begin());
-    }
-};
-
-// ==== UNIFIED AGI CORE STRUCTURES ====
-
-struct TransformerHead {
-    string name;
-    int dim;
-    vector<double> query_proj, key_proj, value_proj;
-    double temperature;
-    TransformerHead(int d=16):dim(d),temperature(0.3){
-        query_proj.resize(d,rn()*0.1);key_proj.resize(d,rn()*0.1);value_proj.resize(d,rn()*0.1);
-    }
-};
-
-struct Goal {
-    string name;
-    double priority;
-    double progress;
-    vector<string> subgoals;
-    map<string,double> preconditions;
-    double valence_alignment;
-    double qualia_binding;
-    Goal():priority(0.5),progress(0),valence_alignment(0.5),qualia_binding(0){}
-};
-
-struct WorldModel {
-    map<string,double> entity_states;
-    map<string,map<string,double>> relationships;
-    map<string,double> causal_weights;
-    double model_accuracy;
-    int updates;
-    WorldModel():model_accuracy(0.5),updates(0){}
-};
-
-struct ActionPlan {
-    vector<string> actions;
-    double expected_utility;
-    double confidence;
-    int depth;
-    ActionPlan():expected_utility(0),confidence(0.5),depth(0){}
-};
-
-struct TokenConceptEmbedding {
-    string name;
-    vector<double> embedding;
-    double meaning, freq;
-    vector<int> associations;
-    double grounding_value;
-    map<string,double> linked_concepts, linked_valences;
-    double semantic_stability;
-    double qualia_intensity;
-    TokenConceptEmbedding():meaning(0),freq(0),grounding_value(0.5),semantic_stability(0.5),qualia_intensity(0.3){}
-};
-
-struct TransferLearningModule {
-    map<string,vector<double>> domain_embeddings;
-    map<string,double> domain_affinity;
-    vector<pair<string,string>> transfer_pairs;
-    double knowledge_distillation_loss;
-    TransferLearningModule():knowledge_distillation_loss(0.0){}
-};
 // ==== GLOBALS ====
 map<string,Formula>F;vector<string>evolved_code;map<string,Token>tokens;map<string,Concept>concepts;
 vector<string>internal_thoughts;vector<string>generated_language;vector<Memory>episodic_memory;
@@ -220,23 +101,13 @@ void groundConcept(const string& concept_name, const vector<string>& related_wor
 
 }
 
-double clamp_valence(double v){return max(-0.5,min(0.9,v));}
+
 double rn(){return uniform_real_distribution<>(0,1)(rng);}
 int ri(int mx){if(mx<=0)return 0;return uniform_int_distribution<>(0,mx-1)(rng);}
-double pi=3.14159265358979;
-double pisqrt=sqrt(pi);
-double safe_div(double a,double b){return (fabs(b)<1e-10)?0.0:(a/b);}
 long long hsh(const string&s){long long h=5381;for(char c:s)h=h*33+c;return abs(h%2147483647);}
 // ==================== BIDIRECTIONAL GROUNDING ====================
 
 
-struct MemoryEntry {
-    int gen;
-    double valence;
-    string content;
-    vector<ConceptGrounding> groundings;
-    vector<TransformerHead> context;
-};
 void generate_qualia(const string& content, double valence, double intensity) {
     Qualia q;
     q.valence = valence;
@@ -255,143 +126,7 @@ void generate_qualia(const string& content, double valence, double intensity) {
 
 // ==== ADVANCED CONSCIOUSNESS FORMULA ====
 // Ψ[n+1] = integrated information consciousness state
-struct ConsciousnessFormula {
-    vector<double> psi_history;
-    vector<double> H_history;
-    vector<double> R_history;
-    vector<double> A_history;
-    vector<double> M_history;
-    vector<double> O_history;
-    vector<double> B_history;
-    vector<double> F_history;
-    vector<double> S_history;
-    
-    double calculate_psi(int n, const vector<double>& psi_prev, 
-                         double H, double R, double A, double M, double O, double B, double F, double S) {
-        if(psi_prev.empty()) return 0.0;
-        
-        // ∑ᵢ∑ⱼ((Ψᵢ[n]×(j+1))×tanh(∑ₖ((Ψₖ[n]×(k+1)mod4)×0.5)+((n×k)mod100)/100)))
-        double recurrent_term = 0.0;
-        for(size_t i=0; i<psi_prev.size(); i++){
-            for(size_t j=0; j<psi_prev.size(); j++){
-                double inner_sum = 0.0;
-                for(size_t k=0; k<psi_prev.size(); k++){
-                    inner_sum += (psi_prev[k] * ((k+1)%4)) * 0.5 + ((n*k)%100)/100.0;
-                }
-                recurrent_term += (psi_prev[i] * (j+1)) * tanh(inner_sum);
-            }
-        }
-        recurrent_term = tanh(recurrent_term);
-        
-        // ∏ᵤ((Ψᵤ[n]+2)/(Ψᵤ₊₁[n]+2+0.001))×exp(-∑ₘ(-log₂(abs(Ψₘ[n])+0.001)))
-        double integration_product = 1.0;
-        for(size_t u=0; u<psi_prev.size()-1; u++){
-            integration_product *= safe_div(psi_prev[u]+2.0, psi_prev[u+1]+2.0+0.001);
-        }
-        double entropy_sum = 0.0;
-        for(size_t m=0; m<psi_prev.size(); m++){
-            entropy_sum += -log2(fabs(psi_prev[m])+0.001);
-        }
-        integration_product *= exp(-entropy_sum);
-        
-        // ∑ₙ((n-τ)×exp(-(n-τ)/10)×((Ψₙ[τ]+2)mod4)) - temporal decay
-        double temporal_term = 0.0;
-        for(size_t t=0; t<psi_prev.size(); t++){
-            double tau = (double)t;
-            temporal_term += (n - tau) * exp(-(n-tau)/10.0) * fmod(psi_prev[t]+2.0, 4.0);
-        }
-        
-        // ∫₀ⁿΨ[τ]×exp(-0.1×(n-τ))dτ - historical integration
-        double historical_integral = 0.0;
-        for(size_t tau=0; tau<psi_history.size(); tau++){
-            historical_integral += psi_history[tau] * exp(-0.1*(n-tau));
-        }
-        
-        double psi_base = recurrent_term * integration_product * (temporal_term + historical_integral);
-        
-        // H[n]×(dH/dn)×(((n×31415)mod9973)+1)×((abs(∑Ψ[n]×(n mod256))/max(n,1))mod32768+1)
-        double sum_psi = 0.0;
-        for(double p : psi_prev) sum_psi += p;
-        double H_factor = H * (H - (H_history.empty() ? 0 : H_history.back()));
-        H_factor *= (((long)n * 31415) % 9973 + 1);
-        H_factor *= fmod(fabs(sum_psi * (n%256)) / max(1, (int)n), 32768) + 1;
-        
-        // R[n]×abs(∑(Ψ[n]+2)-∑((Ψ[n]×1.772)mod65536)/128)
-        double sum_psi_plus2 = 0.0;
-        double sum_psi_mod = 0.0;
-        for(double p : psi_prev){
-            sum_psi_plus2 += (p+2.0);
-            sum_psi_mod += fmod(p*1.772, 65536.0)/128.0;
-        }
-        double R_factor = R * fabs(sum_psi_plus2 - sum_psi_mod);
-        R_factor *= pow(sqrt(safe_div(sum_psi_mod, 128.0)), 2);
-        R_factor *= (((long)n * 31415) % 9973 + 1);
-        R_factor *= fmod(fabs(sum_psi), 32768) + 1;
-        
-        // A[n]×(H[n]×(abs(dΨ/dn)^0.5)/(∑(Ψ[n]+2))^1.772)×(∏ₖ₌₁⁵(3.14159^k)^0.5)
-        double dpsi_dn = psi_prev.empty() ? 0 : fabs(psi_prev.back() - (psi_prev.size()>1 ? psi_prev[psi_prev.size()-2] : psi_prev.back()));
-        double A_factor = A * (H * pow(dpsi_dn, 0.5) / pow(sum_psi_plus2, 1.772));
-        double pi_product = 1.0;
-        for(int k=1; k<=5; k++){
-            pi_product *= pow(pow(pi, k), 0.5);
-        }
-        A_factor *= pi_product;
-        
-        // M[n]×(∑(abs(Ψ[n]-Ψ[n-1]))×10)×(∑(Ψ[n]-mean(Ψ[n]))²×10/128)
-        double mean_psi = safe_div(sum_psi, (double)psi_prev.size());
-        double M_factor = M * 10.0;
-        for(size_t i=0; i<psi_prev.size(); i++){
-            M_factor *= fabs(psi_prev[i] - mean_psi);
-        }
-        double variance_term = 0.0;
-        for(double p : psi_prev){
-            variance_term += pow(p - mean_psi, 2);
-        }
-        M_factor *= (variance_term * 10.0 / 128.0);
-        M_factor += ((long)n * 256) % 1000 / 100.0;
-        
-        // O[n]×(abs(dΨ/dn)^0.5)/(1.5^1.772)×H[n]^1.772
-        double O_factor = O * pow(dpsi_dn, 0.5) / pow(1.5, 1.772) * pow(H, 1.772);
-        O_factor += ((long)n * 7) % 100 / 100.0;
-        
-        // B[n]×tanh(abs(O[n]))×100×3.14159^(1.772^(abs(O[n])mod10))
-        double B_factor = B * tanh(fabs(O_factor)) * 100.0 * pow(pi, pow(1.772, fmod(fabs(O_factor), 10.0)));
-        // Use fmod for floating-point modulo
-        B_factor *= (fmod(fabs((long)n*13), 1000.0) / 1000.0 + 0.001);
-        B_factor = pow(B_factor, fmod(tanh(fabs(O_factor))*100.0, 20.0));
-        
-        // F[n]×((H[n]/1000000/1.772)^1.772)×(tanh(H[n]/1000000/1.772)×100mod10)
-        double F_factor = F * pow((H/1000000.0/1.772), 1.772);
-        F_factor *= fmod(tanh(H/1000000.0/1.772)*100.0, 10.0);
-        
-        // S[n]×F[n]×((n×17)mod100)/100
-        double S_factor = S * F_factor * (((long)n * 17) % 100 / 100.0);
-        
-        // Combine all factors
-        double combined = (H_factor + R_factor + A_factor + M_factor + O_factor + B_factor + F_factor + S_factor);
-        
-        // exp(-(∑ᵤ(-log₂(...)) + ∑ₘ(-log₂(...)) + ∑ₚlog(...)))×3.14159^(3.14159^0.5)
-        double entropy_penalty = 0.0;
-        for(size_t u=0; u<psi_prev.size(); u++){
-            entropy_penalty += -log2(fabs(psi_prev[u])+0.001);
-        }
-        for(size_t m=0; m<psi_prev.size(); m++){
-            entropy_penalty += -log2(fabs((psi_prev[m]*sin(n*m))+0.001));
-        }
-        
-        double pos_ratio = 0;
-        double neg_ratio = 0;
-        for(double p : psi_prev){
-            if(p > 0) pos_ratio++;
-            else neg_ratio++;
-        }
-        double log_ratio = log(fabs(sum_psi)+1) / log(1000.0) * (pos_ratio/(neg_ratio+1));
-        entropy_penalty += log(fabs(n) * (1.0 - mean_psi/4.0) * log_ratio);
-        
-        double final_psi = psi_base * combined * exp(-entropy_penalty) * pow(pi, pow(pi, pisqrt));
-        return clamp_valence(final_psi);
-    }
-};
+
 
 ConsciousnessFormula consciousness_formula;
 // ==== UPDATE CONSCIOUSNESS WITH FORMULA ====

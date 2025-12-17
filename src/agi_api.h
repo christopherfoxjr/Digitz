@@ -2,19 +2,20 @@
 #ifndef AGI_API_H
 #define AGI_API_H
 
-#include "web_server.h"
-#include "state.h"
 #include <string>
 #include <memory>
+#include <functional>
+#include "web_server.h"
+#include "state.h"
 
 class AGI_API {
 public:
-    AGI_API(int port = 8080);
+    explicit AGI_API(int port = 8080);
     ~AGI_API();
     
     void start();
     void stop();
-    
+
 private:
     std::unique_ptr<WebServer> server_;
     

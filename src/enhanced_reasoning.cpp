@@ -4,6 +4,9 @@
 #include <cmath>
 #include <random>
 #include <iostream>
+#include <set>
+
+using namespace std;
 
 map<string, ConceptNode> EnhancedReasoning::concept_graph_;
 ReasoningContext EnhancedReasoning::current_context_;
@@ -13,6 +16,7 @@ extern mt19937 rng;
 extern map<string, TokenConceptEmbedding> token_concept_embedding_map;
 extern vector<string> sentence_templates;
 
+// Helper function declarations (should match main.cpp)
 double rn();
 int ri(int mx);
 double clamp_valence(double v);
@@ -39,10 +43,11 @@ void EnhancedReasoning::build_default_concepts() {
         {"prediction", {"foresee", "anticipate", "imagine", "expect", "plan"}}
     };
     
-    for (const auto& [concept, related] : concept_map) {
+    // RENAMED structured binding: [concept_name, related] instead of [concept, related]
+    for (const auto& [concept_name, related] : concept_map) {
         ConceptNode node;
-        node.id = concept;
-        node.label = concept;
+        node.id = concept_name;
+        node.label = concept_name;
         node.valence = 0.0;
         node.grounding_strength = 0.6;
         node.activation_potential = 0.0;
@@ -52,7 +57,7 @@ void EnhancedReasoning::build_default_concepts() {
             node.valence_associations[rel] = 0.3 + rn() * 0.4;
         }
         
-        concept_graph_[concept] = node;
+        concept_graph_[concept_name] = node;
     }
 }
 
@@ -73,14 +78,15 @@ string EnhancedReasoning::reason_about_topic(const string& topic, double current
     return result;
 }
 
-vector<string> EnhancedReasoning::generate_causal_chain(const string& concept, int depth) {
+// RENAMED parameter: concept_id instead of concept
+vector<string> EnhancedReasoning::generate_causal_chain(const string& concept_id, int depth) {
     vector<string> result;
     set<string> visited;
     
-    result.push_back(concept);
-    visited.insert(concept);
+    result.push_back(concept_id);
+    visited.insert(concept_id);
     
-    string current = concept;
+    string current = concept_id;
     for (int d = 0; d < depth && d < 4; ++d) {
         if (concept_graph_.count(current)) {
             const auto& node = concept_graph_[current];
@@ -111,11 +117,11 @@ vector<string> EnhancedReasoning::generate_causal_chain(const string& concept, i
 void EnhancedReasoning::propagate_valence_field() {
     current_context_.valence_field.clear();
     
-    for (const auto& concept : current_context_.active_concepts) {
-        current_context_.valence_field[concept.id] = concept.valence;
+    for (const auto& cpt : current_context_.active_concepts) {
+        current_context_.valence_field[cpt.id] = cpt.valence;
         
-        for (const auto& [related, weight] : concept.valence_associations) {
-            double propagated_valence = concept.valence * weight * 0.7;
+        for (const auto& [related, weight] : cpt.valence_associations) {
+            double propagated_valence = cpt.valence * weight * 0.7;
             current_context_.valence_field[related] += propagated_valence;
         }
     }
@@ -125,11 +131,12 @@ void EnhancedReasoning::propagate_valence_field() {
     }
 }
 
-double EnhancedReasoning::calculate_concept_relevance(const string& concept, double current_valence) {
+// RENAMED parameter: concept_id instead of concept
+double EnhancedReasoning::calculate_concept_relevance(const string& concept_id, double current_valence) {
     double relevance = 0.5;
     
-    if (concept_graph_.count(concept)) {
-        const auto& node = concept_graph_[concept];
+    if (concept_graph_.count(concept_id)) {
+        const auto& node = concept_graph_[concept_id];
         relevance += node.grounding_strength * 0.3;
         relevance += abs(node.valence - current_valence) * 0.2;
     }
@@ -147,8 +154,8 @@ string EnhancedReasoning::generate_coherent_thought() {
     
     vector<string> thought_tokens;
     
-    for (const auto& concept : current_context_.active_concepts) {
-        thought_tokens.push_back(concept.id);
+    for (const auto& cpt : current_context_.active_concepts) {
+        thought_tokens.push_back(cpt.id);
         if (thought_tokens.size() >= 3) break;
     }
     
@@ -165,10 +172,11 @@ string EnhancedReasoning::generate_coherent_thought() {
     return result;
 }
 
-void EnhancedReasoning::update_concept_valence(const string& concept, double valence_delta) {
-    if (concept_graph_.count(concept)) {
-        concept_graph_[concept].valence += valence_delta;
-        concept_graph_[concept].valence = clamp_valence(concept_graph_[concept].valence);
+// RENAMED parameter: concept_id instead of concept
+void EnhancedReasoning::update_concept_valence(const string& concept_id, double valence_delta) {
+    if (concept_graph_.count(concept_id)) {
+        concept_graph_[concept_id].valence += valence_delta;
+        concept_graph_[concept_id].valence = clamp_valence(concept_graph_[concept_id].valence);
     }
 }
 
@@ -199,8 +207,6 @@ void EnhancedReasoning::activate_concept_network(const string& root_concept) {
 }
 
 string EnhancedReasoning::infer_from_context(const vector<string>& context_tokens) {
-    set<string> context_set(context_tokens.begin(), context_tokens.end());
-    
     vector<string> inferred_concepts;
     double max_relevance = 0.0;
     string best_concept;
