@@ -13,6 +13,8 @@
 #include "module_integration.h"
 #include "uac.h"
 #include "state.h"
+#include "web_server.h"
+#include "agi_api.h"
 #include <map>
 #include <set>
 #include <cstring>
@@ -2477,6 +2479,17 @@ int main(){
         curs_set(0);
         timeout(500);
         keypad(stdscr, TRUE);  // Enable function keys
+        
+        // Start web server for modern UI
+        unique_ptr<AGI_API> agi_api;
+        try {
+            agi_api = make_unique<AGI_API>(8080);
+            agi_api->start();
+            cout << "\n[WebServer] Started on http://localhost:8080" << endl;
+            this_thread::sleep_for(chrono::milliseconds(500));
+        } catch(const exception& e) {
+            cerr << "[WebServer] Failed to start: " << e.what() << endl;
+        }
         
         bool running = true;
         

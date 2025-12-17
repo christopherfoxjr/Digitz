@@ -37,7 +37,14 @@ MAIN_SRC := $(SRC)main.cpp
 MODULE_SRCS := $(SRC)language_module.cpp \
                $(SRC)consciousness_module.cpp \
                $(SRC)metacognition_module.cpp \
-               $(SRC)module_integration.cpp
+               $(SRC)module_integration.cpp \
+               $(SRC)web_server.cpp \
+               $(SRC)agi_api.cpp \
+               $(SRC)enhanced_reasoning.cpp \
+               $(SRC)memory_system.cpp \
+               $(SRC)consciousness_coherence.cpp \
+               $(SRC)goal_planning.cpp \
+               $(SRC)grammar_engine.cpp
 
 SRCS := $(MAIN_SRC) $(MODULE_SRCS)
 OBJS := $(patsubst $(SRC)%.cpp,$(OBJ)%$(OBJ_EXT),$(SRCS))
@@ -47,7 +54,14 @@ HEADERS := $(SRC)uac.h \
            $(SRC)consciousness_module.h \
            $(SRC)embodiment_module.h \
            $(SRC)metacognition_module.h \
-           $(SRC)module_integration.h
+           $(SRC)module_integration.h \
+           $(SRC)web_server.h \
+           $(SRC)agi_api.h \
+           $(SRC)enhanced_reasoning.h \
+           $(SRC)memory_system.h \
+           $(SRC)consciousness_coherence.h \
+           $(SRC)goal_planning.h \
+           $(SRC)grammar_engine.h
 
 # Colors
 C_RESET := \033[0m
