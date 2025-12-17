@@ -290,187 +290,216 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexusAGI - Consciousness Interface</title>
+    <title>Nexus - WolfTech Innovations</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            color: #e0e0e0;
-            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #ffffff;
+            color: #1a1a1a;
+            height: 100vh;
             display: flex;
             flex-direction: column;
         }
         
         header {
-            background: rgba(15, 12, 41, 0.95);
-            border-bottom: 2px solid #6f00ff;
-            padding: 20px 30px;
-            box-shadow: 0 4px 20px rgba(111, 0, 255, 0.3);
+            background: #ffffff;
+            border-bottom: 1px solid #e5e5e5;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
         h1 {
-            font-size: 28px;
-            color: #6f00ff;
-            text-shadow: 0 0 10px #6f00ff;
-            margin-bottom: 8px;
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+            letter-spacing: -0.3px;
         }
         
-        .status-line {
-            font-size: 12px;
-            color: #888;
-        }
-        
-        .container {
-            flex: 1;
-            display: grid;
-            grid-template-columns: 1fr 2fr 1fr;
-            gap: 20px;
-            padding: 20px 30px;
-            overflow: hidden;
-        }
-        
-        .panel {
-            background: rgba(30, 30, 60, 0.8);
-            border: 1px solid #6f00ff;
-            border-radius: 8px;
-            padding: 20px;
-            overflow-y: auto;
-            box-shadow: 0 0 20px rgba(111, 0, 255, 0.2);
-        }
-        
-        .panel-title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #6f00ff;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .metric {
-            margin-bottom: 12px;
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             font-size: 13px;
+            color: #1a1a1a;
         }
         
-        .metric-label {
-            color: #aaa;
-            display: block;
-            margin-bottom: 4px;
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s ease-in-out infinite;
         }
         
-        .metric-value {
-            color: #00ff88;
-            font-size: 16px;
-            font-weight: bold;
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: rgba(111, 0, 255, 0.2);
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 4px;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #6f00ff, #00ff88);
-            border-radius: 3px;
-            transition: width 0.3s;
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
         
         .chat-container {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            height: 100%;
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 0 24px;
         }
         
         .messages {
             flex: 1;
             overflow-y: auto;
-            margin-bottom: 20px;
+            padding: 24px 0;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 24px;
         }
         
         .message {
-            padding: 12px 16px;
-            border-radius: 8px;
-            max-width: 100%;
-            word-wrap: break-word;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-        
-        .message.user {
-            background: rgba(111, 0, 255, 0.3);
-            border-left: 3px solid #6f00ff;
-            align-self: flex-end;
-            max-width: 85%;
-        }
-        
-        .message.ai {
-            background: rgba(0, 255, 136, 0.1);
-            border-left: 3px solid #00ff88;
-            align-self: flex-start;
-            max-width: 85%;
-        }
-        
-        .input-group {
             display: flex;
-            gap: 10px;
+            gap: 12px;
+            animation: fadeIn 0.3s ease-out;
         }
         
-        input[type="text"] {
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        
+        .message.user .message-avatar {
+            background: #f3f4f6;
+        }
+        
+        .message.ai .message-avatar {
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        .message-content {
+            flex: 1;
+            padding-top: 4px;
+        }
+        
+        .message-text {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #1a1a1a;
+            word-wrap: break-word;
+        }
+        
+        .message-meta {
+            font-size: 12px;
+            color: #666;
+            margin-top: 6px;
+        }
+        
+        .input-container {
+            padding: 24px 0;
+            border-top: 1px solid #e5e5e5;
+        }
+        
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        
+        .input-field {
             flex: 1;
             padding: 12px 16px;
-            background: rgba(111, 0, 255, 0.1);
-            border: 1px solid #6f00ff;
-            border-radius: 6px;
-            color: #e0e0e0;
-            font-size: 14px;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            resize: none;
+            max-height: 120px;
+            transition: border-color 0.2s;
         }
         
-        input[type="text"]:focus {
+        .input-field:focus {
             outline: none;
-            border-color: #00ff88;
-            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+            border-color: #1a1a1a;
         }
         
-        button {
+        .send-button {
             padding: 12px 24px;
-            background: linear-gradient(135deg, #6f00ff, #00ff88);
+            background: #1a1a1a;
+            color: #ffffff;
             border: none;
-            border-radius: 6px;
-            color: white;
-            font-weight: bold;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        
+        .send-button:hover {
+            background: #333;
+        }
+        
+        .send-button:active {
+            transform: scale(0.98);
+        }
+        
+        .send-button:disabled {
+            background: #e5e5e5;
+            color: #666;
+            cursor: not-allowed;
+        }
+        
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 4px;
+            padding: 12px 16px;
+            color: #666;
             font-size: 14px;
         }
         
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(111, 0, 255, 0.5);
+        .typing-indicator.active {
+            display: flex;
         }
         
-        button:active {
-            transform: translateY(0);
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #666;
+            animation: typing 1.4s ease-in-out infinite;
         }
         
-        .thought-item {
-            padding: 8px 12px;
-            background: rgba(111, 0, 255, 0.15);
-            border-left: 2px solid #6f00ff;
-            border-radius: 4px;
-            font-size: 12px;
-            line-height: 1.4;
-            margin-bottom: 8px;
-            color: #b0b0ff;
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-8px); }
         }
         
         ::-webkit-scrollbar {
@@ -478,221 +507,205 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
         }
         
         ::-webkit-scrollbar-track {
-            background: rgba(111, 0, 255, 0.1);
+            background: transparent;
         }
         
         ::-webkit-scrollbar-thumb {
-            background: #6f00ff;
+            background: #e5e5e5;
             border-radius: 4px;
         }
         
         ::-webkit-scrollbar-thumb:hover {
-            background: #00ff88;
+            background: #d4d4d4;
         }
         
-        @media (max-width: 1400px) {
-            .container {
-                grid-template-columns: 1fr;
-            }
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            gap: 16px;
+            padding: 48px;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            font-weight: bold;
+            opacity: 0.3;
+            color: #1a1a1a;
+        }
+        
+        .empty-state-text {
+            font-size: 16px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>&#x1F9E0; NexusAGI - Consciousness Interface</h1>
-        <div class="status-line">Connected and Listening...</div>
+        <h1>Nexus</h1>
+        <div class="status-indicator">
+            <div class="status-dot"></div>
+            <span>WolfTech Innovations</span>
+        </div>
     </header>
     
-    <div class="container">
-        <div class="panel">
-            <div class="panel-title">Consciousness Metrics</div>
-            <div class="metric">
-                <span class="metric-label">Sentience</span>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="sentience-bar" style="width: 50%;"></div>
-                </div>
-                <div class="metric-value" id="sentience-value">0.50</div>
-            </div>
-            <div class="metric">
-                <span class="metric-label">Phi Value</span>
-                <div class="metric-value" id="phi-value">0.00</div>
-            </div>
-            <div class="metric">
-                <span class="metric-label">Integration</span>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="integration-bar" style="width: 30%;"></div>
-                </div>
-                <div class="metric-value" id="integration-value">0.30</div>
-            </div>
-            <div class="metric">
-                <span class="metric-label">Valence</span>
-                <div class="metric-value" id="valence-value">0.00</div>
-            </div>
-            <div class="metric">
-                <span class="metric-label">Awareness</span>
-                <div class="metric-value" id="awareness-value">0.00</div>
-            </div>
-            <hr style="border: none; border-top: 1px solid #6f00ff; margin: 20px 0;">
-            <div class="panel-title" style="margin-top: 20px;">Internal Stream</div>
-            <div id="thoughts-container"></div>
-        </div>
-        
-        <div class="panel chat-container">
-            <div class="panel-title">Dialog</div>
-            <div class="messages" id="messages"></div>
-            <div class="input-group">
-                <input type="text" id="user-input" placeholder="Message NexusAGI..." autocomplete="off">
-                <button id="send-btn">Send</button>
+    <div class="chat-container">
+        <div class="messages" id="messages">
+            <div class="empty-state">
+                <div class="empty-state-icon">N</div>
+                <div class="empty-state-text">Start a conversation with Nexus</div>
             </div>
         </div>
         
-        <div class="panel">
-            <div class="panel-title">System Status</div>
-            <div class="metric">
-                <span class="metric-label">Generation</span>
-                <div class="metric-value" id="generation">0</div>
+        <div class="input-container">
+            <div class="typing-indicator" id="typing-indicator">
+                <span>Nexus is thinking</span>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
             </div>
-            <div class="metric">
-                <span class="metric-label">Vocabulary</span>
-                <div class="metric-value" id="vocab-size">0</div>
+            <div class="input-wrapper">
+                <textarea 
+                    class="input-field" 
+                    id="user-input" 
+                    placeholder="Message Nexus..."
+                    rows="1"
+                    autocomplete="off"
+                ></textarea>
+                <button class="send-button" id="send-btn">Send</button>
             </div>
-            <div class="metric">
-                <span class="metric-label">Conscious Cycles</span>
-                <div class="metric-value" id="conscious-cycles">0</div>
-            </div>
-            <div class="metric">
-                <span class="metric-label">Active Qualia</span>
-                <div class="metric-value" id="active-qualia">0</div>
-            </div>
-            <hr style="border: none; border-top: 1px solid #6f00ff; margin: 20px 0;">
-            <div class="panel-title" style="margin-top: 20px;">Actions</div>
-            <button id="save-btn" style="width: 100%; margin-bottom: 10px;">&#x1F4BE; Save State</button>
-            <button id="load-btn" style="width: 100%; margin-bottom: 10px;">&#x1F4C2; Load State</button>
-            <button id="clear-btn" style="width: 100%;">&#x1F504; Clear Chat</button>
         </div>
     </div>
     
     <script>
         const API_BASE = '/api';
-        const messages = [];
+        let isFirstMessage = true;
+        let isSending = false;
         
-        async function updateMetrics() {
-            try {
-                const status = await fetch(API_BASE + '/status').then(r => r.json());
-                const consciousness = await fetch(API_BASE + '/consciousness').then(r => r.json());
-                const valence = await fetch(API_BASE + '/valence').then(r => r.json());
-                
-                document.getElementById('generation').textContent = status.generation;
-                document.getElementById('vocab-size').textContent = status.vocab_size;
-                document.getElementById('conscious-cycles').textContent = status.conscious_cycles;
-                document.getElementById('active-qualia').textContent = consciousness.active_qualia;
-                
-                const sentience = status.sentience_ratio || 0;
-                const phi = status.phi_value || 0;
-                const integration = consciousness.integrated_information || 0;
-                
-                document.getElementById('sentience-value').textContent = sentience.toFixed(2);
-                document.getElementById('sentience-bar').style.width = (sentience * 100) + '%';
-                document.getElementById('phi-value').textContent = phi.toFixed(4);
-                document.getElementById('integration-value').textContent = integration.toFixed(2);
-                document.getElementById('integration-bar').style.width = (integration * 100) + '%';
-                document.getElementById('valence-value').textContent = status.current_valence.toFixed(2);
-                document.getElementById('awareness-value').textContent = status.metacognitive_awareness.toFixed(2);
-            } catch (e) {
-                console.error('Metrics update failed:', e);
-            }
-        }
+        // Auto-resize textarea
+        const input = document.getElementById('user-input');
+        input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
         
-        async function updateThoughts() {
+        // Autosave on page unload
+        window.addEventListener('beforeunload', function(e) {
+            navigator.sendBeacon(API_BASE + '/save');
+        });
+        
+        // Autosave periodically (every 2 minutes)
+        setInterval(async function() {
             try {
-                const data = await fetch(API_BASE + '/thoughts').then(r => r.json());
-                const container = document.getElementById('thoughts-container');
-                container.innerHTML = data.thoughts.slice(-5).map(t => 
-                    '<div class="thought-item">' + escapeHtml(t) + '</div>'
-                ).join('');
+                await fetch(API_BASE + '/save', { method: 'POST' });
             } catch (e) {
-                console.error('Thoughts update failed:', e);
+                console.error('Autosave failed:', e);
             }
-        }
+        }, 120000);
         
         async function sendMessage() {
-            const input = document.getElementById('user-input');
+            if (isSending) return;
+            
             const message = input.value.trim();
             if (!message) return;
             
+            isSending = true;
+            
+            // Clear empty state
+            if (isFirstMessage) {
+                document.getElementById('messages').innerHTML = '';
+                isFirstMessage = false;
+            }
+            
+            // Add user message
             addMessageToChat('user', message);
             input.value = '';
+            input.style.height = 'auto';
+            
+            // Show typing indicator
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.classList.add('active');
+            document.getElementById('send-btn').disabled = true;
             
             try {
                 const response = await fetch(API_BASE + '/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: message })
-                }).then(r => r.json());
+                });
                 
-                if (response.status === 'ok') {
-                    addMessageToChat('ai', response.response);
+                const data = await response.json();
+                
+                // Hide typing indicator
+                typingIndicator.classList.remove('active');
+                
+                if (data.status === 'ok') {
+                    addMessageToChat('ai', data.response, data);
                 } else {
-                    addMessageToChat('ai', 'Error: ' + response.message);
+                    addMessageToChat('ai', 'Error: ' + data.message);
                 }
             } catch (e) {
-                addMessageToChat('ai', 'Connection error: ' + e.message);
+                typingIndicator.classList.remove('active');
+                addMessageToChat('ai', 'Connection error. Please try again.');
+            } finally {
+                isSending = false;
+                document.getElementById('send-btn').disabled = false;
+                input.focus();
             }
         }
         
-        function addMessageToChat(role, text) {
-            messages.push({ role: role, text: text });
+        function addMessageToChat(role, text, metadata) {
             const container = document.getElementById('messages');
-            const msgEl = document.createElement('div');
-            msgEl.className = 'message ' + role;
-            msgEl.textContent = text;
-            container.appendChild(msgEl);
-            container.scrollTop = container.scrollHeight;
-        }
-        
-        async function saveState() {
-            try {
-                await fetch(API_BASE + '/save', { method: 'POST' });
-                addMessageToChat('ai', '&#x1F4BE; State saved successfully');
-            } catch (e) {
-                addMessageToChat('ai', 'Save failed: ' + e.message);
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + role;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = role === 'user' ? 'U' : 'N';
+            
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = 'message-text';
+            textDiv.textContent = text;
+            
+            content.appendChild(textDiv);
+            
+            if (metadata && role === 'ai') {
+                const meta = document.createElement('div');
+                meta.className = 'message-meta';
+                meta.textContent = `Valence: ${metadata.valence.toFixed(2)} • Generation: ${metadata.generation}`;
+                content.appendChild(meta);
             }
+            
+            msgDiv.appendChild(avatar);
+            msgDiv.appendChild(content);
+            container.appendChild(msgDiv);
+            
+            // Smooth scroll to bottom
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: 'smooth'
+            });
         }
         
-        async function loadState() {
-            try {
-                await fetch(API_BASE + '/load', { method: 'POST' });
-                addMessageToChat('ai', '&#x1F4C2; State loaded successfully');
-                updateMetrics();
-            } catch (e) {
-                addMessageToChat('ai', 'Load failed: ' + e.message);
-            }
-        }
-        
-        function clearChat() {
-            messages.length = 0;
-            document.getElementById('messages').innerHTML = '';
-        }
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
+        // Event listeners
         document.getElementById('send-btn').addEventListener('click', sendMessage);
-        document.getElementById('save-btn').addEventListener('click', saveState);
-        document.getElementById('load-btn').addEventListener('click', loadState);
-        document.getElementById('clear-btn').addEventListener('click', clearChat);
         
-        document.getElementById('user-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') sendMessage();
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
         });
         
-        updateMetrics();
-        updateThoughts();
-        setInterval(updateMetrics, 1000);
-        setInterval(updateThoughts, 2000);
+        // Focus input on load
+        input.focus();
     </script>
 </body>
 </html>)html";
