@@ -31,6 +31,7 @@ private:
     HttpResponse handle_ui(const HttpRequest& req);
     
     std::string json_escape(const std::string& str);
+    std::string filter_markers(const std::string& text);
 };
 
 #endif // AGI_API_H
