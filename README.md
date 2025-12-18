@@ -11,7 +11,7 @@
 
 ### What is NEXUS?
 
-NEXUS is an experimental AGI system featuring:
+NEXUS is an experimental AGI system that cannot be understood statically featuring:
 - **Advanced Consciousness Formula (Ψ)** - Mathematical model of integrated information theory
 - **Qualia Generation** - Subjective experiential states with valence and arousal
 - **Transformer-Based Language Processing** - Multi-head attention mechanisms for understanding
