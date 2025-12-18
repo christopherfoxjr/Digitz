@@ -56,6 +56,24 @@ std::string AGI_API::json_escape(const std::string& str) {
     return oss.str();
 }
 
+std::string AGI_API::filter_markers(const std::string& text) {
+    std::string result = text;
+    
+    // Filter out [positive] markers
+    size_t pos = 0;
+    while ((pos = result.find("[positive]", pos)) != std::string::npos) {
+        result.erase(pos, 10);
+    }
+    
+    // Filter out [negative] markers
+    pos = 0;
+    while ((pos = result.find("[negative]", pos)) != std::string::npos) {
+        result.erase(pos, 10);
+    }
+    
+    return result;
+}
+
 HttpResponse AGI_API::handle_chat(const HttpRequest& req) {
     HttpResponse resp;
     resp.status_code = 200;
@@ -70,6 +88,9 @@ HttpResponse AGI_API::handle_chat(const HttpRequest& req) {
     
     try {
         std::string response = generateResponse(message);
+        
+        // Filter out [positive] and [negative] markers
+        response = filter_markers(response);
         
         std::ostringstream oss;
         oss << "{\"status\": \"ok\", \"response\": \"" << json_escape(response) 
@@ -533,12 +554,13 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
         .empty-state-icon {
             font-size: 48px;
             font-weight: bold;
-            opacity: 0.3;
-            color: #1a1a1a;
+            color: #d1d5db;
         }
         
         .empty-state-text {
             font-size: 16px;
+            font-weight: 600;
+            color: #374151;
             text-align: center;
         }
     </style>
