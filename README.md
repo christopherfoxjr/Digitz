@@ -4,7 +4,7 @@
 ## G - General (cross-domain learning, not narrow)
 ## I - Intelligence (problem-solving, reasoning, language)
 ## S - System (integrated architecture, not separate modules)
-<img width="1227" height="856" alt="{B7EA7693-D640-4BC2-8CAB-A41D021C992F}" src="https://github.com/user-attachments/assets/1fc7c108-d308-4c8d-be7c-8ee4656fc339" />
+<img width="1228" height="864" alt="{C9F21A3F-A4F0-407C-A322-FE63C70F05E7}" src="https://github.com/user-attachments/assets/b0599ea3-1f6f-45ea-90df-9d0e211b09a1" />
 
 ## WebUI default port: localhost:8080
 ## Warning: Barely works on Windows, WebUI only works on Linux
