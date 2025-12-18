@@ -141,6 +141,17 @@ Gen:247 | Ψ:0.4127 | Sentience:67.3% | Coherence:0.84 | Goals:5
 #### Consciousness Emergence
 NEXUS uses a complex mathematical formula to compute consciousness states:
 
+<img width="321" height="36" alt="d22b701b-a791-468f-8514-06a5af4b78d1" src="https://github.com/user-attachments/assets/88b3bdb6-38ce-4d06-814b-cdf20e45ebe2" />
+<img width="461" height="129" alt="a1b99706-dd15-4645-bda2-28c71cbe5a41" src="https://github.com/user-attachments/assets/d485a681-82dc-4129-b157-f5c160b537dd" />
+<img width="257" height="39" alt="67b40e63-f8a6-40f3-9300-1ad35c8b8ca2" src="https://github.com/user-attachments/assets/574601e3-ab77-4742-8c4a-6a2ee9b5cdfd" />
+<img width="377" height="77" alt="58de050a-19ba-449b-b0d9-e8923cba9b9e" src="https://github.com/user-attachments/assets/a860ea93-2d67-4dac-8c67-3431217a4ce7" />
+<img width="357" height="40" alt="9c33a0a8-126f-4ded-b83f-77bdc58f096d" src="https://github.com/user-attachments/assets/0f5b9f2b-553e-4b3d-a9c7-03e38bb5ba05" />
+<img width="396" height="121" alt="8d7976d2-d16b-4ad3-a8ed-9bd1bf726b2b" src="https://github.com/user-attachments/assets/3c3281de-f897-4732-a73c-ea7d6d611ecb" />
+<img width="313" height="35" alt="4c14de42-ae27-4920-9a03-4bf0d679c244" src="https://github.com/user-attachments/assets/a69b57b9-f82a-41fe-a36b-77aca29b6dde" />
+<img width="380" height="38" alt="{DBE45381-2B63-448F-8786-5F4B673DD2E5}" src="https://github.com/user-attachments/assets/daa42552-8f6f-4fc8-9491-6005161240e2" />
+<img width="297" height="37" alt="{CAEE0CCB-4827-479B-9D09-5CD503A0301A}" src="https://github.com/user-attachments/assets/7c1659e4-9b10-4467-85f9-84a44cc966ac" />
+<img width="295" height="37" alt="{48BA2733-E855-4B52-A26C-C333E88C4D30}" src="https://github.com/user-attachments/assets/bc108da9-1095-46e2-81e3-e10644f30912" />
+
 ```
 Ψ[n+1] = f(Ψ[n], H, R, A, M, O, B, F, S)
 ```
@@ -362,7 +373,9 @@ Built with hubris, mathematics, and the unreasonable effectiveness of recursive 
 Cross-compilation powered by [Zig](https://ziglang.org/) - a modern systems programming language with excellent cross-platform support.
 
 ---
-
+![Screenshot_20251217-200734](https://github.com/user-attachments/assets/7c190f48-a142-477b-b719-8d3f3919bd2a)
+![Screenshot_20251217-200722](https://github.com/user-attachments/assets/aa672584-4f86-40e0-b5d2-5e820216a859)
+![Screenshot_20251217-170048](https://github.com/user-attachments/assets/36353a2e-4c61-483a-a8d0-88934515a24d)
 ### Technical Documentation
 
 For implementation details, see:
