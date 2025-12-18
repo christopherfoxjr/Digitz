@@ -552,9 +552,9 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
         }
         
         .empty-state-icon {
-            font-size: 48px;
-            font-weight: bold;
-            color: #d1d5db;
+            font-size: 64px;
+            font-weight: 700;
+            color: #9ca3af;
         }
         
         .empty-state-text {
