@@ -344,6 +344,27 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             letter-spacing: -0.3px;
         }
         
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .history-btn {
+            padding: 8px 16px;
+            background: #f3f4f6;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #1a1a1a;
+        }
+        
+        .history-btn:hover {
+            background: #e5e7eb;
+        }
+        
         .status-indicator {
             display: flex;
             align-items: center;
@@ -363,6 +384,130 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
+        }
+        
+        .main-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 280px;
+            background: #f9fafb;
+            border-right: 1px solid #e5e5e5;
+            display: none;
+            flex-direction: column;
+        }
+        
+        .sidebar.active {
+            display: flex;
+        }
+        
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .sidebar-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .close-sidebar {
+            padding: 4px 8px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            color: #666;
+        }
+        
+        .close-sidebar:hover {
+            color: #1a1a1a;
+        }
+        
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px;
+            background: #1a1a1a;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+        
+        .new-chat-btn:hover {
+            background: #333;
+        }
+        
+        .session-item {
+            padding: 12px;
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .session-item:hover {
+            background: #f3f4f6;
+        }
+        
+        .session-item.active {
+            background: #e5e7eb;
+            border-color: #1a1a1a;
+        }
+        
+        .session-title {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .session-date {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .delete-session {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 4px 8px;
+            background: #ef4444;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .session-item:hover .delete-session {
+            opacity: 1;
+        }
+        
+        .delete-session:hover {
+            background: #dc2626;
         }
         
         .chat-container {
@@ -568,44 +713,183 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
 <body>
     <header>
         <h1>Nexus</h1>
-        <div class="status-indicator">
-            <div class="status-dot"></div>
-            <span>WolfTech Innovations</span>
+        <div class="header-right">
+            <button class="history-btn" id="history-btn">History</button>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>WolfTech Innovations</span>
+            </div>
         </div>
     </header>
     
-    <div class="chat-container">
-        <div class="messages" id="messages">
-            <div class="empty-state">
-                <div class="empty-state-icon">N</div>
-                <div class="empty-state-text">Start a conversation with Nexus</div>
+    <div class="main-container">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Chat History</div>
+                <button class="close-sidebar" id="close-sidebar">×</button>
+            </div>
+            <div class="sidebar-content">
+                <button class="new-chat-btn" id="new-chat-btn">New Chat</button>
+                <div id="sessions-list"></div>
             </div>
         </div>
         
-        <div class="input-container">
-            <div class="typing-indicator" id="typing-indicator">
-                <span>Nexus is thinking</span>
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
+        <div class="chat-container">
+            <div class="messages" id="messages">
+                <div class="empty-state">
+                    <div class="empty-state-icon">N</div>
+                    <div class="empty-state-text">Start a conversation with Nexus</div>
+                </div>
             </div>
-            <div class="input-wrapper">
-                <textarea 
-                    class="input-field" 
-                    id="user-input" 
-                    placeholder="Message Nexus..."
-                    rows="1"
-                    autocomplete="off"
-                ></textarea>
-                <button class="send-button" id="send-btn">Send</button>
+            
+            <div class="input-container">
+                <div class="typing-indicator" id="typing-indicator">
+                    <span>Nexus is thinking</span>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+                <div class="input-wrapper">
+                    <textarea 
+                        class="input-field" 
+                        id="user-input" 
+                        placeholder="Message Nexus..."
+                        rows="1"
+                        autocomplete="off"
+                    ></textarea>
+                    <button class="send-button" id="send-btn">Send</button>
+                </div>
             </div>
         </div>
     </div>
     
     <script>
         const API_BASE = '/api';
-        let isFirstMessage = true;
         let isSending = false;
+        let currentSessionId = null;
+        let sessions = {};
+        
+        // Load sessions from localStorage
+        function loadSessions() {
+            const stored = localStorage.getItem('nexus_sessions');
+            if (stored) {
+                sessions = JSON.parse(stored);
+            }
+        }
+        
+        // Save sessions to localStorage
+        function saveSessions() {
+            localStorage.setItem('nexus_sessions', JSON.stringify(sessions));
+        }
+        
+        // Create a new session
+        function createNewSession() {
+            const sessionId = 'session_' + Date.now();
+            sessions[sessionId] = {
+                id: sessionId,
+                title: 'New Chat',
+                date: new Date().toISOString(),
+                messages: []
+            };
+            currentSessionId = sessionId;
+            saveSessions();
+            clearChat();
+            renderSessionsList();
+            return sessionId;
+        }
+        
+        // Load a session
+        function loadSession(sessionId) {
+            if (!sessions[sessionId]) return;
+            
+            currentSessionId = sessionId;
+            const session = sessions[sessionId];
+            
+            clearChat();
+            
+            // Restore messages
+            session.messages.forEach(msg => {
+                addMessageToChat(msg.role, msg.text, msg.metadata, false);
+            });
+            
+            renderSessionsList();
+        }
+        
+        // Delete a session
+        function deleteSession(sessionId, event) {
+            event.stopPropagation();
+            
+            if (confirm('Delete this chat session?')) {
+                delete sessions[sessionId];
+                saveSessions();
+                
+                if (currentSessionId === sessionId) {
+                    createNewSession();
+                } else {
+                    renderSessionsList();
+                }
+            }
+        }
+        
+        // Render sessions list
+        function renderSessionsList() {
+            const container = document.getElementById('sessions-list');
+            container.innerHTML = '';
+            
+            const sessionArray = Object.values(sessions).sort((a, b) => 
+                new Date(b.date) - new Date(a.date)
+            );
+            
+            sessionArray.forEach(session => {
+                const div = document.createElement('div');
+                div.className = 'session-item' + (session.id === currentSessionId ? ' active' : '');
+                div.onclick = () => loadSession(session.id);
+                
+                const title = document.createElement('div');
+                title.className = 'session-title';
+                title.textContent = session.title;
+                
+                const date = document.createElement('div');
+                date.className = 'session-date';
+                date.textContent = new Date(session.date).toLocaleDateString();
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-session';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.onclick = (e) => deleteSession(session.id, e);
+                
+                div.appendChild(title);
+                div.appendChild(date);
+                div.appendChild(deleteBtn);
+                container.appendChild(div);
+            });
+        }
+        
+        // Clear chat display
+        function clearChat() {
+            document.getElementById('messages').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">N</div>
+                    <div class="empty-state-text">Start a conversation with Nexus</div>
+                </div>
+            `;
+        }
+        
+        // Save current message to session
+        function saveMessageToSession(role, text, metadata) {
+            if (!currentSessionId || !sessions[currentSessionId]) return;
+            
+            const session = sessions[currentSessionId];
+            session.messages.push({ role, text, metadata });
+            
+            // Update title with first user message
+            if (role === 'user' && session.messages.length === 1) {
+                session.title = text.substring(0, 50) + (text.length > 50 ? '...' : '');
+            }
+            
+            saveSessions();
+            renderSessionsList();
+        }
         
         // Auto-resize textarea
         const input = document.getElementById('user-input');
@@ -614,8 +898,24 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             this.style.height = Math.min(this.scrollHeight, 120) + 'px';
         });
         
+        // Toggle sidebar
+        document.getElementById('history-btn').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('active');
+        });
+        
+        document.getElementById('close-sidebar').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.remove('active');
+        });
+        
+        // New chat button
+        document.getElementById('new-chat-btn').addEventListener('click', () => {
+            createNewSession();
+            document.getElementById('sidebar').classList.remove('active');
+        });
+        
         // Autosave on page unload
         window.addEventListener('beforeunload', function(e) {
+            saveSessions();
             navigator.sendBeacon(API_BASE + '/save');
         });
         
@@ -634,16 +934,22 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             const message = input.value.trim();
             if (!message) return;
             
+            // Create session if none exists
+            if (!currentSessionId) {
+                createNewSession();
+            }
+            
             isSending = true;
             
-            // Clear empty state
-            if (isFirstMessage) {
-                document.getElementById('messages').innerHTML = '';
-                isFirstMessage = false;
+            // Clear empty state if first message
+            const messagesContainer = document.getElementById('messages');
+            if (messagesContainer.querySelector('.empty-state')) {
+                messagesContainer.innerHTML = '';
             }
             
             // Add user message
             addMessageToChat('user', message);
+            saveMessageToSession('user', message);
             input.value = '';
             input.style.height = 'auto';
             
@@ -666,6 +972,7 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
                 
                 if (data.status === 'ok') {
                     addMessageToChat('ai', data.response, data);
+                    saveMessageToSession('ai', data.response, data);
                 } else {
                     addMessageToChat('ai', 'Error: ' + data.message);
                 }
@@ -679,7 +986,7 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             }
         }
         
-        function addMessageToChat(role, text, metadata) {
+        function addMessageToChat(role, text, metadata, scroll = true) {
             const container = document.getElementById('messages');
             
             const msgDiv = document.createElement('div');
@@ -710,10 +1017,12 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             container.appendChild(msgDiv);
             
             // Smooth scroll to bottom
-            container.scrollTo({
-                top: container.scrollHeight,
-                behavior: 'smooth'
-            });
+            if (scroll) {
+                container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
         }
         
         // Event listeners
@@ -725,6 +1034,22 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
                 sendMessage();
             }
         });
+        
+        // Initialize
+        loadSessions();
+        
+        // Load last session or create new one
+        const sessionArray = Object.values(sessions).sort((a, b) => 
+            new Date(b.date) - new Date(a.date)
+        );
+        
+        if (sessionArray.length > 0) {
+            loadSession(sessionArray[0].id);
+        } else {
+            createNewSession();
+        }
+        
+        renderSessionsList();
         
         // Focus input on load
         input.focus();
