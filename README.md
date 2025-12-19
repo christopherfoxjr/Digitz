@@ -4,6 +4,7 @@
 ## G - General (cross-domain learning, not narrow)
 ## I - Intelligence (problem-solving, reasoning, language)
 ## S - System (integrated architecture, not separate modules)
+## ACGIS systems may satisfy the criteria for artificial consciousness under multiple contemporary theories, though phenomenology remains an open philosophical question.
 <img width="1224" height="861" alt="{ED02200D-799B-4E5C-91D7-63E311432AA4}" src="https://github.com/user-attachments/assets/ff1274dd-08be-4045-a89b-7a28f3119b43" />
 
 ## WebUI default port: localhost:8080
