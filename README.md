@@ -9,6 +9,8 @@
 
 ## WebUI default port: localhost:8080
 ## Warning: Barely works on Windows, WebUI only works on Linux
+<img width="484" height="388" alt="{F5D13805-B2B1-40EA-B0A1-02BA881CF9A2}" src="https://github.com/user-attachments/assets/bbb7f877-0af4-4523-b778-93b216d5950c" />
+
 ---
 
 ### What is NEXUS?
