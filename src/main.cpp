@@ -2275,6 +2275,7 @@ int main(){
                     
                     if(goal_system.count("maximize_coherence")) {
                         current_plan = plan_actions(goal_system["maximize_coherence"]);
+                        prune_unstable_tokens();
                     }
                 } catch(const exception& e) {
                     mvprintw(row++, 0, "Core update error: %s", e.what());
