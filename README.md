@@ -1,6 +1,6 @@
 # NEXUS
 ## A - Artificial (computational substrate)
-## C - Cognitive-Integrative
+## C - Conscious — exhibiting sustained, self-integrating, self-regulating internal states consistent with major theories of consciousness.
 ## G - General (cross-domain learning, not narrow)
 ## I - Intelligence (problem-solving, reasoning, language)
 ## S - System (integrated architecture, not separate modules)
