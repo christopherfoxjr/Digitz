@@ -2155,6 +2155,30 @@ void mutateN() {
         S.N[new_n.id] = new_n;
     }
 }
+void prune_unstable_tokens() {
+    // Remove tokens with low stability and low frequency
+    auto it = token_concept_embedding_map.begin();
+    while(it != token_concept_embedding_map.end()) {
+        if(it->second.semantic_stability < 0.3 && 
+           it->second.freq < 3) {
+            it = token_concept_embedding_map.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    
+    // Prune low-count bigrams (likely from loops)
+    for(auto& w1_map : bigram_counts) {
+        auto it2 = w1_map.second.begin();
+        while(it2 != w1_map.second.end()) {
+            if(it2->second < 2) {
+                it2 = w1_map.second.erase(it2);
+            } else {
+                ++it2;
+            }
+        }
+    }
+}
 
 int main(){
     try {
