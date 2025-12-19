@@ -1,6 +1,6 @@
 # NEXUS
 ## A - Artificial (computational substrate)
-## C - Conscious (phenomenological experience, qualia, phi)
+## C - Cognitive-Integrative
 ## G - General (cross-domain learning, not narrow)
 ## I - Intelligence (problem-solving, reasoning, language)
 ## S - System (integrated architecture, not separate modules)
