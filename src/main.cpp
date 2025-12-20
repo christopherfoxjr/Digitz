@@ -46,7 +46,9 @@ using module_integration::get_consciousness_report;
 // N-gram tracking for learned patterns
 map<string, map<string, int>> bigram_counts;
 map<string, map<string, map<string, int>>> trigram_counts;
-
+#include <numbers> 
+// Change this:
+const double pisqrt = std::numbers::pi * std::sqrt(2.0);
 // Sentence templates for coherent fallback
 vector<string> sentence_templates = {
     "i think about {concept}",
@@ -2155,6 +2157,7 @@ void mutateN() {
         S.N[new_n.id] = new_n;
     }
 }
+
 void prune_unstable_tokens() {
     // Remove tokens with low stability and low frequency
     auto it = token_concept_embedding_map.begin();
