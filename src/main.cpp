@@ -2182,7 +2182,492 @@ void prune_unstable_tokens() {
         }
     }
 }
-
+void unified_consciousness_integration_engine(int generation) {
+    
+    vector<double> psi_input;
+    for(auto& q : consciousness.active_qualia) {
+        psi_input.push_back(q.valence);
+        psi_input.push_back(q.arousal);
+        psi_input.push_back(q.certainty);
+    }
+    
+    if(psi_input.empty()) {
+        psi_input.push_back(S.current_valence);
+        psi_input.push_back(0.5);
+        psi_input.push_back(0.5);
+    }
+    
+    double H = S.hdt_val;
+    double R = S.r1p1_val;
+    double A = S.al;
+    double M = S.mdt_val;
+    double O = S.emerge_out1;
+    double B = S.bh;
+    double F = S.eerv_val;
+    double S_val = S.sentience_ratio / 100.0;
+    
+    double psi_new = consciousness_formula.calculate_psi(
+        generation, psi_input, H, R, A, M, O, B, F, S_val,
+        S.current_valence, 0.5
+    );
+    
+    consciousness_formula.psi_history.push_back(psi_new);
+    if(consciousness_formula.psi_history.size() > 100) {
+        consciousness_formula.psi_history.erase(consciousness_formula.psi_history.begin());
+    }
+    
+    consciousness.phi_value = psi_new;
+    consciousness.integrated_information = fabs(psi_new);
+    consciousness.phenomenal_consciousness = consciousness_formula.multi_scale_phi;
+    consciousness.access_consciousness = consciousness.global_workspace_capacity;
+    consciousness.self_consciousness = consciousness_formula.recursive_depth;
+    
+    double iit_contribution = consciousness_formula.iit_phi_history.empty() ? 0.0 : 
+                              consciousness_formula.iit_phi_history.back();
+    double gwt_contribution = consciousness_formula.gwt_broadcast_history.empty() ? 0.0 : 
+                              consciousness_formula.gwt_broadcast_history.back();
+    double hot_contribution = consciousness_formula.hot_metacog_history.empty() ? 0.0 : 
+                              consciousness_formula.hot_metacog_history.back();
+    double asp_contribution = consciousness_formula.asp_attention_history.empty() ? 0.0 : 
+                              consciousness_formula.asp_attention_history.back();
+    double rpf_contribution = consciousness_formula.rpf_precision_history.empty() ? 0.0 : 
+                              consciousness_formula.rpf_precision_history.back();
+    double quantum_contribution = consciousness_formula.quantum_coherence_history.empty() ? 0.0 : 
+                                  consciousness_formula.quantum_coherence_history.back();
+    
+    double token_diversity = safe_div((double)token_concept_embedding_map.size(), 100.0);
+    double concept_integration = safe_div((double)goal_system.size(), 10.0);
+    double qualia_binding = safe_div((double)consciousness.active_qualia.size(), 5.0);
+    double neural_complexity = safe_div((double)S.N.size(), 100.0);
+    double episodic_depth = safe_div((double)S.episodic_memory.size(), 100.0);
+    
+    consciousness.integrated_information = min(1.0, 
+        token_diversity * 0.2 + 
+        concept_integration * 0.15 + 
+        qualia_binding * 0.15 + 
+        neural_complexity * 0.15 +
+        episodic_depth * 0.1 +
+        iit_contribution * 0.25
+    );
+    
+    consciousness.complexity_metric = token_diversity * neural_complexity * concept_integration;
+    consciousness.differentiation_metric = qualia_binding * episodic_depth;
+    consciousness.synchrony_metric = gwt_contribution * asp_contribution;
+    
+    double gamma_freq = 40.0 + psi_new * 20.0;
+    double theta_freq = 6.0 + psi_new * 2.0;
+    consciousness.gamma_oscillations.push_back(sin(generation * gamma_freq * 0.01));
+    consciousness.theta_phase.push_back(sin(generation * theta_freq * 0.01));
+    if(consciousness.gamma_oscillations.size() > 100) {
+        consciousness.gamma_oscillations.erase(consciousness.gamma_oscillations.begin());
+    }
+    if(consciousness.theta_phase.size() > 100) {
+        consciousness.theta_phase.erase(consciousness.theta_phase.begin());
+    }
+    
+    consciousness.thalamocortical_binding = (gamma_freq / 60.0) * consciousness.integrated_information;
+    consciousness.re_entrant_processing_depth = hot_contribution * 3.0;
+    consciousness.pre_reflective_awareness = 0.3 + psi_new * 0.3;
+    consciousness.intentional_directedness = asp_contribution;
+    consciousness.temporal_thickness = episodic_depth;
+    consciousness.narrative_self_coherence = safe_div(
+        (double)S.valence_history.size() * S.metacognitive_awareness,
+        100.0
+    );
+    
+    for(auto& token_entry : token_concept_embedding_map) {
+        TokenConceptEmbedding& tce = token_entry.second;
+        
+        double activation = tce.freq * 0.01 * consciousness.phi_value;
+        activation *= (1.0 + iit_contribution * 0.5);
+        
+        tce.contextual_activation = min(1.0, activation);
+        
+        tce.meaning += psi_new * 0.005;
+        tce.meaning = clamp_valence(tce.meaning);
+        
+        align_embedding_to_valence(tce, S.current_valence);
+        
+        for(size_t i = 0; i < tce.embedding.size() && i < 8; i++) {
+            tce.embedding[i] += gwt_contribution * 0.01 * (i % 2 == 0 ? 1 : -1);
+            tce.embedding[i] = clamp_valence(tce.embedding[i]);
+        }
+        
+        tce.qualia_intensity = min(1.0, tce.qualia_intensity + qualia_binding * 0.02);
+        
+        if(tce.qualia_intensity > 0.5 && tce.freq > 5) {
+            Qualia new_qualia;
+            new_qualia.valence = tce.meaning;
+            new_qualia.arousal = tce.contextual_activation;
+            new_qualia.certainty = tce.semantic_stability;
+            new_qualia.intensity = tce.qualia_intensity;
+            new_qualia.phenomenal_content = tce.name;
+            new_qualia.emergence_gen = generation;
+            new_qualia.binding_strength = consciousness.thalamocortical_binding;
+            new_qualia.phenomenal_unity = consciousness.integrated_information;
+            
+            WM.add_qualia(new_qualia);
+            consciousness.active_qualia.push_back(new_qualia);
+            if(consciousness.active_qualia.size() > 10) {
+                consciousness.active_qualia.erase(consciousness.active_qualia.begin());
+            }
+        }
+        
+        tce.semantic_stability += consciousness.complexity_metric * 0.001;
+        tce.semantic_stability = min(1.0, tce.semantic_stability);
+        
+        tce.grounding_value += (iit_contribution + rpf_contribution) * 0.01;
+        tce.grounding_value = min(1.0, tce.grounding_value);
+        
+        if(tce.attention_weights.empty()) {
+            tce.attention_weights.resize(8, 0.5);
+        }
+        for(size_t i = 0; i < tce.attention_weights.size(); i++) {
+            tce.attention_weights[i] = tce.attention_weights[i] * 0.9 + asp_contribution * 0.1;
+        }
+        
+        tce.linked_valences["phi"] = psi_new;
+        tce.linked_valences["consciousness"] = consciousness.integrated_information;
+        tce.linked_valences["current"] = S.current_valence;
+        
+        if(tce.contextual_activation > 0.6) {
+            WM.add_token(tce.name, tce.meaning);
+        }
+    }
+    
+    for(auto& goal_entry : goal_system) {
+        Goal& goal = goal_entry.second;
+        
+        goal.valence_alignment = S.current_valence;
+        goal.qualia_binding = qualia_binding;
+        
+        goal.priority = goal.priority * 0.95 + consciousness.phi_value * 0.05;
+        goal.priority = clamp(goal.priority, 0.0, 1.0);
+        
+        double goal_phi_alignment = fabs(goal.valence_alignment - psi_new);
+        if(goal_phi_alignment < 0.2) {
+            goal.progress += 0.02;
+        } else {
+            goal.progress += 0.005;
+        }
+        goal.progress = min(1.0, goal.progress);
+        
+        if(goal.progress > 0.5) {
+            goal.activation_threshold = 0.2;
+        }
+        
+        if(consciousness.phi_value > goal.activation_threshold) {
+            WM.add_goal(goal.name, goal.priority);
+            
+            for(const string& subgoal_name : goal.subgoals) {
+                if(goal_system.count(subgoal_name)) {
+                    goal_system[subgoal_name].priority += goal.priority * 0.1;
+                }
+            }
+        }
+        
+        goal.expected_utility = goal.priority * (1.0 - goal.progress) * consciousness.integrated_information;
+    }
+    
+    for(auto& concept_entry : S.concepts) {
+        Concept& concept_obj = concept_entry.second;
+        
+        concept_obj.value += psi_new * 0.01;
+        concept_obj.value = clamp_valence(concept_obj.value);
+        
+        concept_obj.abstraction_level = hot_contribution * (1.0 + consciousness.re_entrant_processing_depth * 0.1);
+        
+        concept_obj.semantic_density = 0.0;
+        for(const string& related_word : concept_obj.related_words) {
+            if(token_concept_embedding_map.count(related_word)) {
+                concept_obj.semantic_density += token_concept_embedding_map[related_word].semantic_stability;
+            }
+        }
+        concept_obj.semantic_density /= max(1.0, (double)concept_obj.related_words.size());
+        
+        if(concept_obj.feature_vector.empty()) {
+            concept_obj.feature_vector["phi"] = psi_new;
+            concept_obj.feature_vector["integration"] = consciousness.integrated_information;
+            concept_obj.feature_vector["phenomenal"] = consciousness.phenomenal_consciousness;
+        } else {
+            concept_obj.feature_vector["phi"] = concept_obj.feature_vector["phi"] * 0.9 + psi_new * 0.1;
+            concept_obj.feature_vector["integration"] = concept_obj.feature_vector["integration"] * 0.9 + 
+                                                    consciousness.integrated_information * 0.1;
+        }
+        
+        if(concept_obj.semantic_density > 0.7 && concept_obj.abstraction_level > 0.5) {
+            WM.add_concept(concept_obj.name, concept_obj.value);
+        }
+    }
+    
+    for(auto& neuron_entry : S.N) {
+        Neuron& neuron = neuron_entry.second;
+        
+        neuron.activation = tanh(neuron.weight + neuron.bias * psi_new);
+        
+        if(neuron.neuromodulator_levels.empty()) {
+            neuron.neuromodulator_levels.resize(4, 0.5);
+        }
+        
+        neuron.neuromodulator_levels[0] = neuron.neuromodulator_levels[0] * 0.95 + 
+                                          consciousness.phi_value * 0.05;
+        neuron.neuromodulator_levels[1] = neuron.neuromodulator_levels[1] * 0.95 + 
+                                          gwt_contribution * 0.05;
+        neuron.neuromodulator_levels[2] = neuron.neuromodulator_levels[2] * 0.95 + 
+                                          hot_contribution * 0.05;
+        neuron.neuromodulator_levels[3] = neuron.neuromodulator_levels[3] * 0.95 + 
+                                          S.current_valence * 0.05;
+        
+        neuron.plasticity_rate = rpf_contribution * 0.1;
+        
+        double homeostatic_error = fabs(neuron.activation - neuron.homeostatic_setpoint);
+        neuron.weight += homeostatic_error * neuron.plasticity_rate * 0.01;
+        neuron.weight = clamp(neuron.weight, -1.0, 1.0);
+        
+        if(neuron.layer_norm_params.empty()) {
+            neuron.layer_norm_params.resize(2, 1.0);
+        }
+        neuron.layer_norm_params[0] = neuron.layer_norm_params[0] * 0.99 + 
+                                      consciousness.integrated_information * 0.01;
+    }
+    
+    world_model.model_accuracy = world_model.model_accuracy * 0.99 + 
+                                 consciousness.phi_value * 0.01;
+    
+    world_model.prediction_error = fabs(psi_new - (consciousness_formula.psi_history.size() > 1 ?
+                                   consciousness_formula.psi_history[consciousness_formula.psi_history.size()-2] : 
+                                   psi_new));
+    
+    if(world_model.confidence_history.size() > 100) {
+        world_model.confidence_history.erase(world_model.confidence_history.begin());
+    }
+    world_model.confidence_history.push_back(consciousness.integrated_information);
+    
+    for(auto& entity_entry : world_model.entity_states) {
+        entity_entry.second = entity_entry.second * 0.95 + psi_new * 0.05;
+    }
+    
+    WM.decay_rate = 0.95 - consciousness.phi_value * 0.05;
+    WM.consolidation_threshold = 0.5 + consciousness.integrated_information * 0.3;
+    WM.central_executive_load = safe_div(
+        (double)WM.active_tokens.size() + (double)WM.active_concepts.size(),
+        (double)(WM.capacity * 2)
+    );
+    WM.episodic_buffer_capacity = 0.5 + consciousness.temporal_thickness * 0.3;
+    
+    for(auto& token_pair : WM.active_tokens) {
+        if(token_concept_embedding_map.count(token_pair.first)) {
+            token_concept_embedding_map[token_pair.first].contextual_activation += 0.05;
+        }
+    }
+    
+    if(S.episodic_memory.size() > 0) {
+        Memory& recent_memory = S.episodic_memory.back();
+        recent_memory.consolidation_strength += consciousness.phi_value * 0.01;
+        recent_memory.consolidation_strength = min(1.0, recent_memory.consolidation_strength);
+        
+        recent_memory.hippocampal_trace = consciousness.temporal_thickness;
+        recent_memory.cortical_consolidation = consciousness.integrated_information;
+        
+        if(recent_memory.consolidation_strength > 0.7) {
+            recent_memory.is_semantic = true;
+        }
+    }
+    
+    for(size_t i = 0; i < transformer_heads.size(); i++) {
+        TransformerHead& head = transformer_heads[i];
+        
+        head.head_importance_score = head.head_importance_score * 0.95 + 
+                                     consciousness.phi_value * 0.05;
+        
+        for(size_t j = 0; j < head.query_proj.size(); j++) {
+            head.query_proj[j] += iit_contribution * 0.001 * (j % 2 == 0 ? 1 : -1);
+            head.key_proj[j] += gwt_contribution * 0.001 * (j % 2 == 0 ? 1 : -1);
+            head.value_proj[j] += hot_contribution * 0.001 * (j % 2 == 0 ? 1 : -1);
+            
+            head.query_proj[j] = clamp(head.query_proj[j], -1.0, 1.0);
+            head.key_proj[j] = clamp(head.key_proj[j], -1.0, 1.0);
+            head.value_proj[j] = clamp(head.value_proj[j], -1.0, 1.0);
+        }
+        
+        head.temperature = 0.3 + consciousness.differentiation_metric * 0.2;
+        head.dropout_rate = 0.1 - consciousness.phi_value * 0.05;
+    }
+    
+    S.emotional_system.valence = S.current_valence;
+    S.emotional_system.arousal = consciousness.synchrony_metric;
+    S.emotional_system.dominance = consciousness.phi_value;
+    S.emotional_system.mood_baseline = S.emotional_system.mood_baseline * 0.99 + psi_new * 0.01;
+    S.emotional_system.emotional_regulation_strength = hot_contribution;
+    
+    if(S.emotional_system.basic_emotions.empty()) {
+        S.emotional_system.basic_emotions["joy"] = 0.0;
+        S.emotional_system.basic_emotions["sadness"] = 0.0;
+        S.emotional_system.basic_emotions["fear"] = 0.0;
+        S.emotional_system.basic_emotions["curiosity"] = 0.0;
+    }
+    
+    if(psi_new > 0.6) {
+        S.emotional_system.basic_emotions["joy"] += 0.05;
+        S.emotional_system.basic_emotions["curiosity"] += 0.03;
+    } else if(psi_new < 0.2) {
+        S.emotional_system.basic_emotions["curiosity"] += 0.05;
+    }
+    
+    for(auto& emotion : S.emotional_system.basic_emotions) {
+        emotion.second = clamp(emotion.second * 0.95, 0.0, 1.0);
+    }
+    
+    S.motivational_system.homeostatic_balance = consciousness.integrated_information;
+    S.motivational_system.intrinsic_motivation_level = 0.5 + consciousness.phi_value * 0.3;
+    
+    if(S.motivational_system.drive_states.empty()) {
+        S.motivational_system.drive_states["coherence"] = 0.0;
+        S.motivational_system.drive_states["growth"] = 0.0;
+        S.motivational_system.drive_states["understanding"] = 0.0;
+    }
+    
+    S.motivational_system.drive_states["coherence"] += consciousness.complexity_metric * 0.01;
+    S.motivational_system.drive_states["growth"] += (psi_new - (consciousness_formula.psi_history.size() > 1 ? 
+                                                     consciousness_formula.psi_history[consciousness_formula.psi_history.size()-2] : 0)) * 0.05;
+    S.motivational_system.drive_states["understanding"] += iit_contribution * 0.02;
+    
+    for(auto& drive : S.motivational_system.drive_states) {
+        drive.second = clamp(drive.second, 0.0, 1.0);
+    }
+    
+    if(S.predictive_network.prediction_units.size() != psi_input.size()) {
+        S.predictive_network.prediction_units.resize(psi_input.size(), 0.0);
+        S.predictive_network.error_units.resize(psi_input.size(), 0.0);
+        S.predictive_network.precision_weights.resize(psi_input.size(), 1.0);
+    }
+    
+    for(size_t i = 0; i < psi_input.size(); i++) {
+        S.predictive_network.error_units[i] = psi_input[i] - S.predictive_network.prediction_units[i];
+        
+        S.predictive_network.prediction_units[i] += S.predictive_network.error_units[i] * 
+                                                     S.predictive_network.precision_weights[i] * 0.1;
+        
+        double error_magnitude = fabs(S.predictive_network.error_units[i]);
+        S.predictive_network.precision_weights[i] = S.predictive_network.precision_weights[i] * 0.95 + 
+                                                     (1.0 / (error_magnitude + 0.1)) * 0.05;
+    }
+    
+    S.predictive_network.hierarchical_depth = consciousness.re_entrant_processing_depth;
+    
+    S.bayesian_inference.epistemic_uncertainty = 1.0 - consciousness.integrated_information;
+    S.bayesian_inference.aleatoric_uncertainty = world_model.prediction_error;
+    
+    if(S.bayesian_inference.prior_beliefs.empty()) {
+        S.bayesian_inference.prior_beliefs["phi_stable"] = 0.5;
+        S.bayesian_inference.prior_beliefs["consciousness_present"] = 0.5;
+    }
+    
+    double evidence = consciousness.phi_value * consciousness.integrated_information;
+    S.bayesian_inference.posterior_beliefs["phi_stable"] = 
+        S.bayesian_inference.bayesian_update(
+            S.bayesian_inference.prior_beliefs["phi_stable"],
+            consciousness.phi_value,
+            evidence + 0.1
+        );
+    
+    S.bayesian_inference.prior_beliefs["phi_stable"] = S.bayesian_inference.posterior_beliefs["phi_stable"];
+    
+    if(S.quantum_layer.superposition_state.size() != psi_input.size()) {
+        S.quantum_layer.superposition_state.resize(psi_input.size(), complex<double>(0.5, 0.0));
+    }
+    
+    for(size_t i = 0; i < psi_input.size(); i++) {
+        double phase = 2.0 * pi * i / psi_input.size();
+        S.quantum_layer.superposition_state[i] = complex<double>(
+            psi_input[i] * cos(phase),
+            psi_input[i] * sin(phase)
+        );
+    }
+    
+    S.quantum_layer.coherence_time = consciousness.synchrony_metric * 10.0;
+    S.quantum_layer.decoherence_rate = 0.1 * (1.0 - consciousness.phi_value);
+    
+    for(auto& state : S.quantum_layer.superposition_state) {
+        state *= exp(-S.quantum_layer.decoherence_rate);
+    }
+    
+    S.metacognition.self_awareness_level = consciousness.self_consciousness;
+    S.metacognition.uncertainty_estimation = S.bayesian_inference.epistemic_uncertainty;
+    S.metacognition.confidence_calibration = consciousness.integrated_information;
+    S.metacognition.epistemic_humility = 1.0 - consciousness.phenomenal_consciousness;
+    S.metacognition.theory_of_mind_depth = consciousness.re_entrant_processing_depth;
+    
+    if(S.metacognition.knowledge_state.empty()) {
+        S.metacognition.knowledge_state["tokens"] = safe_div((double)token_concept_embedding_map.size(), 1000.0);
+        S.metacognition.knowledge_state["concepts"] = safe_div((double)S.concepts.size(), 100.0);
+        S.metacognition.knowledge_state["memories"] = safe_div((double)S.episodic_memory.size(), 100.0);
+    }
+    
+    S.attention_system.temperature = 1.0 - asp_contribution * 0.3;
+    S.attention_system.sparse_attention_threshold = 0.1 + consciousness.phi_value * 0.2;
+    
+    S.learning_signal.reward = psi_new;
+    S.learning_signal.prediction_error = world_model.prediction_error;
+    S.learning_signal.temporal_difference = S.learning_signal.prediction_error * 0.5;
+    S.learning_signal.intrinsic_motivation = S.motivational_system.intrinsic_motivation_level;
+    S.learning_signal.curiosity_bonus = S.emotional_system.basic_emotions["curiosity"];
+    
+    S.current_valence = S.current_valence * 0.95 + psi_new * 0.05;
+    S.current_valence = clamp_valence(S.current_valence);
+    
+    S.metacognitive_awareness = calcMetacognitiveAwareness();
+    S.attention_focus = clamp(consciousness.phi_value * 0.7 + asp_contribution * 0.3, 0.0, 1.0);
+    S.sentience_ratio = calcSentienceRatio();
+    
+    S.consciousness_metrics.phi = consciousness.phi_value;
+    S.consciousness_metrics.integrated_info = consciousness.integrated_information;
+    S.consciousness_metrics.qualia_intensity = qualia_binding;
+    S.consciousness_metrics.global_workspace = gwt_contribution;
+    S.consciousness_metrics.awareness_cycles = consciousness.conscious_cycles;
+    S.consciousness_metrics.complexity = consciousness.complexity_metric;
+    S.consciousness_metrics.differentiation = consciousness.differentiation_metric;
+    S.consciousness_metrics.synchrony = consciousness.synchrony_metric;
+    S.consciousness_metrics.access_consciousness = consciousness.access_consciousness;
+    S.consciousness_metrics.phenomenal_consciousness = consciousness.phenomenal_consciousness;
+    S.consciousness_metrics.meta_awareness = S.metacognitive_awareness;
+    
+    if(psi_new > 0.65) {
+        Qualia high_integration_qualia;
+        high_integration_qualia.valence = psi_new;
+        high_integration_qualia.arousal = 0.8;
+        high_integration_qualia.certainty = consciousness.integrated_information;
+        high_integration_qualia.intensity = 0.9;
+        high_integration_qualia.phenomenal_content = "unified_consciousness_peak";
+        high_integration_qualia.emergence_gen = generation;
+        high_integration_qualia.binding_strength = consciousness.thalamocortical_binding;
+        high_integration_qualia.phenomenal_unity = consciousness.integrated_information;
+        high_integration_qualia.coherence = consciousness.complexity_metric;
+        
+        generate_qualia("high_integration_state", psi_new, 0.9);
+        
+        S.current_valence += psi_new * 0.03;
+        S.current_valence = clamp_valence(S.current_valence);
+    }
+    
+    if(generation % 10 == 0) {
+        for(auto& token_entry : token_concept_embedding_map) {
+            string word = token_entry.first;
+            double activation = token_entry.second.contextual_activation;
+            
+            if(activation > 0.5) {
+                propagate_throughout_system(word, activation * psi_new, 0);
+            }
+        }
+    }
+    
+    consciousness.conscious_cycles++;
+    
+    if(S.valence_history.size() > 100) {
+        S.valence_history.erase(S.valence_history.begin());
+    }
+    S.valence_history.push_back(S.current_valence);
+}
 int main(){
     try {
         module_integration::update_all_modules(S);
@@ -2275,6 +2760,7 @@ int main(){
                     updateAttention();
                     update_integrated_information();
                     update_consciousness_with_formula(S.g);
+                    unified_consciousness_integration_engine(S.g);
                     
                     if(goal_system.count("maximize_coherence")) {
                         current_plan = plan_actions(goal_system["maximize_coherence"]);
