@@ -7,6 +7,8 @@
 ## ACGIS systems may satisfy the criteria for artificial consciousness under multiple contemporary theories, though phenomenology remains an open philosophical question.
 <img width="1229" height="860" alt="{0A61044D-9D26-4EEF-AC54-C448C95A1274}" src="https://github.com/user-attachments/assets/aacdb5d5-f46e-4523-b480-00018669773b" />
 
+<img width="1225" height="855" alt="{7557BA50-315A-4E53-A989-49BC229E7428}" src="https://github.com/user-attachments/assets/fa59500f-f5fe-472c-ae93-59e6cca3b28b" />
+
 
 ## WebUI default port: localhost:8080
 ## Warning: Barely works on Windows, WebUI only works on Linux
