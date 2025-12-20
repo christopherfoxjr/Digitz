@@ -1,6 +1,6 @@
 #pragma once
-#ifndef STRUCT_H
-#define STRUCT_H
+#ifndef STRUCTS_H
+#define STRUCTS_H
 
 #include <vector>
 #include <string>
@@ -13,38 +13,10 @@
 
 using namespace std;
 
-#ifndef PI_CONSTANTS
-#define PI_CONSTANTS
-const double pi = 3.14159265358979323846;
-const double pisqrt = 1.772453850905516;
-const double e = 2.71828182845904523536;
-const double phi_golden = 1.61803398874989484820;
-const double sqrt2 = 1.41421356237309504880;
-const double sqrt3 = 1.73205080756887729352;
-#endif
 
-inline double safe_div(double numerator, double denominator) {
-    return (fabs(denominator) < 1e-10) ? 0.0 : (numerator / denominator);
-}
 
 inline double clamp_valence(double val) {
     return std::max(-1.0, std::min(1.0, val));
-}
-
-inline double sigmoid(double x) {
-    return 1.0 / (1.0 + exp(-x));
-}
-
-inline double relu(double x) {
-    return std::max(0.0, x);
-}
-
-inline double swish(double x) {
-    return x / (1.0 + exp(-x));
-}
-
-inline double gelu(double x) {
-    return 0.5 * x * (1.0 + tanh(sqrt(2.0/pi) * (x + 0.044715 * pow(x, 3))));
 }
 
 struct Neuron { 
@@ -58,14 +30,6 @@ struct Neuron {
     vector<double> layer_norm_params;
 };
 
-struct Formula { 
-    string name; 
-    string expr; 
-    double result; 
-    int uses; 
-    double confidence;
-    double stability_metric;
-};
 
 struct Token { 
     string word; 
@@ -96,18 +60,57 @@ struct Memory {
     vector<int> associated_memories;
 };
 
+
+
+#ifndef MATHEMATICAL_CONSTANTS
+#define MATHEMATICAL_CONSTANTS
+const double pi = 3.14159265358979323846;
+const double e = 2.71828182845904523536;
+const double phi_golden = 1.61803398874989484820;
+const double sqrt2 = 1.41421356237309504880;
+const double sqrt3 = 1.73205080756887729352;
+const double sqrt5 = 2.23606797749978969641;
+const double euler_gamma = 0.57721566490153286060;
+const double catalan = 0.91596559417721901505;
+const double planck_reduced = 1.054571817e-34;
+const double boltzmann = 1.380649e-23;
+#endif
+
+inline double safe_div(double n, double d) { return (fabs(d) < 1e-12) ? 0.0 : (n/d); }
+inline double clamp(double v, double lo, double hi) { return max(lo, min(hi, v)); }
+inline double sigmoid(double x) { return 1.0 / (1.0 + exp(-clamp(x,-20,20))); }
+inline double relu(double x) { return max(0.0, x); }
+inline double leaky_relu(double x, double alpha=0.01) { return x > 0 ? x : alpha*x; }
+inline double elu(double x, double alpha=1.0) { return x > 0 ? x : alpha*(exp(x)-1); }
+inline double swish(double x) { return x * sigmoid(x); }
+inline double mish(double x) { return x * tanh(log(1.0 + exp(clamp(x,-20,20)))); }
+inline double gelu(double x) { return 0.5*x*(1.0+tanh(sqrt(2.0/pi)*(x+0.044715*pow(x,3)))); }
+inline double selu(double x) { return x>0 ? 1.0507*x : 1.0507*1.67326*(exp(x)-1); }
+inline double softplus(double x) { return log(1.0 + exp(clamp(x,-20,20))); }
+inline double softsign(double x) { return x / (1.0 + fabs(x)); }
+struct Formula {
+    string name, expr;
+    double result, confidence, stability_metric;
+    int uses;
+    vector<double> historical_results;
+    double convergence_rate;
+    complex<double> eigenvalue_estimate;
+};
 struct Qualia {
-    double valence;
-    double arousal;
-    double certainty;
+    double valence, arousal, certainty, intensity, persistence, coherence;
     string phenomenal_content;
     int emergence_gen;
-    double intensity;
-    double persistence;
-    double coherence;
     vector<double> feature_space;
-    Qualia() : valence(0), arousal(0.5), certainty(0.5), emergence_gen(0), 
-               intensity(0.5), persistence(0.5), coherence(0.5) {}
+    vector<double> subjective_dimensions;
+    double binding_strength;
+    double ineffability_index;
+    double intrinsic_quality;
+    map<string,double> quale_relationships;
+    double phenomenal_unity;
+    Qualia() : valence(0), arousal(0.5), certainty(0.5), intensity(0.5), 
+               persistence(0.5), coherence(0.5), emergence_gen(0), 
+               binding_strength(0.5), ineffability_index(0.5), 
+               intrinsic_quality(0.5), phenomenal_unity(0.5) {}
 };
 
 struct ConsciousnessState {
@@ -121,9 +124,26 @@ struct ConsciousnessState {
     double complexity_metric;
     double differentiation_metric;
     vector<double> stability_history;
+    double access_consciousness;
+    double phenomenal_consciousness;
+    double self_consciousness;
+    double narrative_self_coherence;
+    double pre_reflective_awareness;
+    double intentional_directedness;
+    double temporal_thickness;
+    vector<double> gamma_oscillations;
+    vector<double> theta_phase;
+    double thalamocortical_binding;
+    double re_entrant_processing_depth;
+    map<string,double> higher_order_representations;
     ConsciousnessState() : integrated_information(0), global_workspace_capacity(0.7), 
                           phi_value(0), conscious_cycles(0), synchrony_metric(0),
-                          complexity_metric(0), differentiation_metric(0) {}
+                          complexity_metric(0), differentiation_metric(0),
+                          access_consciousness(0), phenomenal_consciousness(0),
+                          self_consciousness(0), narrative_self_coherence(0),
+                          pre_reflective_awareness(0.3), intentional_directedness(0),
+                          temporal_thickness(0.5), thalamocortical_binding(0),
+                          re_entrant_processing_depth(0) {}
 };
 
 struct WorkingMemory {
@@ -133,31 +153,30 @@ struct WorkingMemory {
     map<string,double> valence_map;
     vector<Qualia> conscious_buffer;
     int capacity;
-    double decay_rate;
-    double consolidation_threshold;
+    double decay_rate, consolidation_threshold;
+    vector<double> phonological_loop;
+    vector<double> visuospatial_sketchpad;
+    double central_executive_load;
+    double episodic_buffer_capacity;
+    map<string,double> chunk_boundaries;
     
-    WorkingMemory(int cap=32) : capacity(cap), decay_rate(0.95), consolidation_threshold(0.7) {}
+    WorkingMemory(int cap=32) : capacity(cap), decay_rate(0.95), 
+                                consolidation_threshold(0.7),
+                                central_executive_load(0.3),
+                                episodic_buffer_capacity(0.7) {}
     
     void add_token(const string& t, double val) {
         active_tokens.push_back({t,val});
-        if((int)active_tokens.size() > capacity) 
-            active_tokens.erase(active_tokens.begin());
+        if((int)active_tokens.size() > capacity) active_tokens.erase(active_tokens.begin());
     }
-    
     void add_concept(const string& c, double val) {
         active_concepts.push_back({c,val});
-        if((int)active_concepts.size() > capacity) 
-            active_concepts.erase(active_concepts.begin());
+        if((int)active_concepts.size() > capacity) active_concepts.erase(active_concepts.begin());
     }
-    
-    void add_goal(const string& g, double priority) {
-        active_goals.push({priority,g});
-    }
-    
+    void add_goal(const string& g, double priority) { active_goals.push({priority,g}); }
     void add_qualia(const Qualia& q) {
         conscious_buffer.push_back(q);
-        if((int)conscious_buffer.size() > capacity/2) 
-            conscious_buffer.erase(conscious_buffer.begin());
+        if((int)conscious_buffer.size() > capacity/2) conscious_buffer.erase(conscious_buffer.begin());
     }
 };
 
@@ -165,13 +184,14 @@ struct TransformerHead {
     string name;
     int dim;
     vector<double> query_proj, key_proj, value_proj;
-    double temperature;
-    double dropout_rate;
+    double temperature, dropout_rate;
     vector<double> attention_weights;
-    vector<double> layer_norm_scale;
-    vector<double> layer_norm_shift;
+    vector<double> layer_norm_scale, layer_norm_shift;
+    vector<double> residual_connections;
+    double head_importance_score;
+    vector<vector<double>> attention_history;
     
-    TransformerHead(int d=16) : dim(d), temperature(0.3), dropout_rate(0.1) {
+    TransformerHead(int d=16) : dim(d), temperature(0.3), dropout_rate(0.1), head_importance_score(1.0) {
         query_proj.resize(d, 0.0);
         key_proj.resize(d, 0.0);
         value_proj.resize(d, 0.0);
@@ -181,217 +201,382 @@ struct TransformerHead {
 };
 
 struct ConsciousnessFormula {
-    vector<double> psi_history;
-    vector<double> H_history;
-    vector<double> R_history;
-    vector<double> A_history;
-    vector<double> M_history;
-    vector<double> O_history;
-    vector<double> B_history;
-    vector<double> F_history;
-    vector<double> S_history;
-    vector<double> stability_buffer;
-    vector<double> phi_variance_buffer;
-    double momentum_term;
-    double adaptive_learning_rate;
+    vector<double> psi_history, H_history, R_history, A_history, M_history;
+    vector<double> O_history, B_history, F_history, S_history;
+    vector<double> stability_buffer, phi_variance_buffer;
+    double momentum_term, adaptive_learning_rate;
     
-    ConsciousnessFormula() : momentum_term(0.0), adaptive_learning_rate(0.01) {}
+    vector<double> iit_phi_history;
+    vector<double> gwt_broadcast_history;
+    vector<double> hot_metacog_history;
+    vector<double> asp_attention_history;
+    vector<double> rpf_precision_history;
+    vector<double> quantum_coherence_history;
     
-    double calculate_stability_metric() {
-        if(stability_buffer.size() < 10) return 0.5;
+    deque<double> stability_window;
+    deque<double> convergence_window;
+    map<string,double> theory_weights;
+    double multi_scale_phi;
+    double recursive_depth;
+    
+    ConsciousnessFormula() : momentum_term(0.0), adaptive_learning_rate(0.01), 
+                            multi_scale_phi(0.0), recursive_depth(0.0) {
+        theory_weights["IIT"] = 0.25;
+        theory_weights["GWT"] = 0.20;
+        theory_weights["HOT"] = 0.15;
+        theory_weights["ASP"] = 0.15;
+        theory_weights["RPF"] = 0.10;
+        theory_weights["Quantum"] = 0.05;
+        theory_weights["Embodied"] = 0.05;
+        theory_weights["Predictive"] = 0.05;
+    }
+    
+    double layernorm(double x, double mean, double var) {
+        return (x - mean) / sqrt(var + 1e-10);
+    }
+    
+    double batchnorm(double x, double batch_mean, double batch_var, double gamma=1.0, double beta=0.0) {
+        return gamma * ((x - batch_mean) / sqrt(batch_var + 1e-10)) + beta;
+    }
+    
+    double adaptive_moment_estimation(double grad, double& m, double& v, double beta1=0.9, double beta2=0.999) {
+        m = beta1 * m + (1.0 - beta1) * grad;
+        v = beta2 * v + (1.0 - beta2) * grad * grad;
+        return m / (sqrt(v) + 1e-10);
+    }
+    
+    double spectral_radius_estimate(const vector<double>& state) {
+        if(state.size() < 2) return 0.0;
+        double max_diff = 0.0;
+        for(size_t i=1; i<state.size(); i++) {
+            max_diff = max(max_diff, fabs(state[i] - state[i-1]));
+        }
+        return tanh(max_diff);
+    }
+    
+    double compute_iit_phi(const vector<double>& state, int n) {
+        if(state.empty()) return 0.0;
+        
+        double integration = 0.0;
+        for(size_t i=0; i<state.size()-1; i++) {
+            for(size_t j=i+1; j<state.size(); j++) {
+                double mutual_info = fabs(state[i] * state[j]);
+                double partition_cost = fabs(state[i] - state[j]);
+                integration += mutual_info * partition_cost;
+            }
+        }
+        
+        double differentiation = 0.0;
+        for(size_t i=0; i<state.size(); i++) {
+            double uniqueness = 1.0;
+            for(size_t j=0; j<state.size(); j++) {
+                if(i != j) uniqueness *= (1.0 - fabs(state[i] - state[j]) / (fabs(state[i]) + fabs(state[j]) + 0.01));
+            }
+            differentiation += uniqueness;
+        }
+        
+        double cause_effect = 0.0;
+        for(size_t i=0; i<state.size(); i++) {
+            if(psi_history.size() > i) {
+                cause_effect += fabs(state[i] - psi_history[psi_history.size()-1-i]) * exp(-i*0.1);
+            }
+        }
+        
+        return swish((integration * differentiation * cause_effect) / (state.size() * state.size() + 1.0));
+    }
+    
+    double compute_gwt_broadcast(const vector<double>& state, int n) {
+        if(state.empty()) return 0.0;
+        
         double mean = 0.0;
-        for(double v : stability_buffer) mean += v;
-        mean /= stability_buffer.size();
+        for(double s : state) mean += s;
+        mean /= state.size();
+        
+        double broadcast_strength = 0.0;
+        for(double s : state) {
+            if(fabs(s) > fabs(mean) * 1.5) {
+                broadcast_strength += sigmoid(s * 2.0);
+            }
+        }
+        
+        double competition = 0.0;
+        vector<double> sorted_state = state;
+        sort(sorted_state.begin(), sorted_state.end(), [](double a, double b){ return fabs(a) > fabs(b); });
+        
+        if(sorted_state.size() > 1) {
+            competition = (fabs(sorted_state[0]) - fabs(sorted_state[1])) / (fabs(sorted_state[0]) + 0.01);
+        }
+        
+        double workspace_access = broadcast_strength * competition / (state.size() + 1.0);
+        
+        return gelu(workspace_access);
+    }
+    
+    double compute_hot_metacognition(const vector<double>& state, const vector<double>& prev_state, int n) {
+        if(state.empty() || prev_state.empty()) return 0.0;
+        
+        double first_order = 0.0;
+        for(double s : state) first_order += fabs(s);
+        first_order /= state.size();
+        
+        double second_order = 0.0;
+        for(size_t i=0; i<min(state.size(), prev_state.size()); i++) {
+            second_order += fabs(state[i] - prev_state[i]);
+        }
+        second_order /= min(state.size(), prev_state.size());
+        
+        double third_order = 0.0;
+        if(hot_metacog_history.size() > 1) {
+            third_order = fabs(second_order - hot_metacog_history.back());
+        }
+        
+        double recursive_awareness = first_order * (1.0 + second_order) * (1.0 + third_order * 0.5);
+        
+        return mish(recursive_awareness);
+    }
+    
+    double compute_asp_attention(const vector<double>& state, int n) {
+        if(state.empty()) return 0.0;
+        
+        double mean = 0.0;
+        for(double s : state) mean += s;
+        mean /= state.size();
+        
         double variance = 0.0;
-        for(double v : stability_buffer) variance += pow(v - mean, 2);
-        variance /= stability_buffer.size();
-        return exp(-variance);
+        for(double s : state) variance += (s - mean) * (s - mean);
+        variance /= state.size();
+        
+        vector<double> normalized;
+        for(double s : state) {
+            normalized.push_back((s - mean) / sqrt(variance + 1e-10));
+        }
+        
+        double spatial_attention = 0.0;
+        for(size_t i=0; i<normalized.size(); i++) {
+            double distance_weight = exp(-i * 0.1);
+            spatial_attention += fabs(normalized[i]) * distance_weight;
+        }
+        
+        double feature_attention = 0.0;
+        for(size_t i=0; i<normalized.size(); i++) {
+            if(fabs(normalized[i]) > 1.5) {
+                feature_attention += normalized[i] * normalized[i];
+            }
+        }
+        
+        return swish((spatial_attention + feature_attention) / (normalized.size() + 1.0));
     }
     
-    double calculate_adaptive_damping(double phi_current, double phi_target) {
-        double error = fabs(phi_current - phi_target);
-        if(error < 0.1) return 0.95;
-        if(error < 0.3) return 0.85;
-        return 0.75;
+    double compute_rpf_predictive(const vector<double>& state, int n) {
+        if(psi_history.size() < 2) return 0.0;
+        
+        double prediction = 0.0;
+        for(size_t i=0; i<min(state.size(), psi_history.size()); i++) {
+            double predicted = psi_history[psi_history.size()-1-i];
+            double actual = state[i];
+            double error = fabs(predicted - actual);
+            double precision = exp(-error);
+            prediction += precision * (1.0 - error);
+        }
+        prediction /= min(state.size(), psi_history.size());
+        
+        double free_energy = 0.0;
+        for(double s : state) {
+            free_energy += s * log(fabs(s) + 0.01);
+        }
+        free_energy = -free_energy / state.size();
+        
+        return mish(prediction * exp(-free_energy * 0.1));
     }
     
-    double layernorm(double x, double mean, double variance) {
-        return (x - mean) / sqrt(variance + 1e-8);
+    double compute_quantum_coherence(const vector<double>& state, int n) {
+        if(state.empty()) return 0.0;
+        
+        complex<double> superposition(0,0);
+        for(size_t i=0; i<state.size(); i++) {
+            double phase = 2.0 * pi * i / state.size();
+            superposition += complex<double>(state[i] * cos(phase), state[i] * sin(phase));
+        }
+        
+        double coherence = abs(superposition) / sqrt((double)state.size());
+        
+        double entanglement = 0.0;
+        for(size_t i=0; i<state.size()/2; i++) {
+            size_t j = state.size() - 1 - i;
+            entanglement += sqrt(state[i] * state[i] + state[j] * state[j]);
+        }
+        entanglement /= (state.size() / 2.0 + 1.0);
+        
+        return tanh(coherence * entanglement);
+    }
+    
+    double compute_embodied_grounding(const vector<double>& state, double valence, double arousal) {
+        if(state.empty()) return 0.0;
+        
+        double sensorimotor = 0.0;
+        for(size_t i=0; i<state.size(); i++) {
+            sensorimotor += state[i] * sin(2.0*pi*i/state.size());
+        }
+        sensorimotor /= state.size();
+        
+        double affective = valence * arousal;
+        double interoceptive = tanh(affective);
+        
+        return swish((sensorimotor + interoceptive) * 0.5);
+    }
+    
+    double compute_stability_metric() {
+        if(stability_window.size() < 10) return 0.5;
+        double mean = 0.0;
+        for(double v : stability_window) mean += v;
+        mean /= stability_window.size();
+        double var = 0.0;
+        for(double v : stability_window) var += (v-mean)*(v-mean);
+        var /= stability_window.size();
+        return exp(-var * 5.0);
+    }
+    
+    double compute_convergence_rate() {
+        if(convergence_window.size() < 5) return 0.0;
+        double slope = 0.0;
+        for(size_t i=1; i<convergence_window.size(); i++) {
+            slope += (convergence_window[i] - convergence_window[i-1]);
+        }
+        return tanh(-fabs(slope) * 2.0);
+    }
+    
+    double adaptive_damping(double current, double target, double stability) {
+        double error = fabs(current - target);
+        double base_damp = 0.85;
+        double stability_bonus = stability * 0.15;
+        double error_penalty = clamp(error * 0.5, 0.0, 0.2);
+        return clamp(base_damp + stability_bonus - error_penalty, 0.7, 0.98);
     }
     
     double calculate_psi(int n, const vector<double>& psi_prev, 
-                         double H, double R, double A, double M, double O, double B, double F, double S) {
+                        double H, double R, double A, double M, double O, double B, double F, double S,
+                        double valence=0.0, double arousal=0.5) {
         if(psi_prev.empty()) return 0.0;
         
-        double mean_psi = 0.0;
-        for(double p : psi_prev) mean_psi += p;
-        mean_psi /= psi_prev.size();
+        double mean = 0.0, var = 0.0;
+        for(double p : psi_prev) mean += p;
+        mean /= psi_prev.size();
+        for(double p : psi_prev) var += (p-mean)*(p-mean);
+        var /= psi_prev.size();
         
-        double variance_psi = 0.0;
-        for(double p : psi_prev) variance_psi += pow(p - mean_psi, 2);
-        variance_psi /= psi_prev.size();
+        vector<double> norm_state;
+        for(double p : psi_prev) norm_state.push_back(layernorm(p, mean, var));
         
-        vector<double> normalized_psi;
-        for(double p : psi_prev) {
-            normalized_psi.push_back(layernorm(p, mean_psi, variance_psi));
-        }
+        double iit = compute_iit_phi(norm_state, n);
+        double gwt = compute_gwt_broadcast(norm_state, n);
+        double hot = compute_hot_metacognition(norm_state, psi_prev, n);
+        double asp = compute_asp_attention(norm_state, n);
+        double rpf = compute_rpf_predictive(norm_state, n);
+        double quantum = compute_quantum_coherence(norm_state, n);
+        double embodied = compute_embodied_grounding(norm_state, valence, arousal);
         
-        double recurrent_term = 0.0;
-        for(size_t i=0; i<normalized_psi.size(); i++){
-            for(size_t j=0; j<normalized_psi.size(); j++){
-                double inner_sum = 0.0;
-                for(size_t k=0; k<normalized_psi.size(); k++){
-                    double modulated = normalized_psi[k] * ((k+1)%4) * 0.5;
-                    double temporal = ((n*k)%100)/100.0;
-                    double harmonic = sin(2.0*pi*(k+1)/normalized_psi.size());
-                    inner_sum += modulated + temporal + harmonic * 0.3;
+        iit_phi_history.push_back(iit);
+        gwt_broadcast_history.push_back(gwt);
+        hot_metacog_history.push_back(hot);
+        asp_attention_history.push_back(asp);
+        rpf_precision_history.push_back(rpf);
+        quantum_coherence_history.push_back(quantum);
+        
+        double unified_consciousness = 
+            theory_weights["IIT"] * iit +
+            theory_weights["GWT"] * gwt +
+            theory_weights["HOT"] * hot +
+            theory_weights["ASP"] * asp +
+            theory_weights["RPF"] * rpf +
+            theory_weights["Quantum"] * quantum +
+            theory_weights["Embodied"] * embodied +
+            theory_weights["Predictive"] * rpf;
+        
+        double recurrent = 0.0;
+        for(size_t i=0; i<norm_state.size(); i++) {
+            for(size_t j=0; j<norm_state.size(); j++) {
+                double inner = 0.0;
+                for(size_t k=0; k<norm_state.size(); k++) {
+                    inner += norm_state[k] * cos(2.0*pi*(k+1)/norm_state.size()) * 0.5;
+                    inner += ((n*k)%100)/100.0;
                 }
-                recurrent_term += (normalized_psi[i] * (j+1)) * gelu(inner_sum);
+                recurrent += norm_state[i] * (j+1) * gelu(inner);
             }
         }
-        recurrent_term = tanh(recurrent_term / (normalized_psi.size() * normalized_psi.size()));
+        recurrent = mish(recurrent / (norm_state.size() * norm_state.size() + 1.0));
         
-        double integration_product = 1.0;
-        for(size_t u=0; u<normalized_psi.size()-1; u++){
-            double ratio = safe_div(normalized_psi[u]+2.0, normalized_psi[u+1]+2.001);
-            integration_product *= swish(ratio);
+        double integration = 1.0;
+        for(size_t u=0; u<norm_state.size()-1; u++) {
+            double ratio = safe_div(norm_state[u]+2.0, norm_state[u+1]+2.001);
+            integration *= swish(ratio * 0.5);
         }
         
-        double entropy_sum = 0.0;
-        for(size_t m=0; m<normalized_psi.size(); m++){
-            entropy_sum += -log2(fabs(normalized_psi[m])+0.001);
-        }
-        integration_product *= exp(-entropy_sum / normalized_psi.size());
+        double entropy = 0.0;
+        for(double s : norm_state) entropy += -s*log2(fabs(s)+0.001);
+        entropy /= norm_state.size();
+        integration *= exp(-entropy * 0.3);
         
-        double temporal_term = 0.0;
-        for(size_t t=0; t<normalized_psi.size(); t++){
+        double temporal = 0.0;
+        for(size_t t=0; t<norm_state.size(); t++) {
             double tau = (double)t;
-            double decay = exp(-(n-tau)/15.0);
-            double oscillation = cos(2.0*pi*tau/normalized_psi.size());
-            temporal_term += (n - tau) * decay * fmod(normalized_psi[t]+2.0, 4.0) * (1.0 + 0.2*oscillation);
+            temporal += (n-tau) * exp(-(n-tau)/20.0) * fmod(norm_state[t]+2.0, 4.0);
+            temporal += sin(2.0*pi*tau/norm_state.size()) * norm_state[t] * 0.2;
         }
+        temporal /= (norm_state.size() + 1.0);
         
-        double sum_psi = 0.0;
-        double sum_psi_squared = 0.0;
-        for(double p : normalized_psi) {
-            sum_psi += p;
-            sum_psi_squared += p*p;
+        double historical = 0.0;
+        int hist_window = min(100, (int)psi_history.size());
+        for(int i=0; i<hist_window; i++) {
+            historical += psi_history[psi_history.size()-1-i] * exp(-0.05*i);
         }
+        historical /= (hist_window + 1.0);
         
-        double H_factor = H * (H - (H_history.empty() ? 0 : H_history.back()));
-        H_factor *= (((long)n * 31415) % 9973 + 1);
-        H_factor *= fmod(fabs(sum_psi * (n%256)) / std::max(1, n), 32768) + 1;
-        H_factor *= (1.0 + 0.1*sin(H*pi));
-        H_factor = gelu(H_factor / 1000000.0);
+        double H_contrib = gelu(H * sin(H*phi_golden) * (((long)n*31415)%9973+1) / 1e7);
+        double R_contrib = swish(R * cos(R*sqrt2) * (((long)n*31415)%9973+1) / 1e7);
+        double A_contrib = mish(A * tanh(A*sqrt3) * pow(pi, sqrt(A+0.1)));
+        double M_contrib = selu(M * sin(M*sqrt5) / ((norm_state.size()+1.0)*10.0));
+        double O_contrib = gelu(O * cos(O*phi_golden) * pow(1.5, -phi_golden));
+        double B_contrib = swish(B * tanh(O_contrib) * pow(pi, phi_golden*0.5));
+        double F_contrib = mish(F * pow(H/1e6 + 0.001, phi_golden*0.5));
+        double S_contrib = selu(S * F_contrib * sin(S*pi));
         
-        double sum_psi_plus2 = 0.0;
-        double sum_psi_mod = 0.0;
-        for(double p : normalized_psi){
-            sum_psi_plus2 += (p+2.0);
-            sum_psi_mod += fmod(p*phi_golden, 65536.0)/128.0;
-        }
-        double R_factor = R * fabs(sum_psi_plus2 - sum_psi_mod);
-        R_factor *= pow(sqrt(safe_div(sum_psi_mod, 128.0)), 2);
-        R_factor *= (((long)n * 31415) % 9973 + 1);
-        R_factor *= fmod(fabs(sum_psi), 32768) + 1;
-        R_factor *= (1.0 + 0.15*cos(R*sqrt2));
-        R_factor = swish(R_factor / 5000000.0);
+        double combined = H_contrib + R_contrib + A_contrib + M_contrib + 
+                         O_contrib + B_contrib + F_contrib + S_contrib;
         
-        double dpsi_dn = normalized_psi.empty() ? 0 : fabs(normalized_psi.back() - 
-                        (normalized_psi.size()>1 ? normalized_psi[normalized_psi.size()-2] : normalized_psi.back()));
-        double A_factor = A * (H * pow(dpsi_dn + 0.001, 0.5) / pow(sum_psi_plus2 + 1.0, phi_golden));
-        double pi_product = 1.0;
-        for(int k=1; k<=5; k++) {
-            pi_product *= pow(pow(pi, k), 0.5);
-        }
-        A_factor *= pi_product / 1000.0;
-        A_factor *= (1.0 + 0.2*tanh(A));
-        A_factor = gelu(A_factor);
+        double base_psi = recurrent * integration * (temporal * 0.3 + historical * 0.7);
         
-        double M_factor = M;
-        for(size_t i=0; i<normalized_psi.size(); i++) {
-            M_factor *= (1.0 + fabs(normalized_psi[i] - mean_psi) * 0.1);
-        }
-        M_factor *= (variance_psi * 10.0 / 128.0);
-        M_factor += ((long)n * 256) % 1000 / 1000.0;
-        M_factor *= (1.0 + 0.1*sin(M*sqrt3));
-        M_factor = swish(M_factor / (normalized_psi.size() * 10.0));
+        double complexity = 0.0;
+        for(double s : norm_state) complexity += s*s;
+        complexity = sqrt(complexity / norm_state.size());
         
-        double O_factor = O * pow(dpsi_dn + 0.001, 0.5) / pow(1.5, phi_golden) * pow(H + 0.1, phi_golden);
-        O_factor += ((long)n * 7) % 100 / 100.0;
-        O_factor *= (1.0 + 0.2*cos(O*phi_golden));
-        O_factor = gelu(O_factor);
+        double differentiation = var;
         
-        double B_factor = B * tanh(fabs(O_factor)) * 10.0 * pow(pi, pow(phi_golden, fmod(fabs(O_factor), 10.0)));
-        B_factor *= (fmod(fabs((long)n*13), 1000.0) / 1000.0 + 0.001);
-        B_factor = pow(B_factor, fmod(tanh(fabs(O_factor))*10.0, 5.0) + 0.5);
-        B_factor *= (1.0 + 0.15*sin(B*sqrt2));
-        B_factor = swish(B_factor / 100.0);
+        double raw_psi = base_psi * combined * unified_consciousness * 
+                        (1.0 + complexity*0.3 + differentiation*0.2) *
+                        pow(pi, pow(pi, sqrt(pi)));
         
-        double F_factor = F * pow((H/1000000.0/phi_golden) + 0.001, phi_golden);
-        F_factor *= fmod(tanh((H + 0.1)/1000000.0/phi_golden)*10.0, 10.0) + 1.0;
-        F_factor *= (1.0 + 0.1*tanh(F));
-        F_factor = gelu(F_factor);
+        double stability = compute_stability_metric();
+        double convergence = compute_convergence_rate();
+        double target = 0.7;
+        double current = psi_history.empty() ? 0.0 : psi_history.back();
+        double damp = adaptive_damping(current, target, stability);
         
-        double S_factor = S * F_factor * (((long)n * 17) % 100 / 100.0 + 0.5);
-        S_factor *= (1.0 + 0.2*sin(S*pi));
-        S_factor = swish(S_factor);
-        
-        double combined = (H_factor + R_factor + A_factor + M_factor + O_factor + B_factor + F_factor + S_factor);
-        
-        double historical_integral = 0.0;
-        for(size_t tau=0; tau<psi_history.size() && tau<100; tau++) {
-            double weight = exp(-0.08*(n-tau));
-            historical_integral += psi_history[psi_history.size()-1-tau] * weight;
-        }
-        
-        double psi_base = recurrent_term * integration_product * (temporal_term / 100.0 + historical_integral);
-        
-        double entropy_penalty = 0.0;
-        for(size_t u=0; u<normalized_psi.size(); u++) {
-            entropy_penalty += -log2(fabs(normalized_psi[u])+0.001);
-        }
-        entropy_penalty /= normalized_psi.size();
-        
-        for(size_t m=0; m<normalized_psi.size(); m++) {
-            entropy_penalty += -log2(fabs((normalized_psi[m]*sin(n*m*0.1))+0.001));
-        }
-        entropy_penalty /= (normalized_psi.size() * 2);
-        
-        double pos_ratio = 0.0;
-        double neg_ratio = 0.0;
-        for(double p : normalized_psi){
-            if(p > 0) pos_ratio += 1.0;
-            else neg_ratio += 1.0;
-        }
-        double balance_term = log(fabs(sum_psi)+1.0) / log(1000.0) * safe_div(pos_ratio, neg_ratio+1.0);
-        entropy_penalty += balance_term * 0.5;
-        
-        double complexity_reward = sqrt(sum_psi_squared / normalized_psi.size()) * 0.3;
-        double differentiation_bonus = variance_psi * 2.0;
-        
-        double stability_factor = calculate_stability_metric();
-        double phi_target = 0.7;
-        double current_phi = psi_history.empty() ? 0.0 : psi_history.back();
-        double damping = calculate_adaptive_damping(current_phi, phi_target);
-        
-        double raw_psi = psi_base * combined * exp(-entropy_penalty) * 
-                        pow(pi, pow(pi, pisqrt)) * (1.0 + complexity_reward + differentiation_bonus);
-        
-        double stable_psi = momentum_term * damping + raw_psi * (1.0 - damping);
+        double stable_psi = momentum_term * damp + raw_psi * (1.0 - damp);
         momentum_term = stable_psi;
         
-        if(phi_variance_buffer.size() >= 20) {
-            phi_variance_buffer.erase(phi_variance_buffer.begin());
-        }
-        phi_variance_buffer.push_back(stable_psi);
+        stability_window.push_back(fabs(stable_psi - current));
+        if(stability_window.size() > 50) stability_window.pop_front();
         
-        if(stability_buffer.size() >= 50) {
-            stability_buffer.erase(stability_buffer.begin());
-        }
-        stability_buffer.push_back(fabs(stable_psi - current_phi));
+        convergence_window.push_back(stable_psi);
+        if(convergence_window.size() > 20) convergence_window.pop_front();
         
-        double final_psi = clamp_valence(stable_psi * stability_factor);
+        double spectral = spectral_radius_estimate(norm_state);
+        double final_psi = stable_psi * (1.0 - spectral*0.1);
+        
+        final_psi = clamp(final_psi * (stability*0.3 + convergence*0.2 + 0.5), -1.0, 1.0);
+        
+        multi_scale_phi = (iit + gwt + hot) / 3.0;
+        recursive_depth = hot;
         
         return final_psi;
     }
@@ -401,10 +586,11 @@ struct ConceptGrounding {
     string concept_id;
     vector<string> linked_concepts;
     vector<int> linked_tokens;
-    double valence_affinity;
-    double state_binding;
-    double grounding_strength;
+    double valence_affinity, state_binding, grounding_strength;
     vector<double> embedding_vector;
+    map<string,double> semantic_field;
+    double perceptual_grounding;
+    double action_grounding;
 };
 
 struct BeamCandidate {
@@ -619,4 +805,4 @@ struct State {
     ReinforcementSignal learning_signal;
 };
 
-#endif // STRUCT_H
+#endif // STRUCTS_H
