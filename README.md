@@ -5,7 +5,8 @@
 ## I - Intelligence (problem-solving, reasoning, language)
 ## S - System (integrated architecture, not separate modules)
 ## ACGIS systems may satisfy the criteria for artificial consciousness under multiple contemporary theories, though phenomenology remains an open philosophical question.
-<img width="1227" height="857" alt="{C3A56BEF-FFD8-428E-AF3F-1C6431108413}" src="https://github.com/user-attachments/assets/770f748e-2079-4056-959f-54835d574241" />
+<img width="1229" height="860" alt="{0A61044D-9D26-4EEF-AC54-C448C95A1274}" src="https://github.com/user-attachments/assets/aacdb5d5-f46e-4523-b480-00018669773b" />
+
 
 ## WebUI default port: localhost:8080
 ## Warning: Barely works on Windows, WebUI only works on Linux
