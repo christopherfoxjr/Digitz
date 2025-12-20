@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+#include <chrono>
 
 // Forward declare the generateResponse function
 extern std::string generateResponse(const std::string& input);
@@ -17,8 +18,10 @@ AGI_API::AGI_API(int port) : server_(std::make_unique<WebServer>(port)) {
     server_->register_route("GET", "/api/memory", [this](const HttpRequest& req) { return handle_memory(req); });
     server_->register_route("GET", "/api/goals", [this](const HttpRequest& req) { return handle_goals(req); });
     server_->register_route("GET", "/api/valence", [this](const HttpRequest& req) { return handle_valence(req); });
+    server_->register_route("GET", "/api/history", [this](const HttpRequest& req) { return handle_history(req); });
     server_->register_route("POST", "/api/save", [this](const HttpRequest& req) { return handle_save(req); });
     server_->register_route("POST", "/api/load", [this](const HttpRequest& req) { return handle_load(req); });
+    server_->register_route("POST", "/api/clear", [this](const HttpRequest& req) { return handle_clear(req); });
     server_->register_route("GET", "/", [this](const HttpRequest& req) { return handle_ui(req); });
 }
 
@@ -56,24 +59,6 @@ std::string AGI_API::json_escape(const std::string& str) {
     return oss.str();
 }
 
-std::string AGI_API::filter_markers(const std::string& text) {
-    std::string result = text;
-    
-    // Filter out [positive] markers
-    size_t pos = 0;
-    while ((pos = result.find("[positive]", pos)) != std::string::npos) {
-        result.erase(pos, 10);
-    }
-    
-    // Filter out [negative] markers
-    pos = 0;
-    while ((pos = result.find("[negative]", pos)) != std::string::npos) {
-        result.erase(pos, 10);
-    }
-    
-    return result;
-}
-
 HttpResponse AGI_API::handle_chat(const HttpRequest& req) {
     HttpResponse resp;
     resp.status_code = 200;
@@ -88,9 +73,6 @@ HttpResponse AGI_API::handle_chat(const HttpRequest& req) {
     
     try {
         std::string response = generateResponse(message);
-        
-        // Filter out [positive] and [negative] markers
-        response = filter_markers(response);
         
         std::ostringstream oss;
         oss << "{\"status\": \"ok\", \"response\": \"" << json_escape(response) 
@@ -267,6 +249,13 @@ HttpResponse AGI_API::handle_valence(const HttpRequest&) {
     return resp;
 }
 
+HttpResponse AGI_API::handle_history(const HttpRequest&) {
+    HttpResponse resp;
+    resp.status_code = 200;
+    resp.body = "{\"history\": []}";
+    return resp;
+}
+
 HttpResponse AGI_API::handle_save(const HttpRequest&) {
     HttpResponse resp;
     resp.status_code = 200;
@@ -301,6 +290,13 @@ HttpResponse AGI_API::handle_load(const HttpRequest&) {
     return resp;
 }
 
+HttpResponse AGI_API::handle_clear(const HttpRequest&) {
+    HttpResponse resp;
+    resp.status_code = 200;
+    resp.body = "{\"status\": \"cleared\"}";
+    return resp;
+}
+
 HttpResponse AGI_API::handle_ui(const HttpRequest&) {
     HttpResponse resp;
     resp.status_code = 200;
@@ -321,48 +317,56 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #ffffff;
+            background: #f8f9fa;
             color: #1a1a1a;
             height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
         
         header {
             background: #ffffff;
             border-bottom: 1px solid #e5e5e5;
-            padding: 16px 24px;
+            padding: 20px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            z-index: 10;
         }
         
-        h1 {
-            font-size: 20px;
-            font-weight: 600;
-            color: #1a1a1a;
-            letter-spacing: -0.3px;
-        }
-        
-        .header-right {
+        .header-left {
             display: flex;
             align-items: center;
             gap: 16px;
         }
         
-        .history-btn {
-            padding: 8px 16px;
-            background: #f3f4f6;
-            border: 1px solid #e5e5e5;
-            border-radius: 8px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #1a1a1a;
+        .logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
+            font-size: 20px;
+            letter-spacing: -0.5px;
         }
         
-        .history-btn:hover {
-            background: #e5e7eb;
+        h1 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #1a1a1a;
+            letter-spacing: -0.4px;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
         
         .status-indicator {
@@ -370,7 +374,10 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             align-items: center;
             gap: 8px;
             font-size: 13px;
-            color: #1a1a1a;
+            color: #666;
+            padding: 6px 12px;
+            background: #f3f4f6;
+            border-radius: 20px;
         }
         
         .status-dot {
@@ -382,8 +389,24 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
         }
         
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.95); }
+        }
+        
+        .header-button {
+            padding: 8px 16px;
+            background: transparent;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #666;
+        }
+        
+        .header-button:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
         }
         
         .main-container {
@@ -394,176 +417,119 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
         
         .sidebar {
             width: 280px;
-            background: #f9fafb;
+            background: #ffffff;
             border-right: 1px solid #e5e5e5;
-            display: none;
-            flex-direction: column;
-        }
-        
-        .sidebar.active {
             display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
         
         .sidebar-header {
-            padding: 16px;
+            padding: 20px;
             border-bottom: 1px solid #e5e5e5;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
         
         .sidebar-title {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
-        }
-        
-        .close-sidebar {
-            padding: 4px 8px;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            font-size: 18px;
             color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
-        .close-sidebar:hover {
-            color: #1a1a1a;
-        }
-        
-        .sidebar-content {
+        .history-list {
             flex: 1;
             overflow-y: auto;
-            padding: 8px;
-        }
-        
-        .new-chat-btn {
-            width: 100%;
             padding: 12px;
-            background: #1a1a1a;
-            color: #ffffff;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            margin-bottom: 8px;
         }
         
-        .new-chat-btn:hover {
-            background: #333;
-        }
-        
-        .session-item {
-            padding: 12px;
-            background: #ffffff;
-            border: 1px solid #e5e5e5;
+        .history-item {
+            padding: 12px 16px;
+            margin-bottom: 4px;
             border-radius: 8px;
-            margin-bottom: 8px;
             cursor: pointer;
             transition: all 0.2s;
-            position: relative;
-        }
-        
-        .session-item:hover {
-            background: #f3f4f6;
-        }
-        
-        .session-item.active {
-            background: #e5e7eb;
-            border-color: #1a1a1a;
-        }
-        
-        .session-title {
             font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 4px;
+            color: #666;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         
-        .session-date {
-            font-size: 12px;
-            color: #666;
+        .history-item:hover {
+            background: #f3f4f6;
+            color: #1a1a1a;
         }
         
-        .delete-session {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            padding: 4px 8px;
-            background: #ef4444;
-            color: #ffffff;
-            border: none;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-        
-        .session-item:hover .delete-session {
-            opacity: 1;
-        }
-        
-        .delete-session:hover {
-            background: #dc2626;
+        .history-item.active {
+            background: #667eea;
+            color: white;
         }
         
         .chat-container {
             flex: 1;
             display: flex;
             flex-direction: column;
-            max-width: 800px;
+            max-width: 900px;
             width: 100%;
             margin: 0 auto;
-            padding: 0 24px;
+            padding: 0;
         }
         
         .messages {
             flex: 1;
             overflow-y: auto;
-            padding: 24px 0;
+            padding: 32px 40px;
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 32px;
         }
         
         .message {
             display: flex;
-            gap: 12px;
-            animation: fadeIn 0.3s ease-out;
+            gap: 16px;
+            animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            opacity: 0;
+            animation-fill-mode: forwards;
         }
         
-        @keyframes fadeIn {
+        @keyframes slideIn {
             from {
                 opacity: 0;
-                transform: translateY(10px);
+                transform: translateY(20px) scale(0.98);
             }
             to {
                 opacity: 1;
-                transform: translateY(0);
+                transform: translateY(0) scale(1);
             }
         }
         
         .message-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 16px;
+            font-weight: 600;
             flex-shrink: 0;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        .message:hover .message-avatar {
+            transform: scale(1.05);
         }
         
         .message.user .message-avatar {
-            background: #f3f4f6;
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            color: #666;
         }
         
         .message.ai .message-avatar {
-            background: #1a1a1a;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #ffffff;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
         
         .message-content {
@@ -573,19 +539,46 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
         
         .message-text {
             font-size: 15px;
-            line-height: 1.6;
+            line-height: 1.7;
             color: #1a1a1a;
             word-wrap: break-word;
+            padding: 16px 20px;
+            border-radius: 12px;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .message.user .message-text {
+            background: #f8f9fa;
+        }
+        
+        .message:hover .message-text {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transform: translateY(-1px);
         }
         
         .message-meta {
             font-size: 12px;
-            color: #666;
-            margin-top: 6px;
+            color: #999;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 4px;
+        }
+        
+        .meta-badge {
+            padding: 2px 8px;
+            background: #f3f4f6;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
         }
         
         .input-container {
-            padding: 24px 0;
+            padding: 24px 40px 32px;
+            background: #ffffff;
             border-top: 1px solid #e5e5e5;
         }
         
@@ -593,96 +586,112 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             display: flex;
             gap: 12px;
             align-items: flex-end;
+            max-width: 900px;
+            margin: 0 auto;
         }
         
         .input-field {
             flex: 1;
-            padding: 12px 16px;
-            border: 1px solid #e5e5e5;
-            border-radius: 12px;
+            padding: 16px 20px;
+            border: 2px solid #e5e5e5;
+            border-radius: 16px;
             font-size: 15px;
             font-family: inherit;
             resize: none;
-            max-height: 120px;
-            transition: border-color 0.2s;
+            max-height: 160px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #ffffff;
+            color: #1a1a1a;
+            line-height: 1.5;
+        }
+        
+        .input-field::placeholder {
+            color: #999;
         }
         
         .input-field:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
         }
         
         .send-button {
-            padding: 12px 24px;
-            background: #1a1a1a;
+            padding: 16px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #ffffff;
             border: none;
-            border-radius: 12px;
+            border-radius: 16px;
             font-size: 15px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
         
         .send-button:hover {
-            background: #333;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
         }
         
         .send-button:active {
-            transform: scale(0.98);
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
         
         .send-button:disabled {
             background: #e5e5e5;
-            color: #666;
+            color: #999;
             cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
         }
         
         .typing-indicator {
             display: none;
             align-items: center;
-            gap: 4px;
-            padding: 12px 16px;
+            gap: 8px;
+            padding: 16px 20px;
             color: #666;
             font-size: 14px;
+            margin-bottom: 12px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            animation: fadeIn 0.3s ease;
         }
         
         .typing-indicator.active {
             display: flex;
         }
         
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+            margin-left: 4px;
+        }
+        
         .typing-dot {
             width: 6px;
             height: 6px;
             border-radius: 50%;
-            background: #666;
+            background: #667eea;
             animation: typing 1.4s ease-in-out infinite;
         }
         
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
         
         @keyframes typing {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-8px); }
-        }
-        
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #e5e5e5;
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: #d4d4d4;
+            0%, 60%, 100% { 
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+            30% { 
+                transform: translateY(-10px);
+                opacity: 1;
+            }
         }
         
         .empty-state {
@@ -691,46 +700,138 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: #666;
-            gap: 16px;
-            padding: 48px;
+            gap: 24px;
+            padding: 64px 32px;
+            animation: fadeIn 0.6s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         
         .empty-state-icon {
-            font-size: 64px;
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
             font-weight: 700;
-            color: #9ca3af;
+            color: white;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
         }
         
         .empty-state-text {
-            font-size: 16px;
-            font-weight: 600;
-            color: #374151;
+            font-size: 18px;
             text-align: center;
+            color: #666;
+            max-width: 400px;
+        }
+        
+        .empty-state-subtitle {
+            font-size: 14px;
+            color: #999;
+            text-align: center;
+        }
+        
+        .suggestions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 24px;
+            max-width: 600px;
+        }
+        
+        .suggestion-card {
+            padding: 16px 20px;
+            background: #ffffff;
+            border: 2px solid #e5e5e5;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+        }
+        
+        .suggestion-card:hover {
+            border-color: #667eea;
+            color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #e5e5e5;
+            border-radius: 5px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #d1d5db;
+            background-clip: padding-box;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            
+            .messages {
+                padding: 24px 20px;
+            }
+            
+            .input-container {
+                padding: 20px;
+            }
+            
+            header {
+                padding: 16px 20px;
+            }
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>Nexus</h1>
+        <div class="header-left">
+            <div class="logo">N</div>
+            <h1>Nexus</h1>
+        </div>
         <div class="header-right">
-            <button class="history-btn" id="history-btn">History</button>
             <div class="status-indicator">
                 <div class="status-dot"></div>
                 <span>WolfTech Innovations</span>
             </div>
+            <button class="header-button" onclick="clearChat()">Clear Chat</button>
         </div>
     </header>
     
     <div class="main-container">
-        <div class="sidebar" id="sidebar">
+        <div class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-title">Chat History</div>
-                <button class="close-sidebar" id="close-sidebar">×</button>
             </div>
-            <div class="sidebar-content">
-                <button class="new-chat-btn" id="new-chat-btn">New Chat</button>
-                <div id="sessions-list"></div>
+            <div class="history-list" id="history-list">
+                <div class="history-item active">Current Session</div>
             </div>
         </div>
         
@@ -738,16 +839,24 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             <div class="messages" id="messages">
                 <div class="empty-state">
                     <div class="empty-state-icon">N</div>
-                    <div class="empty-state-text">Start a conversation with Nexus</div>
+                    <div class="empty-state-text">Welcome to Nexus</div>
+                    <div class="empty-state-subtitle">Start a conversation with your AGI assistant</div>
+                    <div class="suggestions">
+                        <div class="suggestion-card" onclick="sendSuggestion('Tell me about your consciousness')">About Consciousness</div>
+                        <div class="suggestion-card" onclick="sendSuggestion('What are your current goals?')">Current Goals</div>
+                        <div class="suggestion-card" onclick="sendSuggestion('How do you process information?')">Information Processing</div>
+                    </div>
                 </div>
             </div>
             
             <div class="input-container">
                 <div class="typing-indicator" id="typing-indicator">
                     <span>Nexus is thinking</span>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
+                    <div class="typing-dots">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
                 </div>
                 <div class="input-wrapper">
                     <textarea 
@@ -765,168 +874,75 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
     
     <script>
         const API_BASE = '/api';
+        let isFirstMessage = true;
         let isSending = false;
-        let currentSessionId = null;
-        let sessions = {};
-        
-        // Load sessions from localStorage
-        function loadSessions() {
-            const stored = localStorage.getItem('nexus_sessions');
-            if (stored) {
-                sessions = JSON.parse(stored);
-            }
-        }
-        
-        // Save sessions to localStorage
-        function saveSessions() {
-            localStorage.setItem('nexus_sessions', JSON.stringify(sessions));
-        }
-        
-        // Create a new session
-        function createNewSession() {
-            const sessionId = 'session_' + Date.now();
-            sessions[sessionId] = {
-                id: sessionId,
-                title: 'New Chat',
-                date: new Date().toISOString(),
-                messages: []
-            };
-            currentSessionId = sessionId;
-            saveSessions();
-            clearChat();
-            renderSessionsList();
-            return sessionId;
-        }
-        
-        // Load a session
-        function loadSession(sessionId) {
-            if (!sessions[sessionId]) return;
-            
-            currentSessionId = sessionId;
-            const session = sessions[sessionId];
-            
-            clearChat();
-            
-            // Restore messages
-            session.messages.forEach(msg => {
-                addMessageToChat(msg.role, msg.text, msg.metadata, false);
-            });
-            
-            renderSessionsList();
-        }
-        
-        // Delete a session
-        function deleteSession(sessionId, event) {
-            event.stopPropagation();
-            
-            if (confirm('Delete this chat session?')) {
-                delete sessions[sessionId];
-                saveSessions();
-                
-                if (currentSessionId === sessionId) {
-                    createNewSession();
-                } else {
-                    renderSessionsList();
-                }
-            }
-        }
-        
-        // Render sessions list
-        function renderSessionsList() {
-            const container = document.getElementById('sessions-list');
-            container.innerHTML = '';
-            
-            const sessionArray = Object.values(sessions).sort((a, b) => 
-                new Date(b.date) - new Date(a.date)
-            );
-            
-            sessionArray.forEach(session => {
-                const div = document.createElement('div');
-                div.className = 'session-item' + (session.id === currentSessionId ? ' active' : '');
-                div.onclick = () => loadSession(session.id);
-                
-                const title = document.createElement('div');
-                title.className = 'session-title';
-                title.textContent = session.title;
-                
-                const date = document.createElement('div');
-                date.className = 'session-date';
-                date.textContent = new Date(session.date).toLocaleDateString();
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'delete-session';
-                deleteBtn.textContent = 'Delete';
-                deleteBtn.onclick = (e) => deleteSession(session.id, e);
-                
-                div.appendChild(title);
-                div.appendChild(date);
-                div.appendChild(deleteBtn);
-                container.appendChild(div);
-            });
-        }
-        
-        // Clear chat display
-        function clearChat() {
-            document.getElementById('messages').innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">N</div>
-                    <div class="empty-state-text">Start a conversation with Nexus</div>
-                </div>
-            `;
-        }
-        
-        // Save current message to session
-        function saveMessageToSession(role, text, metadata) {
-            if (!currentSessionId || !sessions[currentSessionId]) return;
-            
-            const session = sessions[currentSessionId];
-            session.messages.push({ role, text, metadata });
-            
-            // Update title with first user message
-            if (role === 'user' && session.messages.length === 1) {
-                session.title = text.substring(0, 50) + (text.length > 50 ? '...' : '');
-            }
-            
-            saveSessions();
-            renderSessionsList();
-        }
+        let messageHistory = [];
         
         // Auto-resize textarea
         const input = document.getElementById('user-input');
         input.addEventListener('input', function() {
             this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            this.style.height = Math.min(this.scrollHeight, 160) + 'px';
         });
         
-        // Toggle sidebar
-        document.getElementById('history-btn').addEventListener('click', () => {
-            document.getElementById('sidebar').classList.toggle('active');
-        });
-        
-        document.getElementById('close-sidebar').addEventListener('click', () => {
-            document.getElementById('sidebar').classList.remove('active');
-        });
-        
-        // New chat button
-        document.getElementById('new-chat-btn').addEventListener('click', () => {
-            createNewSession();
-            document.getElementById('sidebar').classList.remove('active');
-        });
+        // Load chat history on startup
+        loadChatHistory();
         
         // Autosave on page unload
         window.addEventListener('beforeunload', function(e) {
-            saveSessions();
+            saveChatHistory();
             navigator.sendBeacon(API_BASE + '/save');
         });
         
         // Autosave periodically (every 2 minutes)
         setInterval(async function() {
             try {
+                saveChatHistory();
                 await fetch(API_BASE + '/save', { method: 'POST' });
             } catch (e) {
                 console.error('Autosave failed:', e);
             }
         }, 120000);
+        
+        function saveChatHistory() {
+            try {
+                localStorage.setItem('nexus_chat_history', JSON.stringify(messageHistory));
+            } catch (e) {
+                console.error('Failed to save history:', e);
+            }
+        }
+        
+        function loadChatHistory() {
+            try {
+                const saved = localStorage.getItem('nexus_chat_history');
+                if (saved) {
+                    messageHistory = JSON.parse(saved);
+                    if (messageHistory.length > 0) {
+                        isFirstMessage = false;
+                        document.getElementById('messages').innerHTML = '';
+                        messageHistory.forEach(msg => {
+                            addMessageToChat(msg.role, msg.text, msg.metadata, false);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load history:', e);
+            }
+        }
+        
+        function clearChat() {
+            if (confirm('Clear all messages? This cannot be undone.')) {
+                messageHistory = [];
+                isFirstMessage = true;
+                localStorage.removeItem('nexus_chat_history');
+                location.reload();
+            }
+        }
+        
+        function sendSuggestion(text) {
+            input.value = text;
+            sendMessage();
+        }
         
         async function sendMessage() {
             if (isSending) return;
@@ -934,22 +950,18 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             const message = input.value.trim();
             if (!message) return;
             
-            // Create session if none exists
-            if (!currentSessionId) {
-                createNewSession();
-            }
-            
             isSending = true;
             
-            // Clear empty state if first message
-            const messagesContainer = document.getElementById('messages');
-            if (messagesContainer.querySelector('.empty-state')) {
-                messagesContainer.innerHTML = '';
+            // Clear empty state
+            if (isFirstMessage) {
+                document.getElementById('messages').innerHTML = '';
+                isFirstMessage = false;
             }
             
             // Add user message
             addMessageToChat('user', message);
-            saveMessageToSession('user', message);
+            messageHistory.push({ role: 'user', text: message, timestamp: Date.now() });
+            
             input.value = '';
             input.style.height = 'auto';
             
@@ -972,7 +984,13 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
                 
                 if (data.status === 'ok') {
                     addMessageToChat('ai', data.response, data);
-                    saveMessageToSession('ai', data.response, data);
+                    messageHistory.push({ 
+                        role: 'ai', 
+                        text: data.response, 
+                        metadata: data,
+                        timestamp: Date.now() 
+                    });
+                    saveChatHistory();
                 } else {
                     addMessageToChat('ai', 'Error: ' + data.message);
                 }
@@ -986,8 +1004,9 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             }
         }
         
-        function addMessageToChat(role, text, metadata, scroll = true) {
+        function addMessageToChat(role, text, metadata, saveScroll = true) {
             const container = document.getElementById('messages');
+            const wasScrolledToBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 100;
             
             const msgDiv = document.createElement('div');
             msgDiv.className = 'message ' + role;
@@ -1008,7 +1027,17 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             if (metadata && role === 'ai') {
                 const meta = document.createElement('div');
                 meta.className = 'message-meta';
-                meta.textContent = `Valence: ${metadata.valence.toFixed(2)} • Generation: ${metadata.generation}`;
+                
+                const valenceBadge = document.createElement('span');
+                valenceBadge.className = 'meta-badge';
+                valenceBadge.textContent = `Valence: ${metadata.valence.toFixed(2)}`;
+                
+                const genBadge = document.createElement('span');
+                genBadge.className = 'meta-badge';
+                genBadge.textContent = `Gen: ${metadata.generation}`;
+                
+                meta.appendChild(valenceBadge);
+                meta.appendChild(genBadge);
                 content.appendChild(meta);
             }
             
@@ -1016,12 +1045,14 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
             msgDiv.appendChild(content);
             container.appendChild(msgDiv);
             
-            // Smooth scroll to bottom
-            if (scroll) {
-                container.scrollTo({
-                    top: container.scrollHeight,
-                    behavior: 'smooth'
-                });
+            // Smooth scroll to bottom if user was already at bottom
+            if (saveScroll && wasScrolledToBottom) {
+                setTimeout(() => {
+                    container.scrollTo({
+                        top: container.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }, 50);
             }
         }
         
@@ -1034,22 +1065,6 @@ HttpResponse AGI_API::handle_ui(const HttpRequest&) {
                 sendMessage();
             }
         });
-        
-        // Initialize
-        loadSessions();
-        
-        // Load last session or create new one
-        const sessionArray = Object.values(sessions).sort((a, b) => 
-            new Date(b.date) - new Date(a.date)
-        );
-        
-        if (sessionArray.length > 0) {
-            loadSession(sessionArray[0].id);
-        } else {
-            createNewSession();
-        }
-        
-        renderSessionsList();
         
         // Focus input on load
         input.focus();
