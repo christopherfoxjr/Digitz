@@ -25,11 +25,13 @@ struct Neuron {
     double weight; 
     double bias; 
     int gen; 
-    double activation;
-    double gradient;
-    vector<double> layer_norm_params;
+    double activation;  // ADD THIS
+    double gradient;    // ADD THIS
+    vector<double> layer_norm_params;  // ADD THIS
+    vector<double> neuromodulator_levels;  // ADD THIS
+    double plasticity_rate;  // ADD THIS
+    double homeostatic_setpoint;  // ADD THIS
 };
-
 
 struct Token { 
     string word; 
@@ -55,11 +57,15 @@ struct Memory {
     int gen; 
     double valence; 
     string content;
-    double consolidation_strength;
-    double retrieval_count;
-    vector<int> associated_memories;
+    double consolidation_strength;  // ADD THIS
+    double retrieval_count;  // ADD THIS
+    vector<int> associated_memories;  // ADD THIS
+    double hippocampal_trace;  // ADD THIS
+    double cortical_consolidation;  // ADD THIS
+    bool is_semantic;  // ADD THIS
+    bool is_episodic;  // ADD THIS
+    bool is_procedural;  // ADD THIS
 };
-
 
 
 #ifndef MATHEMATICAL_CONSTANTS
@@ -112,7 +118,79 @@ struct Qualia {
                binding_strength(0.5), ineffability_index(0.5), 
                intrinsic_quality(0.5), phenomenal_unity(0.5) {}
 };
+struct EmotionalSystem {
+    map<string,double> basic_emotions;
+    double valence, arousal, dominance;
+    vector<double> appraisal_dimensions;
+    double mood_baseline;
+    double emotional_regulation_strength;
+    map<string,double> emotion_transition_probabilities;
+    
+    EmotionalSystem() : valence(0), arousal(0.5), dominance(0.5), mood_baseline(0.5), emotional_regulation_strength(0.5) {}
+};
 
+struct MotivationalSystem {
+    map<string,double> drive_states;
+    double homeostatic_balance;
+    vector<string> active_motives;
+    map<string,double> need_satisfaction_levels;
+    double intrinsic_motivation_level;
+    double extrinsic_reward_sensitivity;
+    
+    MotivationalSystem() : homeostatic_balance(0.5), intrinsic_motivation_level(0.7), extrinsic_reward_sensitivity(0.5) {}
+};
+
+struct PredictiveCodingNetwork {
+    vector<double> prediction_units;
+    vector<double> error_units;
+    vector<double> precision_weights;
+    double hierarchical_depth;
+    map<int,vector<double>> layer_predictions;
+    map<int,vector<double>> layer_errors;
+    
+    PredictiveCodingNetwork() : hierarchical_depth(0.0) {}
+    
+    double compute_free_energy(const vector<double>& sensory_input) {
+        double fe = 0.0;
+        for(size_t i=0; i<min(sensory_input.size(), prediction_units.size()); i++) {
+            double error = sensory_input[i] - prediction_units[i];
+            double precision = i < precision_weights.size() ? precision_weights[i] : 1.0;
+            fe += precision * error * error;
+        }
+        return fe;
+    }
+};
+
+struct BayesianBrain {
+    map<string,double> prior_beliefs;
+    map<string,double> posterior_beliefs;
+    map<string,double> likelihood_estimates;
+    double epistemic_uncertainty;
+    double aleatoric_uncertainty;
+    
+    BayesianBrain() : epistemic_uncertainty(0.5), aleatoric_uncertainty(0.5) {}
+    
+    double bayesian_update(double prior, double likelihood, double evidence) {
+        return safe_div(likelihood * prior, evidence);
+    }
+};
+
+struct QuantumCognition {
+    vector<complex<double>> superposition_state;
+    vector<vector<complex<double>>> density_matrix;
+    double coherence_time;
+    double decoherence_rate;
+    
+    QuantumCognition() : coherence_time(0.0), decoherence_rate(0.1) {}
+    
+    double measure_interference(const vector<double>& path_a, const vector<double>& path_b) {
+        double interference = 0.0;
+        for(size_t i=0; i<min(path_a.size(), path_b.size()); i++) {
+            interference += path_a[i] * path_b[i] * cos(pi * (path_a[i] - path_b[i]));
+        }
+        return interference / min(path_a.size(), path_b.size());
+    }
+};
 struct ConsciousnessState {
     vector<Qualia> active_qualia;
     double integrated_information;
@@ -624,6 +702,19 @@ struct ConsciousnessMetrics {
     double complexity;
     double differentiation;
     double synchrony;
+    double access_consciousness;
+    double phenomenal_consciousness;
+    double meta_awareness;
+    double self_model_coherence;
+    double binding_strength;
+    vector<double> phi_history;
+    
+    ConsciousnessMetrics() : phi(0), integrated_info(0), qualia_intensity(0), 
+                            global_workspace(0), awareness_cycles(0), 
+                            complexity(0), differentiation(0), synchrony(0),
+                            access_consciousness(0), phenomenal_consciousness(0), 
+                            meta_awareness(0), self_model_coherence(0.5),
+                            binding_strength(0.0) {}
 };
 
 struct GoalNode {
@@ -655,10 +746,12 @@ struct Goal {
     double qualia_binding;
     double activation_threshold;
     double decay_rate;
+    double expected_utility;  // <-- ADD THIS
+    int planning_depth;       // <-- AND THIS
     Goal() : priority(0.5), progress(0), valence_alignment(0.5), 
-             qualia_binding(0), activation_threshold(0.3), decay_rate(0.95) {}
+             qualia_binding(0), activation_threshold(0.3), 
+             decay_rate(0.95), expected_utility(0), planning_depth(0) {}
 };
-
 struct WorldModel {
     map<string,double> entity_states;
     map<string,map<string,double>> relationships;
@@ -704,15 +797,38 @@ struct TransferLearningModule {
     map<string,double> transfer_success_rates;
     TransferLearningModule() : knowledge_distillation_loss(0.0) {}
 };
-
+struct ReinforcementSignal {
+    double reward;
+    double prediction_error;
+    double temporal_difference;
+    double policy_gradient;
+    vector<double> state_value_estimate;
+    double intrinsic_motivation;
+    double curiosity_bonus;
+    double empowerment_metric;
+    double exploration_bonus;
+    vector<double> reward_history;
+    
+    ReinforcementSignal() : reward(0), prediction_error(0), temporal_difference(0), 
+                            policy_gradient(0), intrinsic_motivation(0.7), 
+                            curiosity_bonus(0.5), empowerment_metric(0.0),
+                            exploration_bonus(0.3) {}
+};
 struct AttentionMechanism {
     vector<vector<double>> attention_matrix;
     vector<double> attention_scores;
     double temperature;
     int num_heads;
     vector<double> positional_encoding;
+    vector<double> relative_position_bias;
+    double sparse_attention_threshold;
+    map<int,double> head_importance;
+    vector<double> attention_weights;
+    double attention_entropy;
     
-    AttentionMechanism() : temperature(1.0), num_heads(8) {}
+    AttentionMechanism() : temperature(1.0), num_heads(8), 
+                          sparse_attention_threshold(0.1),
+                          attention_entropy(0.0) {}
     
     vector<double> compute_attention(const vector<double>& query, 
                                      const vector<vector<double>>& keys,
@@ -726,28 +842,22 @@ struct AttentionMechanism {
             scores.push_back(exp(score / temperature));
         }
         
-        double sum_scores = 0.0;
-        for(double s : scores) sum_scores += s;
+        double sum = 0.0;
+        for(double s : scores) sum += s;
         
         vector<double> result(query.size(), 0.0);
         for(size_t i=0; i<values.size() && i<scores.size(); i++) {
-            double weight = safe_div(scores[i], sum_scores);
-            for(size_t j=0; j<result.size() && j<values[i].size(); j++) {
-                result[j] += weight * values[i][j];
+            double weight = safe_div(scores[i], sum);
+            if(weight > sparse_attention_threshold) {
+                for(size_t j=0; j<result.size() && j<values[i].size(); j++) {
+                    result[j] += weight * values[i][j];
+                }
             }
         }
-        
         return result;
     }
 };
 
-struct ReinforcementSignal {
-    double reward;
-    double prediction_error;
-    double temporal_difference;
-    double policy_gradient;
-    vector<double> state_value_estimate;
-};
 
 struct MetaCognitionModule {
     double self_awareness_level;
@@ -755,12 +865,25 @@ struct MetaCognitionModule {
     double confidence_calibration;
     map<string,double> knowledge_state;
     vector<string> metacognitive_thoughts;
+    double epistemic_humility;
+    double theory_of_mind_depth;
+    map<string,double> belief_revision_rates;
+    double introspection_depth;
+    double cognitive_monitoring;
+    vector<string> self_reflections;
     
-    MetaCognitionModule() : self_awareness_level(0.5), uncertainty_estimation(0.5),
-                           confidence_calibration(0.5) {}
+    MetaCognitionModule() : self_awareness_level(0.5), 
+                           uncertainty_estimation(0.5),
+                           confidence_calibration(0.5), 
+                           epistemic_humility(0.5), 
+                           theory_of_mind_depth(0.3),
+                           introspection_depth(0.4),
+                           cognitive_monitoring(0.5) {}
 };
-
 struct State {
+    State() = default;
+    State(const State&) = default;
+    State& operator=(const State&) = default;
     map<string,double> D;
     map<string,string> M;
     map<int,Neuron> N;
@@ -802,7 +925,12 @@ struct State {
     vector<double> psi_history;
     AttentionMechanism attention_system;
     MetaCognitionModule metacognition;
-    ReinforcementSignal learning_signal;
+    ReinforcementSignal learning_signal;  
+    EmotionalSystem emotional_system;  // ADD THIS
+    MotivationalSystem motivational_system;  // ADD THIS
+    PredictiveCodingNetwork predictive_network;  // ADD THIS
+    BayesianBrain bayesian_inference;  // ADD THIS
+    QuantumCognition quantum_layer;  // ADD THIS
 };
 
 #endif // STRUCTS_H
