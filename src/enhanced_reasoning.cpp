@@ -1,5 +1,6 @@
 #include "enhanced_reasoning.h"
 #include "state.h"
+#include "struct.h"
 #include <algorithm>
 #include <cmath>
 #include <random>
