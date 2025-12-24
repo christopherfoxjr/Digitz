@@ -9,6 +9,7 @@
 #include <memory>
 #include <thread>
 #include <mutex>
+#include <atomic>
 
 struct HttpRequest {
     std::string method;
@@ -19,7 +20,7 @@ struct HttpRequest {
 };
 
 struct HttpResponse {
-    int status_code;
+    int status_code = 200;
     std::map<std::string, std::string> headers;
     std::string body;
 };
@@ -40,12 +41,18 @@ public:
     
 private:
     int port_;
-    bool running_;
+    std::atomic<bool> running_;
     std::unique_ptr<std::thread> server_thread_;
     std::mutex handlers_mutex_;
     std::map<std::string, RequestHandler> get_handlers_;
     std::map<std::string, RequestHandler> post_handlers_;
     std::map<std::string, std::string> static_files_;
+    
+#ifdef _WIN32
+    std::atomic<unsigned long long> listen_socket_;
+#else
+    std::atomic<int> listen_socket_;
+#endif
     
     void run_server();
     HttpResponse handle_request(const HttpRequest& req);
