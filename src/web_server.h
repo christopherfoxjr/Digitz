@@ -48,11 +48,7 @@ private:
     std::map<std::string, RequestHandler> post_handlers_;
     std::map<std::string, std::string> static_files_;
     
-#ifdef _WIN32
-    std::atomic<unsigned long long> listen_socket_;
-#else
-    std::atomic<int> listen_socket_;
-#endif
+    int listen_socket_;  // No atomic needed - protected by running_ flag
     
     void run_server();
     HttpResponse handle_request(const HttpRequest& req);
