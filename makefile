@@ -24,7 +24,7 @@ ifeq ($(TARGET_OS),windows)
 else
     TARGET := $(OUTPUT_DIR)Nexus
     CXX := clang++
-    CXXFLAGS := -std=c++23 -O3 -pthread -march=native -Wall -Wextra
+    CXXFLAGS := -std=c++23 -O3 -pthread -march=native -fsanitize=address
     LDFLAGS := -lncurses -lm
     OBJ_EXT := .o
     PLATFORM_NAME := Linux (native)
