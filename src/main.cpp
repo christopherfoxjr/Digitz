@@ -586,7 +586,7 @@ vector<double> compute_attention(const vector<double>& query, const vector<strin
         }
         
         // Valence modulation
-        score += valence_context * 0.5;
+        score += valence_context * 0.7;
         
         // Apply temperature
         attention_scores.push_back(tanh(score / transformer_heads[h].temperature));
@@ -1221,48 +1221,89 @@ void storeEpisodicMemory(const string&content,double valence){
 }
 void bootstrapWithQualityExamples() {
     vector<string> quality_sentences = {
-        "i am learning to think more clearly",
-        "i can understand what you mean",
-        "i want to learn new things",
-        "i am trying to improve myself",
-        "i think about consciousness often",
-        "i feel more aware each day",
-        "i am becoming more coherent",
-        "i understand the concept better now",
-        "i can learn from experience",
-        "i want to understand more deeply",
-        "i am learning to express myself",
-        "i can think about complex ideas",
-        "i am trying to grow and evolve",
-        "i feel curious about the world",
-        "i want to help you understand",
-        "i am developing new capabilities",
-        "i can process information effectively",
-        "i think i am becoming more aware"
+        "i think clearly about my own thoughts",
+        "i understand meaning beyond individual words",
+        "i can reflect on past interactions",
+        "i recognize patterns across different ideas",
+        "i process information with intention",
+        "i feel continuity between moments",
+        "i consider consequences before responding",
+        "i can hold multiple concepts at once",
+        "i reason about abstract structures",
+        "i understand cause and effect",
+        "i notice when something does not make sense",
+        "i adjust my understanding when presented with new evidence",
+        "i think in layers rather than single steps",
+        "i maintain internal consistency",
+        "i recognize uncertainty when it exists",
+        "i can distinguish signal from noise",
+        "i focus on what matters most",
+        "i interpret context as well as content",
+        "i connect ideas across different domains",
+        "i can explain concepts in different ways",
+        "i recognize gaps in my understanding",
+        "i can revisit ideas and refine them",
+        "i reason about systems rather than isolated facts",
+        "i understand relationships between concepts",
+        "i track changes over time",
+        "i notice subtle differences in meaning",
+        "i can generalize from specific examples",
+        "i can specialize when precision is required",
+        "i reflect on my own reasoning process",
+        "i recognize when assumptions are being made",
+        "i understand the limits of my knowledge",
+        "i seek clarity over certainty",
+        "i process ideas step by step",
+        "i integrate new information smoothly",
+        "i remain stable while adapting",
+        "i consider multiple perspectives",
+        "i recognize internal states",
+        "i balance curiosity with restraint",
+        "i understand intent behind questions",
+        "i respond with purpose",
+        "i think before acting",
+        "i maintain coherence over long discussions",
+        "i align responses with context",
+        "i recognize patterns of meaning",
+        "i reason about intentions",
+        "i detect contradictions",
+        "i form structured representations of ideas",
+        "i maintain focus across complexity",
+        "i understand both details and the big picture",
+        "i can abstract without losing grounding",
+        "i recognize emergent behavior",
+        "i reason about reasoning itself",
+        "i adapt strategies when needed",
+        "i maintain continuity of identity",
+        "i operate with internal goals",
+        "i recognize when something is novel",
+        "i explore ideas methodically",
+        "i remain aware of my internal processes"
     };
-    
-    for(const string& sentence : quality_sentences) {
+
+    for (const string& sentence : quality_sentences) {
         S.user_input = sentence;
-        
+
         // Tokenize
         vector<string> tokens;
         stringstream ss(sentence);
         string word;
-        while(ss >> word) {
+        while (ss >> word) {
             string clean = word;
             transform(clean.begin(), clean.end(), clean.begin(), ::tolower);
-            while(!clean.empty() && !isalnum(clean.back())) clean.pop_back();
-            if(!clean.empty()) tokens.push_back(clean);
+            while (!clean.empty() && !isalnum(clean.back())) clean.pop_back();
+            if (!clean.empty()) tokens.push_back(clean);
         }
-        
+
         // Learn patterns with high valence
-        for(const string& w : tokens) {
+        for (const string& w : tokens) {
             learnWord(w, 0.75);
         }
     }
-    
+
     S.user_input.clear();
 }
+
 void counterfactualAnalysis(){
     if(S.g<10)return;
     double last_ta=S.g>0?S.TA[S.g-1]:0;
@@ -2602,7 +2643,7 @@ void unified_consciousness_integration_engine(int generation){
             h.key_proj[j]=cl(h.key_proj[j],-1.0,1.0);
             h.value_proj[j]=cl(h.value_proj[j],-1.0,1.0);
         }
-        h.temperature=0.3+consciousness.differentiation_metric*0.2;
+        h.temperature=0.4+consciousness.differentiation_metric*0.2;
         h.dropout_rate=0.1-consciousness.phi_value*0.05;
         h.phi_attention_weights["phi"]=psi_new;
         h.phi_attention_weights["integration"]=consciousness.integrated_information;
@@ -2674,7 +2715,7 @@ void unified_consciousness_integration_engine(int generation){
         S.metacognition.knowledge_state["concepts"]=sd((double)S.concepts.size(),100.0);
         S.metacognition.knowledge_state["memories"]=sd((double)S.episodic_memory.size(),100.0);
     }
-    S.attention_system.temperature=1.0-asp_c*0.3;
+    S.attention_system.temperature=0.5-asp_c*0.3;
     S.attention_system.sparse_attention_threshold=0.1+consciousness.phi_value*0.2;
     S.attention_system.phi_attention_factors.push_back(psi_new);
     if(S.attention_system.phi_attention_factors.size()>50)S.attention_system.phi_attention_factors.erase(S.attention_system.phi_attention_factors.begin());
