@@ -87,6 +87,7 @@ ActionPlan current_plan;
 ConsciousnessState consciousness;
 vector<TransformerHead> transformer_heads;
 TransferLearningModule transfer_module;
+std::mutex learning_mutex;
 void groundConcept(const string& concept_name, const vector<string>& related_words, double valence) {
     ConceptGrounding grounding;
     grounding.concept_id = concept_name;
@@ -912,6 +913,7 @@ void formulate_goals_from_valence() {
 // ==== LANGUAGE & LEARNING ====
 
 void learnWord(const string&word, double concept_value){
+    std::lock_guard<std::mutex> lock(learning_mutex);
     // 1. Normalization
     string lower_word=word;
     transform(lower_word.begin(),lower_word.end(),lower_word.begin(),::tolower);
