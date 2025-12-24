@@ -14,13 +14,15 @@
     #include <arpa/inet.h>
     #include <unistd.h>
     #include <cstring>
+    #include <fcntl.h>
+    #include <sys/select.h>
     #define SOCKET int
     #define INVALID_SOCKET -1
     #define SOCKET_ERROR -1
     #define closesocket close
 #endif
 
-WebServer::WebServer(int port) : port_(port), running_(false) {}
+WebServer::WebServer(int port) : port_(port), running_(false), listen_socket_(INVALID_SOCKET) {}
 
 WebServer::~WebServer() {
     stop();
@@ -33,7 +35,17 @@ void WebServer::start() {
 }
 
 void WebServer::stop() {
+    if (!running_) return;
+    
     running_ = false;
+    
+    // Close the listening socket to interrupt accept()
+    if (listen_socket_ != INVALID_SOCKET) {
+        closesocket(listen_socket_);
+        listen_socket_ = INVALID_SOCKET;
+    }
+    
+    // Wait for thread to finish
     if (server_thread_ && server_thread_->joinable()) {
         server_thread_->join();
     }
@@ -53,6 +65,7 @@ void WebServer::register_route(const std::string& method, const std::string& pat
 }
 
 void WebServer::register_static_file(const std::string& path, const std::string& file_path) {
+    std::lock_guard<std::mutex> lock(handlers_mutex_);
     static_files_[path] = file_path;
 }
 
@@ -62,49 +75,88 @@ void WebServer::run_server() {
     WSAStartup(MAKEWORD(2, 2), &wsa_data);
 #endif
 
-    SOCKET listen_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (listen_socket == INVALID_SOCKET) {
+    listen_socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (listen_socket_ == INVALID_SOCKET) {
         std::cerr << "Socket creation failed" << std::endl;
+        running_ = false;
         return;
     }
 
     int opt = 1;
-    if (setsockopt(listen_socket, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0) {
+    if (setsockopt(listen_socket_, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0) {
         std::cerr << "setsockopt failed" << std::endl;
-        closesocket(listen_socket);
+        closesocket(listen_socket_);
+        listen_socket_ = INVALID_SOCKET;
+        running_ = false;
         return;
     }
+
+#ifndef _WIN32
+    // Set socket to non-blocking mode on Unix
+    int flags = fcntl(listen_socket_, F_GETFL, 0);
+    fcntl(listen_socket_, F_SETFL, flags | O_NONBLOCK);
+#endif
 
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     server_addr.sin_port = htons(port_);
 
-    if (bind(listen_socket, (sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+    if (bind(listen_socket_, (sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
         std::cerr << "Bind failed on port " << port_ << std::endl;
-        closesocket(listen_socket);
+        closesocket(listen_socket_);
+        listen_socket_ = INVALID_SOCKET;
+        running_ = false;
         return;
     }
 
-    if (listen(listen_socket, SOMAXCONN) == SOCKET_ERROR) {
+    if (listen(listen_socket_, SOMAXCONN) == SOCKET_ERROR) {
         std::cerr << "Listen failed" << std::endl;
-        closesocket(listen_socket);
+        closesocket(listen_socket_);
+        listen_socket_ = INVALID_SOCKET;
+        running_ = false;
         return;
     }
 
     std::cout << "WebServer started on port " << port_ << std::endl;
 
     while (running_) {
+#ifndef _WIN32
+        // Use select to wait with timeout so we can check running_ flag
+        fd_set read_fds;
+        FD_ZERO(&read_fds);
+        FD_SET(listen_socket_, &read_fds);
+        
+        struct timeval timeout;
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+        
+        int select_result = select(listen_socket_ + 1, &read_fds, nullptr, nullptr, &timeout);
+        
+        if (select_result < 0) {
+            if (!running_) break; // Socket was closed, exit cleanly
+            std::cerr << "Select failed" << std::endl;
+            break;
+        }
+        
+        if (select_result == 0) {
+            continue; // Timeout, check running_ flag again
+        }
+        
+        if (!FD_ISSET(listen_socket_, &read_fds)) {
+            continue;
+        }
+#endif
+
         sockaddr_in client_addr{};
         socklen_t client_addr_len = sizeof(client_addr);
 
-#ifdef _WIN32
-        SOCKET client_socket = accept(listen_socket, (sockaddr*)&client_addr, &client_addr_len);
-#else
-        SOCKET client_socket = accept(listen_socket, (sockaddr*)&client_addr, (socklen_t*)&client_addr_len);
-#endif
+        SOCKET client_socket = accept(listen_socket_, (sockaddr*)&client_addr, &client_addr_len);
 
-        if (client_socket == INVALID_SOCKET) continue;
+        if (client_socket == INVALID_SOCKET) {
+            if (!running_) break; // Server is shutting down
+            continue;
+        }
 
         char buffer[8192] = {0};
         int recv_len = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
@@ -120,7 +172,11 @@ void WebServer::run_server() {
         closesocket(client_socket);
     }
 
-    closesocket(listen_socket);
+    if (listen_socket_ != INVALID_SOCKET) {
+        closesocket(listen_socket_);
+        listen_socket_ = INVALID_SOCKET;
+    }
+
 #ifdef _WIN32
     WSACleanup();
 #endif
@@ -155,13 +211,17 @@ HttpRequest WebServer::parse_request(const std::string& raw_request) {
         }
     }
     
-    req.body = iss.str().substr(iss.tellg());
+    std::streampos pos = iss.tellg();
+    if (pos != -1) {
+        req.body = iss.str().substr(pos);
+    }
     
     return req;
 }
 
 HttpResponse WebServer::handle_request(const HttpRequest& req) {
     HttpResponse resp;
+    resp.status_code = 200;
     resp.headers["Content-Type"] = "application/json";
     resp.headers["Access-Control-Allow-Origin"] = "*";
     resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
