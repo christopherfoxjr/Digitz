@@ -16,6 +16,7 @@
     #include <cstring>
     #include <fcntl.h>
     #include <sys/select.h>
+    #include <errno.h>
     #define SOCKET int
     #define INVALID_SOCKET -1
     #define SOCKET_ERROR -1
@@ -29,30 +30,32 @@ WebServer::~WebServer() {
 }
 
 void WebServer::start() {
-    if (running_) return;
-    running_ = true;
+    if (running_.load()) return;
+    running_.store(true);
     server_thread_ = std::make_unique<std::thread>(&WebServer::run_server, this);
 }
 
 void WebServer::stop() {
-    if (!running_) return;
+    if (!running_.load()) return;
     
-    running_ = false;
+    running_.store(false);
     
-    // Close the listening socket to interrupt accept()
-    if (listen_socket_ != INVALID_SOCKET) {
-        closesocket(listen_socket_);
-        listen_socket_ = INVALID_SOCKET;
+    // Close socket to interrupt accept/select
+    SOCKET sock = listen_socket_.load();
+    if (sock != INVALID_SOCKET) {
+        shutdown(sock, SHUT_RDWR);
+        closesocket(sock);
+        listen_socket_.store(INVALID_SOCKET);
     }
     
-    // Wait for thread to finish
+    // Wait for thread
     if (server_thread_ && server_thread_->joinable()) {
         server_thread_->join();
     }
 }
 
 bool WebServer::is_running() const {
-    return running_;
+    return running_.load();
 }
 
 void WebServer::register_route(const std::string& method, const std::string& path, RequestHandler handler) {
@@ -75,75 +78,73 @@ void WebServer::run_server() {
     WSAStartup(MAKEWORD(2, 2), &wsa_data);
 #endif
 
-    listen_socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (listen_socket_ == INVALID_SOCKET) {
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) {
         std::cerr << "Socket creation failed" << std::endl;
-        running_ = false;
+        running_.store(false);
         return;
     }
+    
+    listen_socket_.store(sock);
 
     int opt = 1;
-    if (setsockopt(listen_socket_, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0) {
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0) {
         std::cerr << "setsockopt failed" << std::endl;
-        closesocket(listen_socket_);
-        listen_socket_ = INVALID_SOCKET;
-        running_ = false;
+        closesocket(sock);
+        listen_socket_.store(INVALID_SOCKET);
+        running_.store(false);
         return;
     }
-
-#ifndef _WIN32
-    // Set socket to non-blocking mode on Unix
-    int flags = fcntl(listen_socket_, F_GETFL, 0);
-    fcntl(listen_socket_, F_SETFL, flags | O_NONBLOCK);
-#endif
 
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     server_addr.sin_port = htons(port_);
 
-    if (bind(listen_socket_, (sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+    if (bind(sock, (sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
         std::cerr << "Bind failed on port " << port_ << std::endl;
-        closesocket(listen_socket_);
-        listen_socket_ = INVALID_SOCKET;
-        running_ = false;
+        closesocket(sock);
+        listen_socket_.store(INVALID_SOCKET);
+        running_.store(false);
         return;
     }
 
-    if (listen(listen_socket_, SOMAXCONN) == SOCKET_ERROR) {
+    if (listen(sock, SOMAXCONN) == SOCKET_ERROR) {
         std::cerr << "Listen failed" << std::endl;
-        closesocket(listen_socket_);
-        listen_socket_ = INVALID_SOCKET;
-        running_ = false;
+        closesocket(sock);
+        listen_socket_.store(INVALID_SOCKET);
+        running_.store(false);
         return;
     }
 
     std::cout << "WebServer started on port " << port_ << std::endl;
 
-    while (running_) {
+    while (running_.load()) {
+        SOCKET current_sock = listen_socket_.load();
+        if (current_sock == INVALID_SOCKET) break;
+
 #ifndef _WIN32
-        // Use select to wait with timeout so we can check running_ flag
         fd_set read_fds;
         FD_ZERO(&read_fds);
-        FD_SET(listen_socket_, &read_fds);
+        FD_SET(current_sock, &read_fds);
         
         struct timeval timeout;
         timeout.tv_sec = 1;
         timeout.tv_usec = 0;
         
-        int select_result = select(listen_socket_ + 1, &read_fds, nullptr, nullptr, &timeout);
+        int select_result = select(current_sock + 1, &read_fds, nullptr, nullptr, &timeout);
         
         if (select_result < 0) {
-            if (!running_) break; // Socket was closed, exit cleanly
-            std::cerr << "Select failed" << std::endl;
+            if (errno == EBADF || errno == EINTR) break;
+            std::cerr << "Select error: " << errno << std::endl;
             break;
         }
         
-        if (select_result == 0) {
-            continue; // Timeout, check running_ flag again
+        if (select_result == 0 || !running_.load()) {
+            continue;
         }
         
-        if (!FD_ISSET(listen_socket_, &read_fds)) {
+        if (!FD_ISSET(current_sock, &read_fds)) {
             continue;
         }
 #endif
@@ -151,10 +152,10 @@ void WebServer::run_server() {
         sockaddr_in client_addr{};
         socklen_t client_addr_len = sizeof(client_addr);
 
-        SOCKET client_socket = accept(listen_socket_, (sockaddr*)&client_addr, &client_addr_len);
+        SOCKET client_socket = accept(current_sock, (sockaddr*)&client_addr, &client_addr_len);
 
         if (client_socket == INVALID_SOCKET) {
-            if (!running_) break; // Server is shutting down
+            if (!running_.load()) break;
             continue;
         }
 
@@ -163,18 +164,24 @@ void WebServer::run_server() {
         
         if (recv_len > 0) {
             buffer[recv_len] = '\0';
-            HttpRequest req = parse_request(std::string(buffer));
-            HttpResponse resp = handle_request(req);
-            std::string response_str = serialize_response(resp);
-            send(client_socket, response_str.c_str(), response_str.length(), 0);
+            try {
+                HttpRequest req = parse_request(std::string(buffer));
+                HttpResponse resp = handle_request(req);
+                std::string response_str = serialize_response(resp);
+                send(client_socket, response_str.c_str(), response_str.length(), 0);
+            } catch (const std::exception& e) {
+                std::cerr << "Request handling error: " << e.what() << std::endl;
+            }
         }
 
         closesocket(client_socket);
     }
 
-    if (listen_socket_ != INVALID_SOCKET) {
-        closesocket(listen_socket_);
-        listen_socket_ = INVALID_SOCKET;
+    SOCKET final_sock = listen_socket_.load();
+    if (final_sock != INVALID_SOCKET) {
+        shutdown(final_sock, SHUT_RDWR);
+        closesocket(final_sock);
+        listen_socket_.store(INVALID_SOCKET);
     }
 
 #ifdef _WIN32
@@ -184,10 +191,12 @@ void WebServer::run_server() {
 
 HttpRequest WebServer::parse_request(const std::string& raw_request) {
     HttpRequest req;
+    if (raw_request.empty()) return req;
+    
     std::istringstream iss(raw_request);
     
     std::string request_line;
-    std::getline(iss, request_line);
+    if (!std::getline(iss, request_line)) return req;
     
     std::istringstream line_iss(request_line);
     line_iss >> req.method >> req.path;
@@ -200,21 +209,21 @@ HttpRequest WebServer::parse_request(const std::string& raw_request) {
     
     std::string header_line;
     while (std::getline(iss, header_line)) {
-        header_line.erase(header_line.find_last_not_of("\r\n") + 1);
+        if (!header_line.empty() && header_line.back() == '\r') {
+            header_line.pop_back();
+        }
         if (header_line.empty()) break;
         
         size_t colon_pos = header_line.find(':');
-        if (colon_pos != std::string::npos) {
+        if (colon_pos != std::string::npos && colon_pos + 2 < header_line.length()) {
             std::string key = header_line.substr(0, colon_pos);
             std::string value = header_line.substr(colon_pos + 2);
             req.headers[key] = value;
         }
     }
     
-    std::streampos pos = iss.tellg();
-    if (pos != -1) {
-        req.body = iss.str().substr(pos);
-    }
+    std::string remaining((std::istreambuf_iterator<char>(iss)), std::istreambuf_iterator<char>());
+    req.body = remaining;
     
     return req;
 }
@@ -276,9 +285,13 @@ std::string WebServer::url_decode(const std::string& url) {
     std::string decoded;
     for (size_t i = 0; i < url.length(); ++i) {
         if (url[i] == '%' && i + 2 < url.length()) {
-            std::string hex = url.substr(i + 1, 2);
-            decoded += static_cast<char>(std::stoi(hex, nullptr, 16));
-            i += 2;
+            try {
+                std::string hex = url.substr(i + 1, 2);
+                decoded += static_cast<char>(std::stoi(hex, nullptr, 16));
+                i += 2;
+            } catch (...) {
+                decoded += url[i];
+            }
         } else if (url[i] == '+') {
             decoded += ' ';
         } else {
