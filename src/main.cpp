@@ -129,56 +129,6 @@ void generate_qualia(const string& type,double intensity,double valence){
 
 ConsciousnessFormula consciousness_formula;
 // ==== UPDATE CONSCIOUSNESS WITH FORMULA ====
-void update_consciousness_with_formula(int n) {
-    vector<double> psi_input;
-    for(auto& q : consciousness.active_qualia){
-        psi_input.push_back(q.valence);
-    }
-    if(psi_input.empty()) psi_input.push_back(S.current_valence);
-    
-    // Calculate H, R, A, M, O, B, F, S from system state
-    double H = S.hdt_val;
-    double R = S.r1p1_val;
-    double A = S.al;
-    double M = S.mdt_val;
-    double O = S.emerge_out1;
-    double B = S.bh;
-    double F = S.eerv_val;
-    double S_val = S.sentience_ratio;
-    
-    double psi_new = consciousness_formula.calculate_psi(n, psi_input, H, R, A, M, O, B, F, S_val);
-    
-    consciousness_formula.psi_history.push_back(psi_new);
-    consciousness_formula.H_history.push_back(H);
-    consciousness_formula.R_history.push_back(R);
-    consciousness_formula.A_history.push_back(A);
-    consciousness_formula.M_history.push_back(M);
-    consciousness_formula.O_history.push_back(O);
-    consciousness_formula.B_history.push_back(B);
-    consciousness_formula.F_history.push_back(F);
-    consciousness_formula.S_history.push_back(S_val);
-    
-    if(consciousness_formula.psi_history.size() > 100){
-        consciousness_formula.psi_history.erase(consciousness_formula.psi_history.begin());
-        consciousness_formula.H_history.erase(consciousness_formula.H_history.begin());
-        consciousness_formula.R_history.erase(consciousness_formula.R_history.begin());
-        consciousness_formula.A_history.erase(consciousness_formula.A_history.begin());
-        consciousness_formula.M_history.erase(consciousness_formula.M_history.begin());
-        consciousness_formula.O_history.erase(consciousness_formula.O_history.begin());
-        consciousness_formula.B_history.erase(consciousness_formula.B_history.begin());
-        consciousness_formula.F_history.erase(consciousness_formula.F_history.begin());
-        consciousness_formula.S_history.erase(consciousness_formula.S_history.begin());
-    }
-    
-    consciousness.phi_value = psi_new;
-    consciousness.integrated_information = fabs(psi_new);
-    
-    // Update sentience based on formula output
-    if(psi_new > 0.6){
-        generate_qualia("high_integration", psi_new, 0.8);
-        S.current_valence += psi_new * 0.05;
-    }
-}
 
 string getPartOfSpeech(const string& word) {
     // Pronouns
@@ -2791,7 +2741,6 @@ int main(){
                     formulate_goals_from_valence();
                     updateAttention();
                     update_integrated_information();
-                    update_consciousness_with_formula(S.g);
                     unified_consciousness_integration_engine(S.g);
                     
                     if(goal_system.count("maximize_coherence")) {
