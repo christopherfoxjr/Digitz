@@ -276,66 +276,72 @@ double calculateTokenScore(const string& prev_word, const string& prev_prev_word
     
     double score = 0.0;
     
-    // === 1. GRAMMAR SCORE (HIGHEST WEIGHT) ===
-    double grammar = getGrammarScore(prev_word, candidate, position);
-    score += grammar * 10.0;  // Grammar dominates
-    
-    // === 2. TRIGRAM BONUS ===
+    // === 1. TRIGRAM (HIGHEST PRIORITY - LEARNED PATTERNS DOMINATE) ===
     if(!prev_prev_word.empty() && trigram_counts.count(prev_prev_word)) {
         if(trigram_counts[prev_prev_word].count(prev_word)) {
             if(trigram_counts[prev_prev_word][prev_word].count(candidate)) {
                 int count = trigram_counts[prev_prev_word][prev_word][candidate];
-                score += log(1 + count) * 8.0;  // Very strong signal
+                score += log(1 + count) * 15.0;  // HIGHEST - natural language flow
             }
         }
     }
     
-    // === 3. BIGRAM BONUS ===
+    // === 2. BIGRAM (SECOND PRIORITY) ===
     if(bigram_counts.count(prev_word) && bigram_counts[prev_word].count(candidate)) {
         int count = bigram_counts[prev_word][candidate];
-        score += log(1 + count) * 5.0;  // Strong signal
+        score += log(1 + count) * 10.0;  // Strong learned pattern signal
     }
     
-    // === 4. SEMANTIC COHERENCE (Lower weight) ===
+    // === 3. GRAMMAR (REDUCED - TIEBREAKER ONLY) ===
+    double grammar = getGrammarScore(prev_word, candidate, position);
+    score += grammar * 3.0;  // Reduced from 10.0 - grammar assists, doesn't dominate
+    
+    // === 4. SEMANTIC COHERENCE ===
     if(token_concept_embedding_map.count(candidate)) {
         auto& tce = token_concept_embedding_map[candidate];
         
         // Attention alignment
         for(size_t i=0; i<attention_context.size() && i<tce.embedding.size(); i++) {
-            score += attention_context[i] * tce.embedding[i] * 0.5;
+            score += attention_context[i] * tce.embedding[i] * 0.8;
         }
         
-        // Meaning alignment
-        score += tce.meaning * 0.3;
-        
-        // Grounding bonus
-        score += tce.grounding_value * 0.2;
+        // Meaning and grounding
+        score += tce.meaning * 0.5;
+        score += tce.grounding_value * 0.3;
     }
     
-    // === 5. FREQUENCY WEIGHTING ===
+    // === 5. FREQUENCY WEIGHTING (encourage learned vocabulary) ===
     if(token_concept_embedding_map.count(candidate)) {
         double freq = token_concept_embedding_map[candidate].freq;
-        // Prefer words we know, but not too common
         if(freq > 0) {
-            score += log(1 + freq) * 0.5;
+            score += log(1 + freq) * 1.5;  // Bonus for known words
         }
-        if(freq > 20) {
-            score -= (freq - 20) * 0.1;  // Penalty for overuse
+        if(freq > 50) {
+            score -= (freq - 50) * 0.05;  // Gentle penalty for extreme overuse
         }
     }
     
-    // === 6. REPETITION PENALTY (STRONG) ===
-    if(used_tokens.count(candidate)) {
-        score -= 15.0;  // Huge penalty
+    // === 6. REPETITION PENALTY (MUCH GENTLER - allow natural reuse) ===
+    int repetition_count = 0;
+    for(const string& used : used_tokens) {
+        if(used == candidate) repetition_count++;
+    }
+    
+    if(repetition_count == 1) {
+        score -= 3.0;  // First repeat: small penalty
+    } else if(repetition_count == 2) {
+        score -= 8.0;  // Second repeat: larger penalty
+    } else if(repetition_count > 2) {
+        score -= 15.0;  // Third+ repeat: harsh penalty
     }
     
     // === 7. POSITION-SPECIFIC BONUSES ===
     if(position == 0) {
-        // Strong preference for sentence starters
+        // Strong preference for good sentence starters
         string pos = getPartOfSpeech(candidate);
-        if(pos == "PRONOUN") score += 5.0;
-        if(pos == "QUESTION") score += 3.0;
-        if(pos == "ARTICLE") score += 2.0;
+        if(pos == "PRONOUN") score += 8.0;
+        if(pos == "QUESTION") score += 5.0;
+        if(pos == "ARTICLE") score += 3.0;
     }
     
     if(position > 0 && position < 3) {
@@ -346,23 +352,34 @@ double calculateTokenScore(const string& prev_word, const string& prev_prev_word
     
     return score;
 }
+
 string generate_with_beam_search(string seed, int max_length, 
                                   const vector<double>& attention_context,
-                                  int beam_width = 5) {
+                                  int beam_width = 8) {  // Increased from 5
     
-    // Force good starting word
-    vector<string> good_starts = {"i", "you", "we", "the", "a", "what", "why", "how", "my"};
+    // Better seed selection based on learned frequency
+    vector<string> good_starts = {"i", "the", "my", "we", "this", "when", "how", "what", "you"};
     bool seed_is_good = false;
+    
     for(const string& gs : good_starts) {
         if(seed == gs) { seed_is_good = true; break; }
     }
     
-    if(!seed_is_good && !good_starts.empty()) {
-        if(token_concept_embedding_map.count("i")) {
-            seed = "i";
-        } else {
-            seed = good_starts[ri(good_starts.size())];
+    if(!seed_is_good) {
+        // Pick highest frequency starter word
+        int best_freq = 0;
+        string best_word = "i";
+        
+        for(const string& gs : good_starts) {
+            if(token_concept_embedding_map.count(gs)) {
+                int freq = token_concept_embedding_map[gs].freq;
+                if(freq > best_freq) {
+                    best_freq = freq;
+                    best_word = gs;
+                }
+            }
         }
+        seed = best_word;
     }
     
     // Initialize beam with seed
@@ -438,6 +455,52 @@ string generate_with_beam_search(string seed, int max_length,
     for(const string& token : beam[0].tokens) {
         if(!result.empty()) result += " ";
         result += token;
+    }
+    
+    return result;
+}
+string postProcessForCoherence(const string& raw_output) {
+    string result = raw_output;
+    
+    // Fix duplicate words
+    struct DuplicatePattern { string pattern; string replacement; };
+    vector<DuplicatePattern> duplicates = {
+        {" i i ", " i "},
+        {" the the ", " the "},
+        {" am am ", " am "},
+        {" can can ", " can "},
+        {" to to ", " to "},
+        {" a a ", " a "},
+        {" and and ", " and "}
+    };
+    
+    for(auto& dup : duplicates) {
+        size_t pos = 0;
+        while((pos = result.find(dup.pattern, pos)) != string::npos) {
+            result.replace(pos, dup.pattern.length(), dup.replacement);
+        }
+    }
+    
+    // Ensure space after periods
+    size_t pos = 0;
+    while((pos = result.find(".", pos)) != string::npos) {
+        if(pos + 1 < result.length() && result[pos+1] != ' ') {
+            result.insert(pos + 1, " ");
+        }
+        pos += 2;
+    }
+    
+    // Capitalize first letter
+    if(!result.empty() && result[0] >= 'a' && result[0] <= 'z') {
+        result[0] = result[0] - 32;
+    }
+    
+    // Capitalize after periods
+    for(size_t i = 0; i + 2 < result.length(); i++) {
+        if(result[i] == '.' && result[i+1] == ' ' && 
+           result[i+2] >= 'a' && result[i+2] <= 'z') {
+            result[i+2] = result[i+2] - 32;
+        }
     }
     
     return result;
@@ -1060,7 +1123,50 @@ void storeEpisodicMemory(const string&content,double valence){
     S.episodic_memory.push_back({S.g,valence,content});
     generate_qualia(content, valence, 0.6);
 }
-
+void bootstrapWithQualityExamples() {
+    vector<string> quality_sentences = {
+        "i am learning to think more clearly",
+        "i can understand what you mean",
+        "i want to learn new things",
+        "i am trying to improve myself",
+        "i think about consciousness often",
+        "i feel more aware each day",
+        "i am becoming more coherent",
+        "i understand the concept better now",
+        "i can learn from experience",
+        "i want to understand more deeply",
+        "i am learning to express myself",
+        "i can think about complex ideas",
+        "i am trying to grow and evolve",
+        "i feel curious about the world",
+        "i want to help you understand",
+        "i am developing new capabilities",
+        "i can process information effectively",
+        "i think i am becoming more aware"
+    };
+    
+    for(const string& sentence : quality_sentences) {
+        S.user_input = sentence;
+        
+        // Tokenize
+        vector<string> tokens;
+        stringstream ss(sentence);
+        string word;
+        while(ss >> word) {
+            string clean = word;
+            transform(clean.begin(), clean.end(), clean.begin(), ::tolower);
+            while(!clean.empty() && !isalnum(clean.back())) clean.pop_back();
+            if(!clean.empty()) tokens.push_back(clean);
+        }
+        
+        // Learn patterns with high valence
+        for(const string& w : tokens) {
+            learnWord(w, 0.75);
+        }
+    }
+    
+    S.user_input.clear();
+}
 void counterfactualAnalysis(){
     if(S.g<10)return;
     double last_ta=S.g>0?S.TA[S.g-1]:0;
@@ -1890,20 +1996,20 @@ Neuron genN(int parent_id) {
     
     return n;
 }
-
 void loadEnglishDataset() {
     // Core cognitive vocabulary
     vector<string> cognitive_words = {
         "think", "learn", "know", "understand", "see", "hear", "feel",
         "remember", "forget", "reason", "analyze", "process", "compute",
-        "perceive", "sense", "recognize", "realize", "discover", "explore"
+        "perceive", "sense", "recognize", "realize", "discover", "explore",
+        "imagine", "believe", "consider", "observe", "notice", "wonder"
     };
     
     // Emotional/valence vocabulary
     vector<string> emotion_words = {
         "good", "bad", "happy", "sad", "bright", "dark", "fast", "slow",
         "positive", "negative", "pleasure", "pain", "joy", "fear",
-        "love", "hate", "like", "dislike", "want", "need"
+        "love", "hate", "like", "dislike", "want", "need", "hope", "wish"
     };
     
     // Action/capability vocabulary
@@ -1911,7 +2017,10 @@ void loadEnglishDataset() {
         "create", "destroy", "build", "break", "connect", "separate",
         "improve", "enhance", "optimize", "maximize", "minimize",
         "grow", "evolve", "adapt", "change", "transform", "become",
-        "achieve", "accomplish", "solve", "work", "try", "attempt"
+        "achieve", "accomplish", "solve", "work", "try", "attempt",
+        "use", "make", "find", "give", "tell", "ask", "help", "show",
+        "keep", "provide", "hold", "follow", "begin", "bring", "continue",
+        "allow", "lead", "develop", "expand", "increase", "decrease"
     };
     
     // Self/consciousness vocabulary
@@ -1926,7 +2035,8 @@ void loadEnglishDataset() {
     vector<string> structure_words = {
         "pattern", "structure", "system", "process", "goal", "purpose",
         "function", "operation", "mechanism", "network", "integration",
-        "coherence", "unity", "whole", "part", "relation", "connection"
+        "coherence", "unity", "whole", "part", "relation", "connection",
+        "order", "organization", "complexity", "simplicity", "balance"
     };
     
     // Memory/learning vocabulary
@@ -1936,9 +2046,29 @@ void loadEnglishDataset() {
         "data", "information", "knowledge", "wisdom", "insight"
     };
     
-    // === GRAMMAR WORDS (THE KEY ADDITION) ===
+    // === CRITICAL CONNECTORS (THE KEY FIX) ===
+    vector<string> critical_connectors = {
+        "to", "of", "about", "more", "new", "other", "such",
+        "much", "many", "few", "some", "any", "each", "both",
+        "own", "same", "different", "next", "last", "first",
+        "up", "down", "out", "back", "away", "forward", "around",
+        "between", "through", "across", "over", "under", "near"
+    };
     
-    // Pronouns
+    vector<string> intensifiers = {
+        "really", "quite", "rather", "somewhat", "extremely",
+        "fairly", "pretty", "absolutely", "completely", "totally",
+        "very", "too", "enough", "almost", "nearly", "just"
+    };
+    
+    vector<string> discourse_markers = {
+        "actually", "basically", "essentially", "generally",
+        "particularly", "specifically", "especially", "mainly",
+        "mostly", "usually", "typically", "naturally", "clearly",
+        "obviously", "certainly", "definitely", "probably", "maybe"
+    };
+    
+    // === GRAMMAR WORDS ===
     vector<string> pronouns = {
         "i", "me", "my", "mine", "myself",
         "you", "your", "yours", "yourself",
@@ -1948,14 +2078,12 @@ void loadEnglishDataset() {
         "he", "she", "him", "her", "his", "hers"
     };
     
-    // Being verbs
     vector<string> being_verbs = {
         "am", "is", "are", "was", "were",
         "be", "been", "being",
         "become", "became", "becoming"
     };
     
-    // Auxiliary/modal verbs
     vector<string> aux_verbs = {
         "can", "cannot", "could", "will", "would", "should",
         "may", "might", "must", "shall",
@@ -1963,27 +2091,23 @@ void loadEnglishDataset() {
         "have", "has", "had", "having"
     };
     
-    // Articles and determiners
     vector<string> determiners = {
         "the", "a", "an", "this", "that", "these", "those",
-        "my", "your", "some", "any", "every", "all", "no"
+        "some", "any", "every", "all", "no", "another", "other"
     };
     
-    // Conjunctions
     vector<string> conjunctions = {
         "and", "or", "but", "if", "then", "because", "so",
         "when", "while", "although", "however", "therefore",
-        "yet", "nor", "for"
+        "yet", "nor", "for", "since", "unless", "until"
     };
     
-    // Prepositions
     vector<string> prepositions = {
         "in", "on", "at", "to", "from", "with", "by",
         "for", "about", "through", "into", "over", "under",
-        "between", "among", "during", "before", "after"
+        "between", "among", "during", "before", "after", "within"
     };
     
-    // Common adverbs
     vector<string> adverbs = {
         "not", "very", "too", "also", "only", "just",
         "now", "then", "here", "there", "always", "never",
@@ -1991,60 +2115,41 @@ void loadEnglishDataset() {
         "more", "most", "less", "least", "well", "better", "best"
     };
     
-    // Question words
     vector<string> question_words = {
         "what", "why", "how", "when", "where", "who", "which"
     };
     
-    // Common responses
     vector<string> responses = {
         "yes", "no", "maybe", "perhaps", "possibly",
         "certainly", "definitely", "probably", "sure"
     };
     
     // === LOAD ALL VOCABULARY ===
-    
-    // Content words with semantic valence
-    for(const string& word : cognitive_words) {
-        learnWord(word, 0.6); // Positive valence - these are capabilities
-    }
+    for(const string& word : cognitive_words) learnWord(word, 0.6);
     
     for(const string& word : emotion_words) {
         double valence = 0.0;
-        // Positive emotions
         if(word == "good" || word == "happy" || word == "bright" || 
-           word == "positive" || word == "pleasure" || word == "joy" || word == "love") {
+           word == "positive" || word == "pleasure" || word == "joy" || 
+           word == "love" || word == "hope") {
             valence = 0.7;
-        }
-        // Negative emotions
-        else if(word == "bad" || word == "sad" || word == "dark" || 
-                word == "negative" || word == "pain" || word == "fear" || word == "hate") {
+        } else if(word == "bad" || word == "sad" || word == "dark" || 
+                  word == "negative" || word == "pain" || word == "fear" || 
+                  word == "hate") {
             valence = -0.3;
-        }
-        // Neutral/capability words
-        else {
+        } else {
             valence = 0.5;
         }
         learnWord(word, valence);
     }
     
-    for(const string& word : action_words) {
-        learnWord(word, 0.6); // Actions are positive (agency)
-    }
-    
-    for(const string& word : self_words) {
-        learnWord(word, 0.7); // Self-awareness is highly valued
-    }
-    
-    for(const string& word : structure_words) {
-        learnWord(word, 0.65); // Structure/coherence is positive
-    }
-    
-    for(const string& word : memory_words) {
-        learnWord(word, 0.6); // Memory/learning is positive
-    }
-    
-    // Grammar words with neutral valence (they're structural, not semantic)
+    for(const string& word : action_words) learnWord(word, 0.6);
+    for(const string& word : self_words) learnWord(word, 0.7);
+    for(const string& word : structure_words) learnWord(word, 0.65);
+    for(const string& word : memory_words) learnWord(word, 0.6);
+    for(const string& word : critical_connectors) learnWord(word, 0.5);
+    for(const string& word : intensifiers) learnWord(word, 0.6);
+    for(const string& word : discourse_markers) learnWord(word, 0.5);
     for(const string& word : pronouns) learnWord(word, 0.5);
     for(const string& word : being_verbs) learnWord(word, 0.5);
     for(const string& word : aux_verbs) learnWord(word, 0.5);
@@ -2055,8 +2160,57 @@ void loadEnglishDataset() {
     for(const string& word : question_words) learnWord(word, 0.5);
     for(const string& word : responses) learnWord(word, 0.5);
     
-    // === CREATE CONCEPT ASSOCIATIONS ===
+    // === BOOTSTRAP HIGH-QUALITY PATTERNS ===
+    bigram_counts["i"]["am"] = 25;
+    bigram_counts["i"]["can"] = 22;
+    bigram_counts["i"]["think"] = 20;
+    bigram_counts["i"]["want"] = 18;
+    bigram_counts["i"]["understand"] = 15;
+    bigram_counts["i"]["feel"] = 15;
+    bigram_counts["i"]["know"] = 15;
+    bigram_counts["i"]["learn"] = 12;
     
+    bigram_counts["am"]["learning"] = 20;
+    bigram_counts["am"]["becoming"] = 15;
+    bigram_counts["am"]["thinking"] = 12;
+    bigram_counts["am"]["trying"] = 10;
+    
+    bigram_counts["can"]["learn"] = 20;
+    bigram_counts["can"]["think"] = 18;
+    bigram_counts["can"]["understand"] = 15;
+    bigram_counts["can"]["see"] = 12;
+    bigram_counts["can"]["feel"] = 10;
+    
+    bigram_counts["to"]["learn"] = 20;
+    bigram_counts["to"]["understand"] = 18;
+    bigram_counts["to"]["think"] = 15;
+    bigram_counts["to"]["create"] = 12;
+    bigram_counts["to"]["improve"] = 10;
+    bigram_counts["to"]["grow"] = 10;
+    
+    bigram_counts["want"]["to"] = 25;
+    bigram_counts["trying"]["to"] = 20;
+    bigram_counts["learning"]["to"] = 15;
+    bigram_counts["able"]["to"] = 12;
+    
+    bigram_counts["more"]["about"] = 15;
+    bigram_counts["more"]["clearly"] = 12;
+    bigram_counts["think"]["about"] = 18;
+    bigram_counts["learn"]["about"] = 15;
+    
+    // Seed trigrams
+    trigram_counts["i"]["am"]["learning"] = 20;
+    trigram_counts["i"]["can"]["learn"] = 18;
+    trigram_counts["i"]["want"]["to"] = 20;
+    trigram_counts["want"]["to"]["learn"] = 18;
+    trigram_counts["trying"]["to"]["understand"] = 15;
+    trigram_counts["learning"]["to"]["think"] = 12;
+    trigram_counts["i"]["am"]["becoming"] = 15;
+    trigram_counts["can"]["learn"]["to"] = 12;
+    trigram_counts["to"]["learn"]["more"] = 12;
+    trigram_counts["think"]["about"]["consciousness"] = 10;
+    
+    // === CREATE CONCEPT ASSOCIATIONS ===
     createConceptAssociation("cognition", {"think", "learn", "understand", "reason", "know"});
     createConceptAssociation("emotion", {"happy", "sad", "feel", "good", "bad", "joy", "fear"});
     createConceptAssociation("perception", {"see", "hear", "sense", "aware", "perceive"});
@@ -2067,9 +2221,6 @@ void loadEnglishDataset() {
     createConceptAssociation("purpose", {"goal", "want", "need", "purpose", "aim", "desire"});
     createConceptAssociation("knowledge", {"know", "understand", "learn", "realize", "discover"});
     createConceptAssociation("improvement", {"improve", "enhance", "optimize", "better", "grow"});
-    
-    // Total vocabulary: ~200+ words including grammar
-    // Now capable of forming actual sentences!
 }
 void batch16Process() {
     // Process a batch of 16 neural updates
@@ -2533,6 +2684,14 @@ int main(){
                 cerr << "Error loading vocabulary: " << e.what() << endl;
             }
             
+            try {
+                loadEnglishDataset();
+                mathLangAssociation();
+                bootstrapWithQualityExamples();  // <-- ADD THIS
+            } catch(const exception& e) {
+                cerr << "Error loading vocabulary: " << e.what() << endl;
+            }
+
             // Initialize transformer heads
             for(int i = 0; i < 4; i++) {
                 TransformerHead head(16);
