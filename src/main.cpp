@@ -913,7 +913,6 @@ void formulate_goals_from_valence() {
 // ==== LANGUAGE & LEARNING ====
 
 void learnWord(const string& word, double concept_value) {
-    std::lock_guard<std::mutex> lock(learning_mutex);  // CRITICAL: Thread safety
     
     // Bounds check on word length to prevent buffer overflows
     if(word.empty() || word.length() > 100) return;
