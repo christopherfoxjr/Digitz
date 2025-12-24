@@ -41,11 +41,10 @@ void WebServer::stop() {
     running_.store(false);
     
     // Close socket to interrupt accept/select
-    SOCKET sock = listen_socket_.load();
-    if (sock != INVALID_SOCKET) {
-        shutdown(sock, SHUT_RDWR);
-        closesocket(sock);
-        listen_socket_.store(INVALID_SOCKET);
+    if (listen_socket_ != INVALID_SOCKET) {
+        shutdown(listen_socket_, SHUT_RDWR);
+        closesocket(listen_socket_);
+        listen_socket_ = INVALID_SOCKET;
     }
     
     // Wait for thread
@@ -85,13 +84,13 @@ void WebServer::run_server() {
         return;
     }
     
-    listen_socket_.store(sock);
+    listen_socket_ = sock;
 
     int opt = 1;
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0) {
         std::cerr << "setsockopt failed" << std::endl;
         closesocket(sock);
-        listen_socket_.store(INVALID_SOCKET);
+        listen_socket_ = INVALID_SOCKET;
         running_.store(false);
         return;
     }
@@ -101,18 +100,18 @@ void WebServer::run_server() {
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     server_addr.sin_port = htons(port_);
 
-    if (bind(sock, (sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+    if (::bind(sock, (sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
         std::cerr << "Bind failed on port " << port_ << std::endl;
         closesocket(sock);
-        listen_socket_.store(INVALID_SOCKET);
+        listen_socket_ = INVALID_SOCKET;
         running_.store(false);
         return;
     }
 
-    if (listen(sock, SOMAXCONN) == SOCKET_ERROR) {
+    if (::listen(sock, SOMAXCONN) == SOCKET_ERROR) {
         std::cerr << "Listen failed" << std::endl;
         closesocket(sock);
-        listen_socket_.store(INVALID_SOCKET);
+        listen_socket_ = INVALID_SOCKET;
         running_.store(false);
         return;
     }
@@ -120,7 +119,7 @@ void WebServer::run_server() {
     std::cout << "WebServer started on port " << port_ << std::endl;
 
     while (running_.load()) {
-        SOCKET current_sock = listen_socket_.load();
+        SOCKET current_sock = listen_socket_;
         if (current_sock == INVALID_SOCKET) break;
 
 #ifndef _WIN32
@@ -177,11 +176,10 @@ void WebServer::run_server() {
         closesocket(client_socket);
     }
 
-    SOCKET final_sock = listen_socket_.load();
-    if (final_sock != INVALID_SOCKET) {
-        shutdown(final_sock, SHUT_RDWR);
-        closesocket(final_sock);
-        listen_socket_.store(INVALID_SOCKET);
+    if (listen_socket_ != INVALID_SOCKET) {
+        shutdown(listen_socket_, SHUT_RDWR);
+        closesocket(listen_socket_);
+        listen_socket_ = INVALID_SOCKET;
     }
 
 #ifdef _WIN32
