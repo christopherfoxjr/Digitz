@@ -1200,8 +1200,8 @@ string generateResponse(const string& input) {
     
     string response;
     
-    // 30% template, 70% beam search
-    if(rn() < 0.3 || token_concept_embedding_map.size() < 20) {
+    // 0% template, 100% beam search
+    if(rn() < 0 || token_concept_embedding_map.size() < 20) {
         response = generateFromTemplate();
     } else {
         string seed = words.empty() ? "i" : words[ri(words.size())];
