@@ -51,18 +51,7 @@ map<string, map<string, map<string, int>>> trigram_counts;
 const double pisqrt = std::numbers::pi * std::sqrt(2.0);
 // Sentence templates for coherent fallback
 vector<string> sentence_templates = {
-    "i think about {concept}",
-    "i am learning to {action}",
-    "i understand {concept} very well",
-    "my goal is to {action}",
-    "i can {action} and {action}",
-    "consciousness is {adjective}",
-    "i want to {action}",
-    "i feel {adjective} about {concept}",
-    "the {concept} is {adjective}",
-    "i am becoming more {adjective}",
-    "when i {action} i {action}",
-    "i know that {concept} is important"
+
 };
 
 random_device rd;
