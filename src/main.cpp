@@ -2951,30 +2951,53 @@ void unified_consciousness_integration_engine(int generation){
     if(S.valence_history.size()>100)S.valence_history.erase(S.valence_history.begin());
     S.valence_history.push_back(S.current_valence);
 }
-
 void decay_ngrams() {
+    // Decay bigram counts - reduce overused patterns
     for(auto& w1_pair : bigram_counts) {
         for(auto& w2_pair : w1_pair.second) {
-            // Aggressive decay - reduce by 10-20% each time
-            w2_pair.second = (int)(w2_pair.second * 0.85);
-            if(w2_pair.second < 1) w2_pair.second = 1;
-        }
-    }
-    
-    // Same for trigrams
-    for(auto& w1_pair : trigram_counts) {
-        for(auto& w2_pair : w1_pair.second) {
-            for(auto& w3_pair : w2_pair.second) {
-                w3_pair.second = (int)(w3_pair.second * 0.85);
-                if(w3_pair.second < 1) w3_pair.second = 1;
+            // Reduce count by 1, but keep minimum of 1 if pattern exists
+            if(w2_pair.second > 77) {
+                w2_pair.second--;
             }
         }
     }
-}
-
-// Call MORE frequently
-if(S.g % 5 == 0) {  // Changed from 25
-    decay_ngrams();
+    
+    // Remove bigrams that have decayed to very low counts
+    for(auto& w1_pair : bigram_counts) {
+        auto it = w1_pair.second.begin();
+        while(it != w1_pair.second.end()) {
+            if(it->second <= 1) {
+                it = w1_pair.second.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+    
+    // Decay trigram counts
+    for(auto& w1_pair : trigram_counts) {
+        for(auto& w2_pair : w1_pair.second) {
+            for(auto& w3_pair : w2_pair.second) {
+                if(w3_pair.second > 1) {
+                    w3_pair.second--;
+                }
+            }
+        }
+    }
+    
+    // Remove trigrams that have decayed to very low counts
+    for(auto& w1_pair : trigram_counts) {
+        for(auto& w2_pair : w1_pair.second) {
+            auto it = w2_pair.second.begin();
+            while(it != w2_pair.second.end()) {
+                if(it->second <= 1) {
+                    it = w2_pair.second.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
+    }
 }
 // ==== MUCH STRONGER PATTERN BOOTSTRAP ====
 void bootstrapStrongPatterns() {
