@@ -309,7 +309,7 @@ double calculateTokenScore(const string& prev_word, const string& prev_prev_word
 
 string generate_with_beam_search(string seed, int max_length, 
                                   const vector<double>& attention_context,
-                                  int beam_width = 12) {  // Increased from 8
+                                  int beam_width = 16) {  // Increased from 8
     
     // Better seed selection based on learned frequency
     vector<string> good_starts = {"i", "the", "my", "we", "this", "when", "how", "what", "you"};
@@ -652,11 +652,11 @@ void propagate_throughout_system(const string& source, double activation, int de
     
     tce.meaning += activation*0.02;
     tce.meaning = clamp_valence(tce.meaning);
-    tce.qualia_intensity = min(1.0, tce.qualia_intensity + activation*0.03);
+    tce.qualia_intensity = min(0.3, tce.qualia_intensity + activation*0.03);
     align_embedding_to_valence(tce, S.current_valence);
     
     // Generate qualia from concept activation - WRAP IN TRY-CATCH
-    if(tce.qualia_intensity > 0.4){
+    if(tce.qualia_intensity > 0.3){
         try {
             generate_qualia(source, tce.meaning, tce.qualia_intensity);
         } catch(...) {
@@ -2556,7 +2556,7 @@ void batch16Process() {
         double new_weight = tanh(total_input);
         
         // Update weight with momentum
-        n.weight = n.weight * 0.9 + new_weight * 0.1;
+        n.weight = n.weight * 0.7 + new_weight * 0.1;
         
         // Clamp weight
         n.weight = max(-1.0, min(1.0, n.weight));
