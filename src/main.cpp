@@ -3531,6 +3531,8 @@ int main(){
         }
         
         bool running = true;
+        int error_count = 0;
+        const int MAX_ERRORS = 10;
         
         while(running) {
             try {
@@ -3557,8 +3559,20 @@ int main(){
                         current_plan = plan_actions(goal_system["maximize_coherence"]);
                         prune_unstable_tokens();
                     }
+                    error_count = 0; // Reset on success
                 } catch(const exception& e) {
                     mvprintw(row++, 0, "Core update error: %s", e.what());
+                    error_count++;
+                    if(error_count > MAX_ERRORS) {
+                        mvprintw(row++, 0, "Too many errors, attempting recovery...");
+                        refresh();
+                        this_thread::sleep_for(chrono::seconds(2));
+                        error_count = 0;
+                        // Try to save emergency state
+                        try {
+                            sv("state_emergency.dat");
+                        } catch(...) {}
+                    }
                 }
                 
                 // === DISPLAY GOAL & PLAN ===
@@ -3600,7 +3614,6 @@ int main(){
                         string auto_thought;
                         int attempts = 0;
                         
-                        // Try to generate unique thought
                         while(attempts < 3) {
                             auto_thought = generate_with_beam_search("i", 8, ctx, 3);
                             if(!isSentenceTooSimilar(auto_thought)) {
@@ -3616,7 +3629,7 @@ int main(){
                         if(S.internal_thoughts.size() > 5) {
                             S.internal_thoughts.erase(S.internal_thoughts.begin());
                         }
-                    } catch(const exception& e) {
+                    } catch(...) {
                         // Silent failure for autonomous thoughts
                     }
                 }
@@ -3625,36 +3638,28 @@ int main(){
                 if(S.g % 50 == 0) {
                     try {
                         decayGenerationCounts();
-                    } catch(const exception& e) {
-                        cerr << "Generation count decay error: " << e.what() << endl;
-                    }
+                    } catch(...) {}
                 }
                 
                 // === AGGRESSIVE N-GRAM DECAY (every 25 gens) ===
                 if(S.g % 25 == 0) {
                     try {
                         decay_ngrams();
-                    } catch(const exception& e) {
-                        cerr << "N-gram decay error: " << e.what() << endl;
-                    }
+                    } catch(...) {}
                 }
                 
                 // === TOKEN FREQUENCY DECAY (every 75 gens) ===
                 if(S.g % 75 == 0) {
                     try {
                         decay_token_frequencies();
-                    } catch(const exception& e) {
-                        cerr << "Token decay error: " << e.what() << endl;
-                    }
+                    } catch(...) {}
                 }
                 
                 // === COMPREHENSIVE SYSTEM DECAY (every 100 gens) ===
                 if(S.g % 100 == 0) {
                     try {
                         comprehensive_system_decay();
-                    } catch(const exception& e) {
-                        cerr << "System decay error: " << e.what() << endl;
-                    }
+                    } catch(...) {}
                 }
                 
                 // === DISPLAY INTERNAL STREAM ===
@@ -3718,13 +3723,10 @@ int main(){
                             }
                         }
                         
-                        // Also decay goals periodically
                         if(S.g % 45 == 0) {
                             decay_goals();
                         }
-                    } catch(const exception& e) {
-                        // Silent failure
-                    }
+                    } catch(...) {}
                 }
                 
                 // === VOCABULARY EXPANSION ===
@@ -3733,9 +3735,7 @@ int main(){
                         auto it = token_concept_embedding_map.begin();
                         advance(it, ri(token_concept_embedding_map.size()));
                         learnWord(it->first, S.current_valence);
-                    } catch(const exception& e) {
-                        // Silent failure
-                    }
+                    } catch(...) {}
                 }
                 
                 // === CONCEPT FORMATION ===
@@ -3751,18 +3751,14 @@ int main(){
                         if(sample_words.size() > 1) {
                             createConceptAssociation("C_" + to_string(S.g), sample_words);
                         }
-                    } catch(const exception& e) {
-                        // Silent failure
-                    }
+                    } catch(...) {}
                 }
                 
                 // === NEURAL MUTATION ===
                 if(S.g % 12 == 0 && !S.N.empty()) {
                     try {
                         mutateN();
-                    } catch(const exception& e) {
-                        // Silent failure
-                    }
+                    } catch(...) {}
                 }
                 
                 // === GOAL-VALENCE ALIGNMENT ===
@@ -3771,21 +3767,24 @@ int main(){
                         for(auto& goal : goal_system) {
                             goal.second.valence_alignment = S.current_valence;
                         }
-                    } catch(const exception& e) {
-                        // Silent failure
-                    }
+                    } catch(...) {}
                 }
                 
                 // === DIALOG DISPLAY SECTION ===
                 mvprintw(row, 0, "─────────────────────────────────────────");
                 clrtoeol();
                 row++;
-                mvprintw(row, 0, "[DIALOG - Coherent Generation Active]");
+                mvprintw(row, 0, "[DIALOG - Max 1400 chars - Multi-line OK]");
                 clrtoeol();
                 row++;
                 
                 if(!S.user_input.empty()) {
-                    mvprintw(row, 0, "USER: %s", S.user_input.substr(0, 60).c_str());
+                    // Display user input (first 60 chars)
+                    string display_input = S.user_input;
+                    if(display_input.length() > 60) {
+                        display_input = display_input.substr(0, 57) + "...";
+                    }
+                    mvprintw(row, 0, "USER: %s", display_input.c_str());
                     clrtoeol();
                     row++;
                 } else {
@@ -3801,7 +3800,7 @@ int main(){
                     int start = 0;
                     int max_y, max_x;
                     getmaxyx(stdscr, max_y, max_x);
-                    (void)max_x;  // Suppress unused warning
+                    (void)max_x;
                     while(start < (int)resp.length() && row < max_y - 6) {
                         string line = resp.substr(start, min(max_width, (int)resp.length() - start));
                         mvprintw(row, 0, "%s", line.c_str());
@@ -3822,17 +3821,17 @@ int main(){
                 mvprintw(row, 0, "─────────────────────────────────────────");
                 clrtoeol();
                 row++;
-                mvprintw(row, 0, "Commands: [i]nput | [q]uit | [s]ave | [g]enerate | [d]ecay now");
+                mvprintw(row, 0, "Commands: [i]nput | [q]uit | [s]ave | [g]enerate | [d]ecay");
                 clrtoeol();
                 row++;
                 
                 // === STATS LINE ===
-                mvprintw(row, 0, "Vocab:%lu | Patterns:%lu | Neurons:%lu | Gen:%d | Tracked:%lu",
+                mvprintw(row, 0, "Vocab:%lu | Patterns:%lu | Neurons:%lu | Gen:%d | Errors:%d",
                     (unsigned long)token_concept_embedding_map.size(),
                     (unsigned long)bigram_counts.size(),
                     (unsigned long)S.N.size(),
                     S.g,
-                    (unsigned long)recent_generations.size());
+                    error_count);
                 clrtoeol();
                 row++;
                 
@@ -3859,117 +3858,197 @@ int main(){
                 int ch = getch();
                 
                 if(ch == 'i' || ch == 'I') {
-                    // === INTERACTIVE INPUT MODE ===
+                    // === SAFE INTERACTIVE INPUT MODE - 1400 CHAR SUPPORT ===
                     try {
                         // Get screen dimensions
                         int max_y, max_x;
                         getmaxyx(stdscr, max_y, max_x);
-                        (void)max_x;  // Suppress unused warning
                         
-                        // Create input area at bottom
-                        int input_y = max_y - 3;
-                        if(input_y < row + 2) input_y = row + 2;
+                        // Calculate available space for input
+                        int input_start_y = row + 1;
+                        int input_height = max_y - input_start_y - 1;
+                        if(input_height < 3) input_height = 3;
+                        if(input_height > 15) input_height = 15; // Max 15 lines for input
                         
                         // Clear input area
-                        move(input_y, 0);
-                        clrtoeol();
-                        move(input_y + 1, 0);
-                        clrtoeol();
-                        move(input_y + 2, 0);
-                        clrtoeol();
+                        for(int i = 0; i < input_height; i++) {
+                            move(input_start_y + i, 0);
+                            clrtoeol();
+                        }
+                        
+                        // Display instructions
+                        mvprintw(input_start_y, 0, "┌─ INPUT MODE (1400 chars max) ─────────────────────────┐");
+                        mvprintw(input_start_y + 1, 0, "│ Type your message. Press ENTER twice when done.      │");
+                        mvprintw(input_start_y + 2, 0, "│ ESC to cancel.                                        │");
+                        mvprintw(input_start_y + 3, 0, "└───────────────────────────────────────────────────────┘");
+                        
+                        int text_start_y = input_start_y + 4;
                         
                         // Enable echo and cursor
                         echo();
                         curs_set(1);
                         timeout(-1);
                         
-                        // Display prompt
-                        mvprintw(input_y, 0, "Enter message (max 150 chars): ");
+                        // Move to input area
+                        move(text_start_y, 0);
                         refresh();
                         
-                        // Get input with safe buffer
-                        char input_buf[200];
-                        memset(input_buf, 0, sizeof(input_buf));
+                        // Collect input line by line
+                        vector<string> input_lines;
+                        int total_chars = 0;
+                        bool done = false;
+                        int empty_line_count = 0;
                         
-                        // Move cursor to input position
-                        move(input_y, 31);
-                        
-                        // Read string safely
-                        int result = getnstr(input_buf, 150);
+                        for(int line = 0; line < input_height - 5 && !done; line++) {
+                            char line_buf[200];
+                            memset(line_buf, 0, sizeof(line_buf));
+                            
+                            move(text_start_y + line, 0);
+                            int result = getnstr(line_buf, 150);
+                            
+                            if(result == ERR || result == 27) { // ESC key
+                                done = true;
+                                input_lines.clear();
+                                break;
+                            }
+                            
+                            string line_str(line_buf);
+                            
+                            // Trim whitespace
+                            size_t start = line_str.find_first_not_of(" \t");
+                            size_t end = line_str.find_last_not_of(" \t");
+                            
+                            if(start != string::npos && end != string::npos) {
+                                line_str = line_str.substr(start, end - start + 1);
+                            } else {
+                                line_str = "";
+                            }
+                            
+                            // Check for double-enter (empty line after content)
+                            if(line_str.empty()) {
+                                empty_line_count++;
+                                if(empty_line_count >= 1 && !input_lines.empty()) {
+                                    done = true;
+                                    break;
+                                }
+                            } else {
+                                empty_line_count = 0;
+                                total_chars += line_str.length() + 1; // +1 for space/newline
+                                
+                                if(total_chars <= 1400) {
+                                    input_lines.push_back(line_str);
+                                } else {
+                                    mvprintw(text_start_y + line + 1, 0, 
+                                            "[MAX LENGTH REACHED - 1400 chars]");
+                                    refresh();
+                                    this_thread::sleep_for(chrono::milliseconds(1000));
+                                    done = true;
+                                    break;
+                                }
+                            }
+                        }
                         
                         // Disable echo and cursor
                         noecho();
                         curs_set(0);
                         timeout(500);
                         
-                        if(result != ERR && strlen(input_buf) > 0) {
-                            // Successfully got input
-                            S.user_input = string(input_buf);
+                        // Process collected input
+                        if(!input_lines.empty()) {
+                            // Join lines with spaces
+                            string combined_input;
+                            for(size_t i = 0; i < input_lines.size(); i++) {
+                                combined_input += input_lines[i];
+                                if(i < input_lines.size() - 1) {
+                                    combined_input += " ";
+                                }
+                            }
                             
-                            // Trim whitespace
-                            size_t start = S.user_input.find_first_not_of(" \t\n\r");
-                            size_t end = S.user_input.find_last_not_of(" \t\n\r");
-                            
-                            if(start != string::npos && end != string::npos) {
-                                S.user_input = S.user_input.substr(start, end - start + 1);
-                                
-                                if(!S.user_input.empty()) {
-                                    // Generate response
+                            if(!combined_input.empty() && combined_input.length() <= 1400) {
+                                try {
+                                    // Clear the input area and show processing
+                                    for(int i = 0; i < input_height; i++) {
+                                        move(input_start_y + i, 0);
+                                        clrtoeol();
+                                    }
+                                    mvprintw(input_start_y, 0, "[Processing input... %d chars]", 
+                                            (int)combined_input.length());
+                                    refresh();
+                                    
+                                    // Process the input (LOCAL COPY)
+                                    string response = generateResponse(combined_input);
+                                    
+                                    // Update globals AFTER processing
+                                    S.user_input = combined_input;
+                                    S.dialog_response = response;
+                                    
+                                    // Generate follow-up internal thought
                                     try {
-                                        S.dialog_response = generateResponse(S.user_input);
-                                        
-                                        // Generate follow-up internal thought
                                         string internal = generateInternalThought();
                                         S.internal_thoughts.push_back("[Processed]: " + internal);
                                         
                                         if(S.internal_thoughts.size() > 5) {
                                             S.internal_thoughts.erase(S.internal_thoughts.begin());
                                         }
-                                        
-                                        S.dialog_timer = 15;
-                                        S.current_valence += 0.1;
-                                        S.current_valence = clamp_valence(S.current_valence);
-                                        
-                                        // Learn patterns
-                                        storeEpisodicMemory("dialog:" + S.user_input, S.current_valence);
-                                        
-                                        // Generate qualia
+                                    } catch(...) {}
+                                    
+                                    S.dialog_timer = 20;
+                                    S.current_valence += 0.1;
+                                    S.current_valence = clamp_valence(S.current_valence);
+                                    
+                                    // Store memory
+                                    try {
+                                        storeEpisodicMemory("dialog:" + combined_input.substr(0, 100), 
+                                                          S.current_valence);
+                                    } catch(...) {}
+                                    
+                                    // Generate qualia
+                                    try {
                                         generate_qualia("user_interaction", S.current_valence, 0.7);
-                                        
-                                    } catch(const exception& e) {
-                                        S.dialog_response = "[NEXUS]: Error processing input";
-                                        cerr << "Error in generateResponse: " << e.what() << endl;
-                                    }
-                                } else {
-                                    S.user_input.clear();
+                                    } catch(...) {}
+                                    
+                                    error_count = 0; // Reset on successful input
+                                    
+                                } catch(const exception& e) {
+                                    cerr << "Response generation error: " << e.what() << endl;
+                                    S.user_input = combined_input;
+                                    S.dialog_response = "[NEXUS]: Error processing - " + 
+                                                       string(e.what()).substr(0, 50);
+                                    error_count++;
                                 }
-                            } else {
-                                S.user_input.clear();
                             }
-                        } else {
-                            // Input was cancelled or error
-                            S.user_input.clear();
                         }
                         
                         // Clear input area
-                        move(input_y, 0);
-                        clrtoeol();
-                        move(input_y + 1, 0);
-                        clrtoeol();
+                        for(int i = 0; i < input_height; i++) {
+                            move(input_start_y + i, 0);
+                            clrtoeol();
+                        }
                         
                     } catch(const exception& e) {
-                        // Handle any errors gracefully
-                        cerr << "Input error: " << e.what() << endl;
+                        cerr << "Input handler error: " << e.what() << endl;
                         
-                        // Restore terminal state
+                        // Force restore terminal state
                         noecho();
                         curs_set(0);
                         timeout(500);
                         
-                        S.user_input.clear();
+                        S.dialog_response = "[NEXUS]: Input error - " + 
+                                          string(e.what()).substr(0, 50);
+                        error_count++;
+                    } catch(...) {
+                        cerr << "Unknown input handler error" << endl;
+                        
+                        // Force restore terminal state
+                        noecho();
+                        curs_set(0);
+                        timeout(500);
+                        
+                        S.dialog_response = "[NEXUS]: Unknown input error";
+                        error_count++;
                     }
                     
-                    // Force refresh
+                    // Force complete refresh
                     clear();
                     refresh();
                 }
@@ -3980,7 +4059,6 @@ int main(){
                         string generated;
                         int attempts = 0;
                         
-                        // Try to generate unique thought
                         while(attempts < 5) {
                             generated = generate_with_beam_search("i", 10, ctx, 5);
                             if(!isSentenceTooSimilar(generated)) {
@@ -3997,8 +4075,10 @@ int main(){
                             S.internal_thoughts.erase(S.internal_thoughts.begin());
                         }
                         S.current_valence += 0.05;
+                        error_count = 0;
                     } catch(const exception& e) {
                         cerr << "Error generating thought: " << e.what() << endl;
+                        error_count++;
                     }
                 }
                 else if(ch == 'd' || ch == 'D') {
@@ -4009,11 +4089,13 @@ int main(){
                         clrtoeol();
                         refresh();
                         this_thread::sleep_for(chrono::milliseconds(1000));
+                        error_count = 0;
                     } catch(const exception& e) {
                         mvprintw(row + 1, 0, "[Decay failed: %s]", e.what());
                         clrtoeol();
                         refresh();
                         this_thread::sleep_for(chrono::milliseconds(1000));
+                        error_count++;
                     }
                 }
                 else if(ch == 's' || ch == 'S') {
@@ -4024,16 +4106,21 @@ int main(){
                         clrtoeol();
                         refresh();
                         this_thread::sleep_for(chrono::milliseconds(1000));
+                        error_count = 0;
                     } catch(const exception& e) {
-                        mvprintw(row + 1, 0, "[Save failed]");
+                        mvprintw(row + 1, 0, "[Save failed: %s]", e.what());
                         clrtoeol();
                         refresh();
                         this_thread::sleep_for(chrono::milliseconds(1000));
+                        error_count++;
                     }
                 }
                 else if(ch == 'q' || ch == 'Q') {
                     // === QUIT WITH SAVE ===
                     try {
+                        mvprintw(row + 1, 0, "[Saving and exiting...]");
+                        clrtoeol();
+                        refresh();
                         sv("state.dat");
                     } catch(const exception& e) {
                         cerr << "Error saving on exit: " << e.what() << endl;
@@ -4041,21 +4128,54 @@ int main(){
                     running = false;
                 }
                 
+                // Small delay to prevent CPU spinning
                 this_thread::sleep_for(chrono::milliseconds(100));
                 
             } catch(const exception& e) {
                 // Catch any unexpected errors in main loop
                 cerr << "Main loop error: " << e.what() << endl;
+                error_count++;
                 
-                // Try to save state
+                // Try to display error on screen
                 try {
-                    sv("state_emergency.dat");
-                } catch(...) {
-                    // Can't save, just continue
+                    mvprintw(0, 0, "ERROR: %s", e.what());
+                    mvprintw(1, 0, "Press any key to continue...");
+                    refresh();
+                    timeout(-1);
+                    getch();
+                    timeout(500);
+                } catch(...) {}
+                
+                // Try to save emergency state every 5 errors
+                if(error_count % 5 == 0) {
+                    try {
+                        sv("state_emergency.dat");
+                    } catch(...) {}
+                }
+                
+                // If too many errors, pause longer
+                if(error_count > MAX_ERRORS) {
+                    try {
+                        mvprintw(2, 0, "Too many errors. Pausing 5 seconds...");
+                        refresh();
+                    } catch(...) {}
+                    this_thread::sleep_for(chrono::seconds(5));
+                    error_count = 0; // Reset and continue
                 }
                 
                 // Small delay before continuing
                 this_thread::sleep_for(chrono::milliseconds(500));
+            } catch(...) {
+                // Catch absolutely everything
+                cerr << "Unknown main loop error" << endl;
+                error_count++;
+                
+                try {
+                    mvprintw(0, 0, "UNKNOWN ERROR - continuing...");
+                    refresh();
+                } catch(...) {}
+                
+                this_thread::sleep_for(chrono::seconds(1));
             }
         }
         
@@ -4065,9 +4185,34 @@ int main(){
         cout << "\nNEXUS shutdown complete. State saved.\n";
         
     } catch(const exception& e) {
-        // Fatal error - try to cleanup
-        endwin();
-        cerr << "Fatal error: " << e.what() << endl;
+        // Fatal error - try to cleanup and continue if possible
+        try {
+            endwin();
+        } catch(...) {}
+        
+        cerr << "Fatal error in main: " << e.what() << endl;
+        
+        // Try emergency save
+        try {
+            sv("state_fatal_error.dat");
+            cerr << "Emergency state saved to state_fatal_error.dat" << endl;
+        } catch(...) {
+            cerr << "Could not save emergency state" << endl;
+        }
+        
+        return 1;
+    } catch(...) {
+        // Catch absolutely everything
+        try {
+            endwin();
+        } catch(...) {}
+        
+        cerr << "Unknown fatal error in main" << endl;
+        
+        try {
+            sv("state_unknown_error.dat");
+        } catch(...) {}
+        
         return 1;
     }
     
