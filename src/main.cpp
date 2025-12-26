@@ -77,8 +77,6 @@ ConsciousnessState consciousness;
 vector<TransformerHead> transformer_heads;
 TransferLearningModule transfer_module;
 std::mutex learning_mutex;
-map<string, map<string, int>> bigram_counts;
-map<string, map<string, map<string, int>>> trigram_counts;
 deque<string> recent_generations;  // Last N generated sentences
 const int MAX_RECENT_TRACK = 20;   // Track last 20 generations
 map<string, int> generation_counts; // Count how many times each sentence generated
@@ -415,6 +413,155 @@ string generate_with_beam_search(string seed, int max_length,
     
     return result;
 }
+bool isSentenceTooSimilar(const string& candidate) {
+    // Normalize candidate for comparison
+    string normalized = candidate;
+    transform(normalized.begin(), normalized.end(), normalized.begin(), ::tolower);
+    
+    // Remove common prefixes for comparison
+    vector<string> prefixes = {"[nexus]: ", "[generated]: ", "[autonomous]: ", "[thought]: "};
+    for(const string& prefix : prefixes) {
+        string lower_prefix = prefix;
+        transform(lower_prefix.begin(), lower_prefix.end(), lower_prefix.begin(), ::tolower);
+        if(normalized.find(lower_prefix) == 0) {
+            normalized = normalized.substr(lower_prefix.length());
+            break;
+        }
+    }
+    
+    // Remove trailing markers
+    size_t marker_pos = normalized.find(" [positive]");
+    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
+    marker_pos = normalized.find(" [processing]");
+    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
+    
+    // Check if this exact sentence was recently generated
+    if(generation_counts.count(normalized) && generation_counts[normalized] > 0) {
+        return true;  // Exact duplicate
+    }
+    
+    // Check against recent generations for similarity
+    for(const string& recent : recent_generations) {
+        string norm_recent = recent;
+        transform(norm_recent.begin(), norm_recent.end(), norm_recent.begin(), ::tolower);
+        
+        // Remove prefixes from recent
+        for(const string& prefix : prefixes) {
+            string lower_prefix = prefix;
+            transform(lower_prefix.begin(), lower_prefix.end(), lower_prefix.begin(), ::tolower);
+            if(norm_recent.find(lower_prefix) == 0) {
+                norm_recent = norm_recent.substr(lower_prefix.length());
+                break;
+            }
+        }
+        
+        // Remove markers
+        marker_pos = norm_recent.find(" [positive]");
+        if(marker_pos != string::npos) norm_recent = norm_recent.substr(0, marker_pos);
+        marker_pos = norm_recent.find(" [processing]");
+        if(marker_pos != string::npos) norm_recent = norm_recent.substr(0, marker_pos);
+        
+        // Exact match
+        if(normalized == norm_recent) {
+            return true;
+        }
+        
+        // Check if candidate is substring of recent or vice versa
+        if(normalized.length() > 10 && norm_recent.length() > 10) {
+            if(norm_recent.find(normalized) != string::npos || 
+               normalized.find(norm_recent) != string::npos) {
+                return true;
+            }
+        }
+        
+        // Count word overlap
+        set<string> words_candidate, words_recent;
+        stringstream ss1(normalized), ss2(norm_recent);
+        string word;
+        
+        while(ss1 >> word) {
+            if(word.length() > 2) words_candidate.insert(word);
+        }
+        while(ss2 >> word) {
+            if(word.length() > 2) words_recent.insert(word);
+        }
+        
+        if(words_candidate.empty() || words_recent.empty()) continue;
+        
+        // Calculate overlap percentage
+        int overlap = 0;
+        for(const string& w : words_candidate) {
+            if(words_recent.count(w)) overlap++;
+        }
+        
+        double overlap_ratio = (double)overlap / max((int)words_candidate.size(), (int)words_recent.size());
+        
+        // If more than 70% of words overlap, consider it too similar
+        if(overlap_ratio > 0.7) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+void trackGeneratedSentence(const string& sentence) {
+    // Normalize for tracking
+    string normalized = sentence;
+    transform(normalized.begin(), normalized.end(), normalized.begin(), ::tolower);
+    
+    // Remove prefixes
+    vector<string> prefixes = {"[nexus]: ", "[generated]: ", "[autonomous]: ", "[thought]: "};
+    for(const string& prefix : prefixes) {
+        string lower_prefix = prefix;
+        transform(lower_prefix.begin(), lower_prefix.end(), lower_prefix.begin(), ::tolower);
+        if(normalized.find(lower_prefix) == 0) {
+            normalized = normalized.substr(lower_prefix.length());
+            break;
+        }
+    }
+    
+    // Remove markers
+    size_t marker_pos = normalized.find(" [positive]");
+    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
+    marker_pos = normalized.find(" [processing]");
+    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
+    
+    // Add to recent generations
+    recent_generations.push_back(normalized);
+    if(recent_generations.size() > MAX_RECENT_TRACK) {
+        string oldest = recent_generations.front();
+        recent_generations.pop_front();
+        
+        // Decrement count for oldest
+        if(generation_counts.count(oldest)) {
+            generation_counts[oldest]--;
+            if(generation_counts[oldest] <= 0) {
+                generation_counts.erase(oldest);
+            }
+        }
+    }
+    
+    // Increment count for this sentence
+    generation_counts[normalized]++;
+}
+
+void decayGenerationCounts() {
+    // Periodically decay all counts to allow old sentences to be used again
+    for(auto& pair : generation_counts) {
+        pair.second = max(0, pair.second - 1);
+    }
+    
+    // Remove zero counts
+    auto it = generation_counts.begin();
+    while(it != generation_counts.end()) {
+        if(it->second <= 0) {
+            it = generation_counts.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 string postProcessForCoherence(const string& raw_output) {
     string result = raw_output;
     
@@ -2924,98 +3071,7 @@ void unified_consciousness_integration_engine(int generation){
     S.valence_history.push_back(S.current_valence);
 }
 
-// ===== 2. ANTI-REPETITION FUNCTIONS (Add after postProcessForCoherence) =====
-bool isSentenceTooSimilar(const string& candidate) {
-    // Normalize candidate for comparison
-    string normalized = candidate;
-    transform(normalized.begin(), normalized.end(), normalized.begin(), ::tolower);
-    
-    // Remove common prefixes for comparison
-    vector<string> prefixes = {"[nexus]: ", "[generated]: ", "[autonomous]: ", "[thought]: "};
-    for(const string& prefix : prefixes) {
-        string lower_prefix = prefix;
-        transform(lower_prefix.begin(), lower_prefix.end(), lower_prefix.begin(), ::tolower);
-        if(normalized.find(lower_prefix) == 0) {
-            normalized = normalized.substr(lower_prefix.length());
-            break;
-        }
-    }
-    
-    // Remove trailing markers
-    size_t marker_pos = normalized.find(" [positive]");
-    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
-    marker_pos = normalized.find(" [processing]");
-    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
-    
-    // Check if this exact sentence was recently generated
-    if(generation_counts.count(normalized) && generation_counts[normalized] > 0) {
-        return true;  // Exact duplicate
-    }
-    
-    // Check against recent generations for similarity
-    for(const string& recent : recent_generations) {
-        string norm_recent = recent;
-        transform(norm_recent.begin(), norm_recent.end(), norm_recent.begin(), ::tolower);
-        
-        // Remove prefixes from recent
-        for(const string& prefix : prefixes) {
-            string lower_prefix = prefix;
-            transform(lower_prefix.begin(), lower_prefix.end(), lower_prefix.begin(), ::tolower);
-            if(norm_recent.find(lower_prefix) == 0) {
-                norm_recent = norm_recent.substr(lower_prefix.length());
-                break;
-            }
-        }
-        
-        // Remove markers
-        marker_pos = norm_recent.find(" [positive]");
-        if(marker_pos != string::npos) norm_recent = norm_recent.substr(0, marker_pos);
-        marker_pos = norm_recent.find(" [processing]");
-        if(marker_pos != string::npos) norm_recent = norm_recent.substr(0, marker_pos);
-        
-        // Exact match
-        if(normalized == norm_recent) {
-            return true;
-        }
-        
-        // Check if candidate is substring of recent or vice versa
-        if(normalized.length() > 10 && norm_recent.length() > 10) {
-            if(norm_recent.find(normalized) != string::npos || 
-               normalized.find(norm_recent) != string::npos) {
-                return true;
-            }
-        }
-        
-        // Count word overlap
-        set<string> words_candidate, words_recent;
-        stringstream ss1(normalized), ss2(norm_recent);
-        string word;
-        
-        while(ss1 >> word) {
-            if(word.length() > 2) words_candidate.insert(word);
-        }
-        while(ss2 >> word) {
-            if(word.length() > 2) words_recent.insert(word);
-        }
-        
-        if(words_candidate.empty() || words_recent.empty()) continue;
-        
-        // Calculate overlap percentage
-        int overlap = 0;
-        for(const string& w : words_candidate) {
-            if(words_recent.count(w)) overlap++;
-        }
-        
-        double overlap_ratio = (double)overlap / max((int)words_candidate.size(), (int)words_recent.size());
-        
-        // If more than 70% of words overlap, consider it too similar
-        if(overlap_ratio > 0.7) {
-            return true;
-        }
-    }
-    
-    return false;
-}
+
 
 void trackGeneratedSentence(const string& sentence) {
     // Normalize for tracking
@@ -3257,20 +3313,20 @@ void decay_memories() {
 void decay_concepts() {
     // Decay concept values to baseline
     for(auto& pair : S.concepts) {
-        Concept& concept = pair.second;
+        Concept& conc = pair.second;  // Changed from 'concept' to 'conc' to avoid naming conflict
         
         // Decay value toward neutral (0.5)
-        double diff = concept.value - 0.5;
-        concept.value -= diff * 0.02;
+        double diff = conc.value - 0.5;
+        conc.value -= diff * 0.02;
         
         // Decay semantic density
-        concept.semantic_density *= 0.98;
+        conc.semantic_density *= 0.98;
         
         // Decay abstraction level
-        concept.abstraction_level *= 0.97;
+        conc.abstraction_level *= 0.97;
         
         // Decay feature vectors
-        for(auto& feature : concept.feature_vector) {
+        for(auto& feature : conc.feature_vector) {
             feature.second *= 0.98;
         }
     }
@@ -3285,6 +3341,7 @@ void decay_concepts() {
         }
     }
 }
+
 
 void decay_world_model() {
     // Decay entity states toward neutral
