@@ -256,7 +256,7 @@ double calculateTokenScore(const string& prev_word, const string& prev_prev_word
         
         // Attention alignment
         for(size_t i=0; i<attention_context.size() && i<tce.embedding.size(); i++) {
-            score += attention_context[i] * tce.embedding[i] * 0.8;
+            score += attention_context[i] * tce.embedding[i] * 0.6;
         }
         
         // Meaning and grounding
@@ -271,7 +271,7 @@ double calculateTokenScore(const string& prev_word, const string& prev_prev_word
             score += log(1 + freq) * 2.0;  // Bonus for known words
         }
         if(freq > 50) {
-            score -= (freq - 50) * 0.03;  // Gentle penalty for extreme overuse
+            score -= (freq - 50) * 0.02;  // Gentle penalty for extreme overuse
         }
     }
     
@@ -630,8 +630,8 @@ void align_embedding_to_valence(TokenConceptEmbedding& tce, double target_valenc
     double alignment_loss=0.0;
     for(size_t i=0;i<tce.embedding.size();i++){
         double valence_aligned = tce.embedding[i]*target_valence;
-        alignment_loss += pow(valence_aligned - target_valence, 2);
-        tce.embedding[i] = tce.embedding[i]*0.95 + valence_aligned*0.05;
+        alignment_loss += pow(valence_aligned - target_valence, 3);
+        tce.embedding[i] = tce.embedding[i]*0.75 + valence_aligned*0.04;
     }
     tce.grounding_value = max(0.0, min(1.0, tce.grounding_value + alignment_loss*0.01));
 }
@@ -738,7 +738,7 @@ vector<double> compute_attention(const vector<double>& query, const vector<strin
         }
         
         // Valence modulation
-        score += valence_context * 0.7;
+        score += valence_context * 0.3;
         
         // Apply temperature
         attention_scores.push_back(tanh(score / transformer_heads[h].temperature));
@@ -1222,7 +1222,7 @@ void processNGramsFromTokens(const vector<string>& tokens) {
             
             if(pattern_strength < 0.3) {
                 generate_qualia("pattern_novelty", S.current_valence, 0.5);
-            } else if(pattern_strength > 1.0) {
+            } else if(pattern_strength > 0.4) {
                 generate_qualia("pattern_recognition", S.current_valence, 0.8);
             }
         } catch(...) {}
