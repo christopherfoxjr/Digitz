@@ -3071,67 +3071,6 @@ void unified_consciousness_integration_engine(int generation){
     S.valence_history.push_back(S.current_valence);
 }
 
-
-
-void trackGeneratedSentence(const string& sentence) {
-    // Normalize for tracking
-    string normalized = sentence;
-    transform(normalized.begin(), normalized.end(), normalized.begin(), ::tolower);
-    
-    // Remove prefixes
-    vector<string> prefixes = {"[nexus]: ", "[generated]: ", "[autonomous]: ", "[thought]: "};
-    for(const string& prefix : prefixes) {
-        string lower_prefix = prefix;
-        transform(lower_prefix.begin(), lower_prefix.end(), lower_prefix.begin(), ::tolower);
-        if(normalized.find(lower_prefix) == 0) {
-            normalized = normalized.substr(lower_prefix.length());
-            break;
-        }
-    }
-    
-    // Remove markers
-    size_t marker_pos = normalized.find(" [positive]");
-    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
-    marker_pos = normalized.find(" [processing]");
-    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
-    
-    // Add to recent generations
-    recent_generations.push_back(normalized);
-    if(recent_generations.size() > MAX_RECENT_TRACK) {
-        string oldest = recent_generations.front();
-        recent_generations.pop_front();
-        
-        // Decrement count for oldest
-        if(generation_counts.count(oldest)) {
-            generation_counts[oldest]--;
-            if(generation_counts[oldest] <= 0) {
-                generation_counts.erase(oldest);
-            }
-        }
-    }
-    
-    // Increment count for this sentence
-    generation_counts[normalized]++;
-}
-
-void decayGenerationCounts() {
-    // Periodically decay all counts to allow old sentences to be used again
-    for(auto& pair : generation_counts) {
-        pair.second = max(0, pair.second - 1);
-    }
-    
-    // Remove zero counts
-    auto it = generation_counts.begin();
-    while(it != generation_counts.end()) {
-        if(it->second <= 0) {
-            it = generation_counts.erase(it);
-        } else {
-            ++it;
-        }
-    }
-}
-
-
 // ===== 3. COMPREHENSIVE DECAY FUNCTIONS (Add after prune_unstable_tokens) =====
 void decay_ngrams() {
     // Decay bigram counts - reduce overused patterns
