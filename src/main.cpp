@@ -1048,10 +1048,8 @@ void formulate_goals_from_valence() {
         }
     }
 }
-
+// ==== FIXED learnWord() - NO MUTEX ====
 void learnWord(const string& word, double concept_value) {
-    std::lock_guard<std::mutex> lock(learning_mutex);
-    
     // EMERGENCY BOUNDS CHECKS
     if(word.empty() || word.length() > 100) return;
     if(bigram_counts.size() > 15000) {
@@ -1117,10 +1115,6 @@ void learnWord(const string& word, double concept_value) {
         S.tokens[lower_word] = t;
     }
     
-    // === N-GRAM TRACKING - SAFE VERSION ===
-    // NOTE: We do NOT access S.user_input here anymore
-    // N-grams are learned from the input string passed to generateResponse
-    
     // 6. Final World Model Update - wrap in try-catch
     try {
         // Re-verify existence before final access
@@ -1135,12 +1129,10 @@ void learnWord(const string& word, double concept_value) {
     }
 }
 
-// ==== NEW SAFE N-GRAM LEARNING FUNCTION ====
+// ==== SAFE N-GRAM LEARNING FUNCTION - NO MUTEX ====
 void learnNGramsFromInput(const string& input_text) {
-    std::lock_guard<std::mutex> lock(learning_mutex);
-    
     // Validate input
-    if(input_text.empty() || input_text.length() > 1000) return;
+    if(input_text.empty() || input_text.length() > 1500) return;
     
     // Size checks
     if(bigram_counts.size() > 15000) return;
@@ -1148,11 +1140,11 @@ void learnNGramsFromInput(const string& input_text) {
     
     // Tokenize safely
     vector<string> input_tokens;
-    input_tokens.reserve(100);
+    input_tokens.reserve(150);
     
     stringstream ss(input_text);
     string token;
-    const int MAX_TOKENS = 100;
+    const int MAX_TOKENS = 150;
     
     while(ss >> token && input_tokens.size() < MAX_TOKENS) {
         string normalized_token = token;
@@ -1350,25 +1342,24 @@ void learnNGramsFromInput(const string& input_text) {
     }
 }
 
+// ==== FIXED generateResponse() - NO MUTEX ====
 string generateResponse(const string& input) {
-    std::lock_guard<std::mutex> lock(learning_mutex);
-    
     // Make local copy immediately
     string safe_input = input;
     
     // Validate
-    if(safe_input.empty() || safe_input.length() > 500) {
+    if(safe_input.empty() || safe_input.length() > 1500) {
         return "[NEXUS]: ...";
     }
     
     // Tokenize safely
     vector<string> words;
-    words.reserve(100);
+    words.reserve(150);
     stringstream ss(safe_input);
     string word;
     int word_count = 0;
     
-    while(ss >> word && word_count < 100) {
+    while(ss >> word && word_count < 150) {
         if(word.length() <= 100) {
             words.push_back(word);
             word_count++;
@@ -1419,8 +1410,8 @@ string generateResponse(const string& input) {
     string response;
     
     try {
-        // 0% template, 100% beam search
-        if(rn() < 0 || token_concept_embedding_map.size() < 20) {
+        // Use template for small vocab, beam search for larger
+        if(token_concept_embedding_map.size() < 20) {
             response = generateFromTemplate();
         } else {
             string seed = words.empty() ? "i" : words[ri(words.size())];
@@ -1441,7 +1432,6 @@ string generateResponse(const string& input) {
         return "[NEXUS]: Error generating response";
     }
 }
-
 void storeEpisodicMemory(const string&content,double valence){
     if(S.episodic_memory.size()>100)S.episodic_memory.erase(S.episodic_memory.begin());
     S.episodic_memory.push_back({S.g,valence,content});
