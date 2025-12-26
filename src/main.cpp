@@ -452,6 +452,7 @@ string generate_with_beam_search(string seed, int max_length,
     
     return result;
 }
+
 // ==================== TRANSFORMER-STYLE GENERATION WITH BIDIRECTIONAL GROUNDING ====================
 
 // Add this struct for proper attention computation
@@ -777,13 +778,13 @@ double score_token_bidirectional(
         score += bidir_ctx.coherence_score * 4.0;
     }
     
-    // === 8. REPETITION PENALTY (Strong) ===
+    // === 8. REPETITION PENALTY (Moderate - exponential applied in main loop) ===
     int repetition_count = 0;
     for(const string& used : used_tokens) {
         if(used == candidate) repetition_count++;
     }
     if(repetition_count > 0) {
-        score -= 30.0 * repetition_count;  // Very strong penalty
+        score -= 10.0 * repetition_count;  // Moderate base penalty
     }
     
     // === 9. FREQUENCY NORMALIZATION ===
@@ -858,7 +859,13 @@ string generate_transformer_bidirectional(
                 attention.context_vector
             );
             
-            // Track used tokens for this candidate
+            // Track used tokens with frequency count (not just presence)
+            map<string, int> used_counts;
+            for(auto& t : candidate.tokens) {
+                used_counts[t]++;
+            }
+            
+            // Convert to set for the scoring function
             set<string> used;
             for(auto& t : candidate.tokens) used.insert(t);
             
@@ -874,6 +881,13 @@ string generate_transformer_bidirectional(
                     attention,
                     used
                 );
+                
+                // CRITICAL: Apply exponential repetition penalty
+                if(used_counts.count(p.first)) {
+                    int repeat_count = used_counts[p.first];
+                    // Exponential penalty: first repeat -50, second -200, third -800
+                    score -= 50.0 * pow(4.0, repeat_count);
+                }
                 
                 next_candidates.push_back({p.first, score});
             }
@@ -907,6 +921,33 @@ string generate_transformer_bidirectional(
         beam = new_beam;
         
         if(beam.empty()) break;
+        
+        // LOOP DETECTION: Check if the best candidate is stuck repeating
+        if(!beam[0].tokens.empty() && beam[0].tokens.size() >= 4) {
+            // Check last 3 tokens for repetition
+            string last = beam[0].tokens.back();
+            string prev1 = beam[0].tokens[beam[0].tokens.size()-2];
+            string prev2 = beam[0].tokens[beam[0].tokens.size()-3];
+            
+            if(last == prev1 || last == prev2) {
+                // Loop detected, stop generation
+                break;
+            }
+            
+            // Also check if same word appears 3+ times
+            map<string, int> recent_counts;
+            int window = min(5, (int)beam[0].tokens.size());
+            for(int i = beam[0].tokens.size() - window; i < (int)beam[0].tokens.size(); i++) {
+                recent_counts[beam[0].tokens[i]]++;
+            }
+            
+            for(auto& p : recent_counts) {
+                if(p.second >= 3) {
+                    // Same word 3+ times in last 5 tokens - stop
+                    break;
+                }
+            }
+        }
         
         // Early stopping if we have a complete sentence
         if(step >= 5 && !beam[0].tokens.empty()) {
