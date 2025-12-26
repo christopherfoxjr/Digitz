@@ -3230,11 +3230,12 @@ void bootstrapStrongPatterns() {
     trigram_counts["learning"]["more"]["about"] = 25;
     
     // Even stronger 4-word patterns (stored as trigram + manual check)
-    trigram_counts["i"]["am"]["learning"]["to"] = 30;
-    trigram_counts["i"]["want"]["to"]["learn"] = 35;
-    trigram_counts["i"]["want"]["to"]["understand"] = 32;
-    trigram_counts["trying"]["to"]["learn"]["more"] = 25;
-    trigram_counts["able"]["to"]["learn"]["more"] = 22;
+    trigram_counts["i"]["am"]["learning"] += 30;
+    trigram_counts["i"]["want"]["to"] += 35;
+    trigram_counts["i"]["want"]["to"] += 32;
+    trigram_counts["trying"]["to"]["learn"] += 25;
+    trigram_counts["able"]["to"]["learn"] += 22;
+
     
     cerr << "[BOOTSTRAP] Loaded " << bigram_counts.size() << " strong patterns" << endl;
 }
