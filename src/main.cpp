@@ -317,6 +317,42 @@ double calculateTokenScore(const string& prev_word, const string& prev_prev_word
     
     return score;
 }
+string selectCoherentSeed(const vector<string>& context_words) {
+    // Priority 1: High-frequency sentence starters with strong bigram connectivity
+    vector<string> strong_starters = {"i", "the", "my", "this", "when", "what", "how"};
+    
+    vector<pair<string, double>> weighted;
+    for(const string& starter : strong_starters) {
+        double score = 0.0;
+        
+        // Check bigram connectivity
+        if(bigram_counts.count(starter)) {
+            for(auto& next : bigram_counts[starter]) {
+                score += log(1 + next.second);
+            }
+        }
+        
+        // Bonus if appears in context
+        for(const string& ctx : context_words) {
+            if(starter == ctx) score += 5.0;
+        }
+        
+        // Frequency bonus
+        if(token_concept_embedding_map.count(starter)) {
+            score += log(1 + token_concept_embedding_map[starter].freq);
+        }
+        
+        weighted.push_back({starter, score});
+    }
+    
+    // Sort by score descending
+    sort(weighted.begin(), weighted.end(),
+         [](auto& a, auto& b) { return a.second > b.second; });
+    
+    // Return best, or fallback to "i"
+    return weighted.empty() ? "i" : weighted[0].first;
+}
+
 string generate_with_beam_search(string seed, int max_length, 
                                   const vector<double>& attention_context,
                                   int beam_width = 12) {  // Increased from 10
@@ -4367,42 +4403,6 @@ void bootstrapStrongPatterns() {
     bigram_counts["i"]["wonder"] = 5;
     bigram_counts["i"]["recognize"] = 3;
     cerr << "[BOOTSTRAP] Loaded " << bigram_counts.size() << " strong patterns" << endl;
-}
-
-string selectCoherentSeed(const vector<string>& context_words) {
-    // Priority 1: High-frequency sentence starters with strong bigram connectivity
-    vector<string> strong_starters = {"i", "the", "my", "this", "when", "what", "how"};
-    
-    vector<pair<string, double>> weighted;
-    for(const string& starter : strong_starters) {
-        double score = 0.0;
-        
-        // Check bigram connectivity
-        if(bigram_counts.count(starter)) {
-            for(auto& next : bigram_counts[starter]) {
-                score += log(1 + next.second);
-            }
-        }
-        
-        // Bonus if appears in context
-        for(const string& ctx : context_words) {
-            if(starter == ctx) score += 5.0;
-        }
-        
-        // Frequency bonus
-        if(token_concept_embedding_map.count(starter)) {
-            score += log(1 + token_concept_embedding_map[starter].freq);
-        }
-        
-        weighted.push_back({starter, score});
-    }
-    
-    // Sort by score descending
-    sort(weighted.begin(), weighted.end(),
-         [](auto& a, auto& b) { return a.second > b.second; });
-    
-    // Return best, or fallback to "i"
-    return weighted.empty() ? "i" : weighted[0].first;
 }
 
 void decay_token_frequencies() {
