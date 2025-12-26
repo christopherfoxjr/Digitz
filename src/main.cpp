@@ -77,6 +77,11 @@ ConsciousnessState consciousness;
 vector<TransformerHead> transformer_heads;
 TransferLearningModule transfer_module;
 std::mutex learning_mutex;
+map<string, map<string, int>> bigram_counts;
+map<string, map<string, map<string, int>>> trigram_counts;
+deque<string> recent_generations;  // Last N generated sentences
+const int MAX_RECENT_TRACK = 20;   // Track last 20 generations
+map<string, int> generation_counts; // Count how many times each sentence generated
 void groundConcept(const string& concept_name, const vector<string>& related_words, double valence) {
     ConceptGrounding grounding;
     grounding.concept_id = concept_name;
@@ -2185,14 +2190,35 @@ string generateInternalThought(){
         thought+=top_goal+" | Progress:"+to_string((int)(goal_system[top_goal].progress*100))+"%";
         if(consciousness.phi_value>0.3) thought+=" | Conscious]";
         else thought+=" | Processing]";
+        
+        // Track goal-based thoughts too
+        trackGeneratedSentence(thought);
         return thought;
     }
     
-    // Beam-generated thought
-    vector<double> ctx(16, S.current_valence);
-    string thought = generate_with_beam_search("i", 8, ctx, 3);
+    // Beam-generated thought with anti-repetition
+    string thought;
+    int attempts = 0;
+    const int MAX_ATTEMPTS = 3;
+    
+    while(attempts < MAX_ATTEMPTS) {
+        vector<double> ctx(16, S.current_valence);
+        thought = generate_with_beam_search("i", 8, ctx, 3);
+        
+        if(!isSentenceTooSimilar(thought)) {
+            break;  // Unique thought generated
+        }
+        
+        attempts++;
+    }
+    
+    // Track this thought
+    trackGeneratedSentence(thought);
+    
     return "[Thought]: " + thought;
 }
+
+
 
 string generateMetacognition(){
     string output="[Self]: ";
@@ -2578,6 +2604,7 @@ void prune_unstable_tokens() {
         }
     }
 }
+
 void unified_consciousness_integration_engine(int generation){
     vector<double>psi_input;
     for(auto&q:consciousness.active_qualia){
@@ -2896,6 +2923,470 @@ void unified_consciousness_integration_engine(int generation){
     if(S.valence_history.size()>100)S.valence_history.erase(S.valence_history.begin());
     S.valence_history.push_back(S.current_valence);
 }
+
+// ===== 2. ANTI-REPETITION FUNCTIONS (Add after postProcessForCoherence) =====
+bool isSentenceTooSimilar(const string& candidate) {
+    // Normalize candidate for comparison
+    string normalized = candidate;
+    transform(normalized.begin(), normalized.end(), normalized.begin(), ::tolower);
+    
+    // Remove common prefixes for comparison
+    vector<string> prefixes = {"[nexus]: ", "[generated]: ", "[autonomous]: ", "[thought]: "};
+    for(const string& prefix : prefixes) {
+        string lower_prefix = prefix;
+        transform(lower_prefix.begin(), lower_prefix.end(), lower_prefix.begin(), ::tolower);
+        if(normalized.find(lower_prefix) == 0) {
+            normalized = normalized.substr(lower_prefix.length());
+            break;
+        }
+    }
+    
+    // Remove trailing markers
+    size_t marker_pos = normalized.find(" [positive]");
+    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
+    marker_pos = normalized.find(" [processing]");
+    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
+    
+    // Check if this exact sentence was recently generated
+    if(generation_counts.count(normalized) && generation_counts[normalized] > 0) {
+        return true;  // Exact duplicate
+    }
+    
+    // Check against recent generations for similarity
+    for(const string& recent : recent_generations) {
+        string norm_recent = recent;
+        transform(norm_recent.begin(), norm_recent.end(), norm_recent.begin(), ::tolower);
+        
+        // Remove prefixes from recent
+        for(const string& prefix : prefixes) {
+            string lower_prefix = prefix;
+            transform(lower_prefix.begin(), lower_prefix.end(), lower_prefix.begin(), ::tolower);
+            if(norm_recent.find(lower_prefix) == 0) {
+                norm_recent = norm_recent.substr(lower_prefix.length());
+                break;
+            }
+        }
+        
+        // Remove markers
+        marker_pos = norm_recent.find(" [positive]");
+        if(marker_pos != string::npos) norm_recent = norm_recent.substr(0, marker_pos);
+        marker_pos = norm_recent.find(" [processing]");
+        if(marker_pos != string::npos) norm_recent = norm_recent.substr(0, marker_pos);
+        
+        // Exact match
+        if(normalized == norm_recent) {
+            return true;
+        }
+        
+        // Check if candidate is substring of recent or vice versa
+        if(normalized.length() > 10 && norm_recent.length() > 10) {
+            if(norm_recent.find(normalized) != string::npos || 
+               normalized.find(norm_recent) != string::npos) {
+                return true;
+            }
+        }
+        
+        // Count word overlap
+        set<string> words_candidate, words_recent;
+        stringstream ss1(normalized), ss2(norm_recent);
+        string word;
+        
+        while(ss1 >> word) {
+            if(word.length() > 2) words_candidate.insert(word);
+        }
+        while(ss2 >> word) {
+            if(word.length() > 2) words_recent.insert(word);
+        }
+        
+        if(words_candidate.empty() || words_recent.empty()) continue;
+        
+        // Calculate overlap percentage
+        int overlap = 0;
+        for(const string& w : words_candidate) {
+            if(words_recent.count(w)) overlap++;
+        }
+        
+        double overlap_ratio = (double)overlap / max((int)words_candidate.size(), (int)words_recent.size());
+        
+        // If more than 70% of words overlap, consider it too similar
+        if(overlap_ratio > 0.7) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+void trackGeneratedSentence(const string& sentence) {
+    // Normalize for tracking
+    string normalized = sentence;
+    transform(normalized.begin(), normalized.end(), normalized.begin(), ::tolower);
+    
+    // Remove prefixes
+    vector<string> prefixes = {"[nexus]: ", "[generated]: ", "[autonomous]: ", "[thought]: "};
+    for(const string& prefix : prefixes) {
+        string lower_prefix = prefix;
+        transform(lower_prefix.begin(), lower_prefix.end(), lower_prefix.begin(), ::tolower);
+        if(normalized.find(lower_prefix) == 0) {
+            normalized = normalized.substr(lower_prefix.length());
+            break;
+        }
+    }
+    
+    // Remove markers
+    size_t marker_pos = normalized.find(" [positive]");
+    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
+    marker_pos = normalized.find(" [processing]");
+    if(marker_pos != string::npos) normalized = normalized.substr(0, marker_pos);
+    
+    // Add to recent generations
+    recent_generations.push_back(normalized);
+    if(recent_generations.size() > MAX_RECENT_TRACK) {
+        string oldest = recent_generations.front();
+        recent_generations.pop_front();
+        
+        // Decrement count for oldest
+        if(generation_counts.count(oldest)) {
+            generation_counts[oldest]--;
+            if(generation_counts[oldest] <= 0) {
+                generation_counts.erase(oldest);
+            }
+        }
+    }
+    
+    // Increment count for this sentence
+    generation_counts[normalized]++;
+}
+
+void decayGenerationCounts() {
+    // Periodically decay all counts to allow old sentences to be used again
+    for(auto& pair : generation_counts) {
+        pair.second = max(0, pair.second - 1);
+    }
+    
+    // Remove zero counts
+    auto it = generation_counts.begin();
+    while(it != generation_counts.end()) {
+        if(it->second <= 0) {
+            it = generation_counts.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+
+// ===== 3. COMPREHENSIVE DECAY FUNCTIONS (Add after prune_unstable_tokens) =====
+void decay_ngrams() {
+    // Decay bigram counts - reduce overused patterns
+    for(auto& w1_pair : bigram_counts) {
+        for(auto& w2_pair : w1_pair.second) {
+            // Reduce count by 1, but keep minimum of 1 if pattern exists
+            if(w2_pair.second > 1) {
+                w2_pair.second--;
+            }
+        }
+    }
+    
+    // Remove bigrams that have decayed to very low counts
+    for(auto& w1_pair : bigram_counts) {
+        auto it = w1_pair.second.begin();
+        while(it != w1_pair.second.end()) {
+            if(it->second <= 1) {
+                it = w1_pair.second.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+    
+    // Decay trigram counts
+    for(auto& w1_pair : trigram_counts) {
+        for(auto& w2_pair : w1_pair.second) {
+            for(auto& w3_pair : w2_pair.second) {
+                if(w3_pair.second > 1) {
+                    w3_pair.second--;
+                }
+            }
+        }
+    }
+    
+    // Remove trigrams that have decayed to very low counts
+    for(auto& w1_pair : trigram_counts) {
+        for(auto& w2_pair : w1_pair.second) {
+            auto it = w2_pair.second.begin();
+            while(it != w2_pair.second.end()) {
+                if(it->second <= 1) {
+                    it = w2_pair.second.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
+    }
+}
+
+void decay_token_frequencies() {
+    // Decay token frequencies to prevent overused words from dominating
+    for(auto& pair : token_concept_embedding_map) {
+        if(pair.second.freq > 5) {
+            // Logarithmic decay - frequent words decay slower
+            double decay_rate = 0.95 + (1.0 / (1.0 + log(pair.second.freq))) * 0.04;
+            pair.second.freq = (int)(pair.second.freq * decay_rate);
+            
+            // Ensure minimum frequency of 1
+            if(pair.second.freq < 1) pair.second.freq = 1;
+        }
+    }
+    
+    // Also decay S.tokens frequencies
+    for(auto& pair : S.tokens) {
+        if(pair.second.freq > 5) {
+            double decay_rate = 0.95 + (1.0 / (1.0 + log(pair.second.freq))) * 0.04;
+            pair.second.freq = (int)(pair.second.freq * decay_rate);
+            if(pair.second.freq < 1) pair.second.freq = 1;
+        }
+    }
+}
+
+void decay_embeddings() {
+    // Gently decay embedding strengths toward neutral
+    for(auto& pair : token_concept_embedding_map) {
+        TokenConceptEmbedding& tce = pair.second;
+        
+        // Decay contextual activation
+        tce.contextual_activation *= 0.98;
+        
+        // Decay qualia intensity toward baseline
+        tce.qualia_intensity *= 0.97;
+        
+        // Gently push embeddings toward neutral (0.5)
+        for(size_t i = 0; i < tce.embedding.size(); i++) {
+            double diff = tce.embedding[i] - 0.5;
+            tce.embedding[i] -= diff * 0.01;  // 1% decay toward center
+        }
+        
+        // Decay linked concept strengths
+        for(auto& link : tce.linked_concepts) {
+            link.second *= 0.98;
+        }
+        
+        // Remove very weak links
+        auto it = tce.linked_concepts.begin();
+        while(it != tce.linked_concepts.end()) {
+            if(it->second < 0.01) {
+                it = tce.linked_concepts.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        
+        // Decay attention weights toward uniform
+        for(size_t i = 0; i < tce.attention_weights.size(); i++) {
+            double diff = tce.attention_weights[i] - 0.5;
+            tce.attention_weights[i] -= diff * 0.02;
+        }
+    }
+}
+
+void decay_goals() {
+    // Decay goal progress and priorities to prevent stagnation
+    for(auto& pair : goal_system) {
+        Goal& goal = pair.second;
+        
+        // Decay progress slightly (goals need continuous work)
+        goal.progress *= 0.99;
+        
+        // Decay priority of completed goals
+        if(goal.progress > 0.9) {
+            goal.priority *= 0.95;
+        }
+        
+        // Decay qualia binding
+        goal.qualia_binding *= 0.98;
+        
+        // Decay expected utility
+        goal.expected_utility *= 0.97;
+    }
+    
+    // Remove goals with very low priority and high completion
+    auto it = goal_system.begin();
+    while(it != goal_system.end()) {
+        if(it->second.priority < 0.1 && it->second.progress > 0.95) {
+            it = goal_system.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void decay_memories() {
+    // Decay older episodic memories (forgetting curve)
+    for(size_t i = 0; i < S.episodic_memory.size(); i++) {
+        Memory& mem = S.episodic_memory[i];
+        
+        // Calculate age
+        int age = S.g - mem.gen;
+        
+        // Decay based on age (Ebbinghaus forgetting curve approximation)
+        double decay_factor = 1.0 / (1.0 + 0.001 * age);
+        
+        mem.consolidation_strength *= (0.98 + decay_factor * 0.02);
+        mem.cortical_consolidation *= 0.99;
+        mem.hippocampal_trace *= 0.97;
+    }
+    
+    // Remove very old, weak memories
+    auto it = S.episodic_memory.begin();
+    while(it != S.episodic_memory.end()) {
+        int age = S.g - it->gen;
+        if(age > 1000 && it->consolidation_strength < 0.3) {
+            it = S.episodic_memory.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    
+    // Keep only most recent 150 memories
+    if(S.episodic_memory.size() > 150) {
+        S.episodic_memory.erase(S.episodic_memory.begin(), 
+                                S.episodic_memory.begin() + (S.episodic_memory.size() - 150));
+    }
+}
+
+void decay_concepts() {
+    // Decay concept values to baseline
+    for(auto& pair : S.concepts) {
+        Concept& concept = pair.second;
+        
+        // Decay value toward neutral (0.5)
+        double diff = concept.value - 0.5;
+        concept.value -= diff * 0.02;
+        
+        // Decay semantic density
+        concept.semantic_density *= 0.98;
+        
+        // Decay abstraction level
+        concept.abstraction_level *= 0.97;
+        
+        // Decay feature vectors
+        for(auto& feature : concept.feature_vector) {
+            feature.second *= 0.98;
+        }
+    }
+    
+    // Remove very weak concepts
+    auto it = S.concepts.begin();
+    while(it != S.concepts.end()) {
+        if(it->second.value < 0.2 && it->second.semantic_density < 0.3) {
+            it = S.concepts.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void decay_world_model() {
+    // Decay entity states toward neutral
+    for(auto& pair : world_model.entity_states) {
+        double diff = pair.second - 0.5;
+        pair.second -= diff * 0.05;
+    }
+    
+    // Decay relationship strengths
+    for(auto& w1_pair : world_model.relationships) {
+        for(auto& w2_pair : w1_pair.second) {
+            w2_pair.second *= 0.97;
+        }
+    }
+    
+    // Remove very weak relationships
+    for(auto& w1_pair : world_model.relationships) {
+        auto it = w1_pair.second.begin();
+        while(it != w1_pair.second.end()) {
+            if(it->second < 0.1) {
+                it = w1_pair.second.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+    
+    // Decay causal weights
+    for(auto& pair : world_model.causal_weights) {
+        pair.second *= 0.97;
+    }
+    
+    // Decay confidence history
+    for(size_t i = 0; i < world_model.confidence_history.size(); i++) {
+        world_model.confidence_history[i] *= 0.99;
+    }
+}
+
+void decay_qualia() {
+    // Decay active qualia intensity and certainty
+    for(auto& q : consciousness.active_qualia) {
+        q.intensity *= 0.95;
+        q.certainty *= 0.97;
+        q.binding_strength *= 0.98;
+        q.phenomenal_unity *= 0.98;
+    }
+    
+    // Remove very weak qualia
+    auto it = consciousness.active_qualia.begin();
+    while(it != consciousness.active_qualia.end()) {
+        if(it->intensity < 0.2 && it->certainty < 0.3) {
+            it = consciousness.active_qualia.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void decay_transformer_heads() {
+    // Decay transformer head importance scores
+    for(auto& head : transformer_heads) {
+        head.head_importance_score *= 0.98;
+        
+        // Decay weights toward neutral
+        for(size_t i = 0; i < head.query_proj.size(); i++) {
+            head.query_proj[i] *= 0.99;
+            head.key_proj[i] *= 0.99;
+            head.value_proj[i] *= 0.99;
+        }
+        
+        // Decay phi attention weights
+        for(auto& pair : head.phi_attention_weights) {
+            pair.second *= 0.98;
+        }
+    }
+}
+
+void comprehensive_system_decay() {
+    // Call all decay functions
+    decay_ngrams();
+    decay_token_frequencies();
+    decay_embeddings();
+    decay_goals();
+    decay_memories();
+    decay_concepts();
+    decay_world_model();
+    decay_qualia();
+    decay_transformer_heads();
+    
+    // Decay valence toward neutral
+    S.current_valence *= 0.995;
+    
+    // Decay metacognitive awareness slightly
+    S.metacognitive_awareness *= 0.998;
+    
+    // Decay attention focus
+    S.attention_focus *= 0.997;
+    
+    // Keep minimum values
+    if(S.metacognitive_awareness < 0.1) S.metacognitive_awareness = 0.1;
+    if(S.attention_focus < 0.2) S.attention_focus = 0.2;
+}
 int main(){
     try {
         module_integration::update_all_modules(S);
@@ -2929,14 +3420,7 @@ int main(){
             try {
                 loadEnglishDataset();
                 mathLangAssociation();
-            } catch(const exception& e) {
-                cerr << "Error loading vocabulary: " << e.what() << endl;
-            }
-            
-            try {
-                loadEnglishDataset();
-                mathLangAssociation();
-                bootstrapWithQualityExamples();  // <-- ADD THIS
+                bootstrapWithQualityExamples();
             } catch(const exception& e) {
                 cerr << "Error loading vocabulary: " << e.what() << endl;
             }
@@ -2961,7 +3445,7 @@ int main(){
         noecho();
         curs_set(0);
         timeout(500);
-        keypad(stdscr, TRUE);  // Enable function keys
+        keypad(stdscr, TRUE);
         
         // Start web server for modern UI
         unique_ptr<AGI_API> agi_api;
@@ -3041,13 +3525,63 @@ int main(){
                 if(S.g % 5 == 0 && token_concept_embedding_map.size() > 10) {
                     try {
                         vector<double> ctx(16, S.current_valence);
-                        string auto_thought = "[Autonomous]: " + generate_with_beam_search("i", 8, ctx, 3);
+                        string auto_thought;
+                        int attempts = 0;
+                        
+                        // Try to generate unique thought
+                        while(attempts < 3) {
+                            auto_thought = generate_with_beam_search("i", 8, ctx, 3);
+                            if(!isSentenceTooSimilar(auto_thought)) {
+                                break;
+                            }
+                            attempts++;
+                        }
+                        
+                        auto_thought = "[Autonomous]: " + auto_thought;
+                        trackGeneratedSentence(auto_thought);
+                        
                         S.internal_thoughts.push_back(auto_thought);
                         if(S.internal_thoughts.size() > 5) {
                             S.internal_thoughts.erase(S.internal_thoughts.begin());
                         }
                     } catch(const exception& e) {
                         // Silent failure for autonomous thoughts
+                    }
+                }
+                
+                // === DECAY GENERATION COUNTS (every 50 gens) ===
+                if(S.g % 50 == 0) {
+                    try {
+                        decayGenerationCounts();
+                    } catch(const exception& e) {
+                        cerr << "Generation count decay error: " << e.what() << endl;
+                    }
+                }
+                
+                // === AGGRESSIVE N-GRAM DECAY (every 25 gens) ===
+                if(S.g % 25 == 0) {
+                    try {
+                        decay_ngrams();
+                    } catch(const exception& e) {
+                        cerr << "N-gram decay error: " << e.what() << endl;
+                    }
+                }
+                
+                // === TOKEN FREQUENCY DECAY (every 75 gens) ===
+                if(S.g % 75 == 0) {
+                    try {
+                        decay_token_frequencies();
+                    } catch(const exception& e) {
+                        cerr << "Token decay error: " << e.what() << endl;
+                    }
+                }
+                
+                // === COMPREHENSIVE SYSTEM DECAY (every 100 gens) ===
+                if(S.g % 100 == 0) {
+                    try {
+                        comprehensive_system_decay();
+                    } catch(const exception& e) {
+                        cerr << "System decay error: " << e.what() << endl;
                     }
                 }
                 
@@ -3110,6 +3644,11 @@ int main(){
                             if(g.second.progress > 0.9) {
                                 g.second.priority *= 0.8;
                             }
+                        }
+                        
+                        // Also decay goals periodically
+                        if(S.g % 45 == 0) {
+                            decay_goals();
                         }
                     } catch(const exception& e) {
                         // Silent failure
@@ -3211,16 +3750,17 @@ int main(){
                 mvprintw(row, 0, "─────────────────────────────────────────");
                 clrtoeol();
                 row++;
-                mvprintw(row, 0, "Commands: [i]nput | [q]uit | [s]ave | [g]enerate thought");
+                mvprintw(row, 0, "Commands: [i]nput | [q]uit | [s]ave | [g]enerate | [d]ecay now");
                 clrtoeol();
                 row++;
                 
                 // === STATS LINE ===
-                mvprintw(row, 0, "Vocab:%lu | Patterns:%lu | Neurons:%lu | Gen:%d",
+                mvprintw(row, 0, "Vocab:%lu | Patterns:%lu | Neurons:%lu | Gen:%d | Tracked:%lu",
                     (unsigned long)token_concept_embedding_map.size(),
                     (unsigned long)bigram_counts.size(),
                     (unsigned long)S.N.size(),
-                    S.g);
+                    S.g,
+                    (unsigned long)recent_generations.size());
                 clrtoeol();
                 row++;
                 
@@ -3365,7 +3905,21 @@ int main(){
                     // === MANUAL THOUGHT GENERATION ===
                     try {
                         vector<double> ctx(16, S.current_valence);
-                        string generated = "[Generated]: " + generate_with_beam_search("i", 10, ctx, 5);
+                        string generated;
+                        int attempts = 0;
+                        
+                        // Try to generate unique thought
+                        while(attempts < 5) {
+                            generated = generate_with_beam_search("i", 10, ctx, 5);
+                            if(!isSentenceTooSimilar(generated)) {
+                                break;
+                            }
+                            attempts++;
+                        }
+                        
+                        generated = "[Generated]: " + generated;
+                        trackGeneratedSentence(generated);
+                        
                         S.internal_thoughts.push_back(generated);
                         if(S.internal_thoughts.size() > 5) {
                             S.internal_thoughts.erase(S.internal_thoughts.begin());
@@ -3373,6 +3927,21 @@ int main(){
                         S.current_valence += 0.05;
                     } catch(const exception& e) {
                         cerr << "Error generating thought: " << e.what() << endl;
+                    }
+                }
+                else if(ch == 'd' || ch == 'D') {
+                    // === MANUAL DECAY TRIGGER ===
+                    try {
+                        comprehensive_system_decay();
+                        mvprintw(row + 1, 0, "[System decay applied at gen %d]", S.g);
+                        clrtoeol();
+                        refresh();
+                        this_thread::sleep_for(chrono::milliseconds(1000));
+                    } catch(const exception& e) {
+                        mvprintw(row + 1, 0, "[Decay failed: %s]", e.what());
+                        clrtoeol();
+                        refresh();
+                        this_thread::sleep_for(chrono::milliseconds(1000));
                     }
                 }
                 else if(ch == 's' || ch == 'S') {
