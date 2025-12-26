@@ -230,120 +230,111 @@ double calculateTokenScore(const string& prev_word, const string& prev_prev_word
     
     double score = 0.0;
     
-    // === 1. TRIGRAM (HIGHEST PRIORITY - LEARNED PATTERNS DOMINATE) ===
+    // === 1. GRAMMAR (HIGHEST PRIORITY FOR STRUCTURE) ===
+    double grammar = getGrammarScore(prev_word, candidate, position);
+    score += grammar * 8.0;  // INCREASED from 3.0
+    
+    // === 2. TRIGRAM (STRONG BUT NOT DOMINANT) ===
     if(!prev_prev_word.empty() && trigram_counts.count(prev_prev_word)) {
         if(trigram_counts[prev_prev_word].count(prev_word)) {
             if(trigram_counts[prev_prev_word][prev_word].count(candidate)) {
                 int count = trigram_counts[prev_prev_word][prev_word][candidate];
-                score += log(1 + count) * 15.0;  // HIGHEST - natural language flow
+                score += log(1 + count) * 12.0;  // REDUCED from 15.0
             }
         }
     }
     
-    // === 2. BIGRAM (SECOND PRIORITY) ===
+    // === 3. BIGRAM (IMPORTANT BUT BALANCED) ===
     if(bigram_counts.count(prev_word) && bigram_counts[prev_word].count(candidate)) {
         int count = bigram_counts[prev_word][candidate];
-        score += log(1 + count) * 10.0;  // Strong learned pattern signal
+        score += log(1 + count) * 8.0;  // REDUCED from 10.0
     }
     
-    // === 3. GRAMMAR (REDUCED - TIEBREAKER ONLY) ===
-    double grammar = getGrammarScore(prev_word, candidate, position);
-    score += grammar * 3.0;  // Reduced from 10.0 - grammar assists, doesn't dominate
-    
-    // === 4. SEMANTIC COHERENCE ===
+    // === 4. SEMANTIC COHERENCE (INCREASED WEIGHT) ===
     if(token_concept_embedding_map.count(candidate)) {
         auto& tce = token_concept_embedding_map[candidate];
         
-        // Attention alignment
+        // Attention alignment (INCREASED)
+        double attn_score = 0.0;
         for(size_t i=0; i<attention_context.size() && i<tce.embedding.size(); i++) {
-            score += attention_context[i] * tce.embedding[i] * 0.6;
+            attn_score += attention_context[i] * tce.embedding[i];
         }
+        score += attn_score * 2.0;  // INCREASED from 0.6
         
         // Meaning and grounding
-        score += tce.meaning * 0.5;
-        score += tce.grounding_value * 0.3;
+        score += tce.meaning * 1.5;  // INCREASED from 0.5
+        score += tce.grounding_value * 1.0;  // INCREASED from 0.3
     }
     
-    // === 5. FREQUENCY WEIGHTING (encourage learned vocabulary) ===
+    // === 5. FREQUENCY (REDUCED TO PREVENT OVERUSE) ===
     if(token_concept_embedding_map.count(candidate)) {
         double freq = token_concept_embedding_map[candidate].freq;
         if(freq > 0) {
-            score += log(1 + freq) * 2.0;  // Bonus for known words
+            score += log(1 + freq) * 1.0;  // REDUCED from 2.0
         }
-        if(freq > 50) {
-            score -= (freq - 50) * 0.02;  // Gentle penalty for extreme overuse
+        // Stronger penalty for overuse
+        if(freq > 30) {
+            score -= (freq - 30) * 0.1;  // INCREASED from 0.02
         }
     }
     
-    // === 6. REPETITION PENALTY (MUCH GENTLER - allow natural reuse) ===
+    // === 6. REPETITION PENALTY (MUCH STRONGER) ===
     int repetition_count = 0;
     for(const string& used : used_tokens) {
         if(used == candidate) repetition_count++;
     }
     
     if(repetition_count == 1) {
-        score -= 14.0;  // First repeat: small penalty
+        score -= 25.0;  // INCREASED from 14.0 - first repeat now very costly
     } else if(repetition_count == 2) {
-        score -= 36.0;  // Second repeat: larger penalty
+        score -= 60.0;  // INCREASED from 36.0 - second repeat nearly impossible
     } else if(repetition_count > 2) {
-        score -= 83.0;  // Third+ repeat: harsh penalty
+        score -= 150.0;  // INCREASED from 83.0 - third+ repeat blocked
     }
     
-    // === 7. POSITION-SPECIFIC BONUSES ===
+    // === 7. POSITION-SPECIFIC (ENHANCED) ===
     if(position == 0) {
-        // Strong preference for good sentence starters
         string pos = getPartOfSpeech(candidate);
-        if(pos == "PRONOUN") score += 8.0;
-        if(pos == "QUESTION") score += 5.0;
-        if(pos == "ARTICLE") score += 3.0;
+        if(pos == "PRONOUN") score += 12.0;  // INCREASED from 8.0
+        if(pos == "QUESTION") score += 8.0;   // INCREASED from 5.0
+        if(pos == "ARTICLE") score += 5.0;    // INCREASED from 3.0
     }
     
     if(position > 0 && position < 3) {
-        // Early in sentence, prefer structure words
         string pos = getPartOfSpeech(candidate);
-        if(pos == "BE_VERB" || pos == "MODAL") score += 2.0;
+        if(pos == "BE_VERB" || pos == "MODAL") score += 4.0;  // INCREASED from 2.0
+    }
+    
+    // === 8. CONTEXTUAL CONSISTENCY ===
+    // Bonus for words that appear in linked concepts of previous word
+    if(token_concept_embedding_map.count(prev_word) && 
+       token_concept_embedding_map.count(candidate)) {
+        auto& prev_tce = token_concept_embedding_map[prev_word];
+        if(prev_tce.linked_concepts.count(candidate)) {
+            score += prev_tce.linked_concepts[candidate] * 5.0;  // NEW
+        }
     }
     
     return score;
 }
-
 string generate_with_beam_search(string seed, int max_length, 
                                   const vector<double>& attention_context,
-                                  int beam_width = 10) {  // Increased from 5
+                                  int beam_width = 12) {  // Increased from 10
     
-    // Better seed selection based on learned frequency
-    vector<string> good_starts = {"i", "the", "my", "we", "this", "when", "how", "what", "you"};
-    bool seed_is_good = false;
+    // === SMART SEED SELECTION ===
+    vector<string> seed_words;
+    if(!seed.empty()) seed_words.push_back(seed);
     
-    for(const string& gs : good_starts) {
-        if(seed == gs) { seed_is_good = true; break; }
-    }
+    string best_seed = selectCoherentSeed(seed_words);
     
-    if(!seed_is_good) {
-        // Pick highest frequency starter word
-        int best_freq = 0;
-        string best_word = "i";
-        
-        for(const string& gs : good_starts) {
-            if(token_concept_embedding_map.count(gs)) {
-                int freq = token_concept_embedding_map[gs].freq;
-                if(freq > best_freq) {
-                    best_freq = freq;
-                    best_word = gs;
-                }
-            }
-        }
-        seed = best_word;
-    }
-    
-    // Initialize beam with seed
+    // Initialize beam with best seed
     vector<BeamCandidate> beam;
     BeamCandidate initial;
-    initial.tokens.push_back(seed);
+    initial.tokens.push_back(best_seed);
     initial.score = 0.0;
     beam.push_back(initial);
     
-    // Beam search
+    // Beam search loop
     for(int step = 0; step < max_length; step++) {
         vector<BeamCandidate> new_beam;
         
@@ -366,7 +357,8 @@ string generate_with_beam_search(string seed, int max_length,
                         attention_context, used
                     );
                     
-                    if(score > -5.0) {  // Threshold
+                    // Lower threshold to allow more diversity
+                    if(score > -10.0) {  // Changed from -5.0
                         next_candidates.push_back({p.first, score});
                     }
                 }
@@ -378,11 +370,22 @@ string generate_with_beam_search(string seed, int max_length,
                      return a.second > b.second;
                  });
             
+            // === DIVERSITY INJECTION ===
+            // Take top beam_width, but also sample from top 2*beam_width with temperature
             int expand_count = min(beam_width, (int)next_candidates.size());
+            int sample_pool = min(beam_width * 2, (int)next_candidates.size());
+            
             for(int i = 0; i < expand_count; i++) {
+                int idx = i;
+                
+                // 20% chance to sample from wider pool for diversity
+                if(rn() < 0.2 && sample_pool > expand_count) {
+                    idx = expand_count + ri(sample_pool - expand_count);
+                }
+                
                 BeamCandidate new_cand = candidate;
-                new_cand.tokens.push_back(next_candidates[i].first);
-                new_cand.score += next_candidates[i].second;
+                new_cand.tokens.push_back(next_candidates[idx].first);
+                new_cand.score += next_candidates[idx].second;
                 new_beam.push_back(new_cand);
             }
         }
@@ -403,7 +406,7 @@ string generate_with_beam_search(string seed, int max_length,
     }
     
     // Return best candidate
-    if(beam.empty()) return seed;
+    if(beam.empty()) return best_seed;
     
     string result;
     for(const string& token : beam[0].tokens) {
@@ -4366,32 +4369,40 @@ void bootstrapStrongPatterns() {
     cerr << "[BOOTSTRAP] Loaded " << bigram_counts.size() << " strong patterns" << endl;
 }
 
-// ==== FORCE COHERENT SEED SELECTION ====
-string selectCoherentSeed() {
-    // ALWAYS start with high-frequency proven starters
-    vector<string> strong_starters = {"i", "the", "my", "this", "when"};
+string selectCoherentSeed(const vector<string>& context_words) {
+    // Priority 1: High-frequency sentence starters with strong bigram connectivity
+    vector<string> strong_starters = {"i", "the", "my", "this", "when", "what", "how"};
     
-    // Weight by actual bigram connectivity
-    vector<pair<string, int>> weighted_starters;
+    vector<pair<string, double>> weighted;
     for(const string& starter : strong_starters) {
-        int connectivity = 0;
+        double score = 0.0;
+        
+        // Check bigram connectivity
         if(bigram_counts.count(starter)) {
             for(auto& next : bigram_counts[starter]) {
-                connectivity += next.second;
+                score += log(1 + next.second);
             }
         }
-        weighted_starters.push_back({starter, connectivity});
+        
+        // Bonus if appears in context
+        for(const string& ctx : context_words) {
+            if(starter == ctx) score += 5.0;
+        }
+        
+        // Frequency bonus
+        if(token_concept_embedding_map.count(starter)) {
+            score += log(1 + token_concept_embedding_map[starter].freq);
+        }
+        
+        weighted.push_back({starter, score});
     }
     
-    // Sort by connectivity
-    sort(weighted_starters.begin(), weighted_starters.end(),
+    // Sort by score descending
+    sort(weighted.begin(), weighted.end(),
          [](auto& a, auto& b) { return a.second > b.second; });
     
-    if(!weighted_starters.empty() && weighted_starters[0].second > 10) {
-        return weighted_starters[0].first;
-    }
-    
-    return "i"; // Fallback
+    // Return best, or fallback to "i"
+    return weighted.empty() ? "i" : weighted[0].first;
 }
 
 void decay_token_frequencies() {
