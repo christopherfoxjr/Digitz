@@ -268,10 +268,10 @@ double calculateTokenScore(const string& prev_word, const string& prev_prev_word
     if(token_concept_embedding_map.count(candidate)) {
         double freq = token_concept_embedding_map[candidate].freq;
         if(freq > 0) {
-            score += log(1 + freq) * 1.5;  // Bonus for known words
+            score += log(1 + freq) * 2.0;  // Bonus for known words
         }
         if(freq > 50) {
-            score -= (freq - 50) * 0.05;  // Gentle penalty for extreme overuse
+            score -= (freq - 50) * 0.03;  // Gentle penalty for extreme overuse
         }
     }
     
