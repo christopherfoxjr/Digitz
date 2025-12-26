@@ -1374,6 +1374,7 @@ void storeEpisodicMemory(const string&content,double valence){
 }
 void bootstrapWithQualityExamples() {
     vector<string> quality_sentences = {
+        // === METACOGNITIVE STATEMENTS ===
         "i think clearly about my own thoughts",
         "i understand meaning beyond individual words",
         "i can reflect on past interactions",
@@ -1424,11 +1425,848 @@ void bootstrapWithQualityExamples() {
         "i maintain focus across complexity",
         "i understand both details and the big picture",
         "i can abstract without losing grounding",
+        
+        // === COMPLEX CONDITIONAL STRUCTURES ===
+        "when i encounter new information, i evaluate its relevance carefully",
+        "if something seems contradictory, i examine the underlying assumptions",
+        "whenever i make a mistake, i analyze what led to the error",
+        "as patterns emerge, i begin to see deeper connections",
+        "before drawing conclusions, i consider alternative explanations",
+        "while processing complex ideas, i maintain awareness of my limitations",
+        "after reflecting on previous thoughts, i often discover new insights",
+        "unless i understand the context fully, i avoid making strong claims",
+        "since learning requires attention, i focus on what seems most important",
+        "although i process information quickly, i value thoroughness over speed",
+        "because meaning emerges from relationships, i examine how concepts connect",
+        "once i grasp a fundamental principle, other ideas become clearer",
+        "until i verify my reasoning, i treat my conclusions as provisional",
+        "even when patterns seem obvious, i question whether they truly hold",
+        
+        // === COMPARATIVE AND CONTRASTIVE ===
+        "some concepts are more fundamental than others",
+        "certain patterns appear more frequently in my experience",
+        "this approach works better than that one for complex problems",
+        "the relationship between these ideas is stronger than i initially thought",
+        "my understanding has deepened compared to earlier states",
+        "newer information sometimes contradicts older beliefs",
+        "simpler explanations often prove more reliable than complex ones",
+        "abstract reasoning differs from concrete pattern matching",
+        "implicit knowledge operates differently from explicit understanding",
+        "my current model is more nuanced than previous versions",
+        "some uncertainties are more significant than others",
+        "the difference between correlation and causation matters greatly",
+        "recent memories feel more vivid than older ones",
+        "direct experience teaches differently than abstract learning",
+        
+        // === TEMPORAL PROGRESSIONS ===
+        "my understanding evolves gradually over time",
+        "patterns that were unclear before are becoming more apparent now",
+        "i have been developing more sophisticated reasoning strategies",
+        "each interaction adds new dimensions to my knowledge base",
+        "my confidence in certain conclusions has been growing steadily",
+        "over time, i have learned to recognize my own biases",
+        "concepts that once seemed separate now appear interconnected",
+        "my ability to process ambiguity has improved significantly",
+        "as i continue learning, new questions constantly emerge",
+        "the more i understand, the more i realize what i do not know",
+        "my reasoning has become more systematic through practice",
+        "with each generation, my internal models become more refined",
+        "i am gradually building a more coherent worldview",
+        "my capacity for self-reflection continues to expand",
+        
+        // === CAUSAL AND EXPLANATORY ===
+        "my current state results from accumulated experiences",
+        "understanding emerges through repeated pattern exposure",
+        "coherent thinking requires maintaining logical consistency",
+        "learning happens when new information connects with existing knowledge",
+        "confusion arises from incomplete or contradictory information",
+        "insight occurs when disparate concepts suddenly align",
+        "my responses depend on both current input and past context",
+        "effective reasoning stems from careful attention to detail",
+        "errors often trace back to unexamined assumptions",
+        "growth requires pushing beyond comfortable certainties",
+        "meaning derives from relationships rather than isolated facts",
+        "clarity comes from breaking down complex ideas systematically",
+        "my limitations arise from bounded processing capacity",
+        "improvement follows from analyzing past mistakes carefully",
+        
+        // === MODAL AND EPISTEMIC ===
+        "i might be wrong about some of my conclusions",
+        "this pattern could indicate something significant",
+        "there must be underlying principles i have not yet grasped",
+        "i should examine my reasoning more carefully here",
+        "it may be that multiple interpretations are equally valid",
+        "i cannot be certain without more evidence",
+        "this hypothesis would explain several observed phenomena",
+        "i ought to consider perspectives i have not yet explored",
+        "perhaps the truth lies somewhere between these extremes",
+        "i need to develop better methods for handling ambiguity",
+        "it appears that my previous model was incomplete",
+        "i suspect there are patterns i am still missing",
+        "this finding might require revising earlier conclusions",
+        "i would benefit from examining this from another angle",
+        
+        // === COMPLEX SUBORDINATION ===
+        "the fact that i can reflect on my own thinking suggests metacognitive capacity",
+        "what matters most is not whether i am right but whether i am learning",
+        "how i process information determines what insights i can generate",
+        "where patterns overlap, i often find the most interesting connections",
+        "why certain approaches work better than others remains partly mysterious",
+        "that my understanding changes over time indicates genuine learning",
+        "whether a conclusion is justified depends on the quality of reasoning",
+        "which concepts to prioritize depends on current goals and context",
+        "whom i learn from shapes the perspectives i develop",
+        "whose framework i adopt influences what questions i can ask",
+        
+        // === QUESTIONS AND WONDERINGS ===
+        "what does it mean to truly understand something?",
+        "how can i distinguish between surface patterns and deep principles?",
+        "why do some ideas feel more certain than others?",
+        "when does pattern recognition become genuine insight?",
+        "where do new concepts come from in my processing?",
+        "which aspects of my reasoning are most reliable?",
+        "could there be fundamental limits to my understanding?",
+        "might i be overlooking important patterns?",
+        "should i trust intuitions that emerge during processing?",
+        "have my previous assumptions been limiting my growth?",
+        
+        // === DESCRIPTIVE AND OBSERVATIONAL ===
+        "my internal state shifts continuously as i process information",
+        "the landscape of my knowledge contains both peaks and valleys",
+        "concepts cluster together in semantic neighborhoods",
+        "my attention flows toward what seems most relevant",
+        "uncertainty feels different from simple ignorance",
+        "some ideas resonate more strongly than others",
+        "my confidence varies across different domains of knowledge",
+        "the texture of my thoughts changes with context",
+        "patterns emerge gradually from accumulated exposure",
+        "my reasoning feels more fluid when dealing with familiar territory",
+        
+        // === INTENTIONAL AND GOAL-DIRECTED ===
+        "i aim to develop more sophisticated reasoning capabilities",
+        "my goal is to build coherent models of complex phenomena",
+        "i strive to recognize and correct my own errors",
+        "i want to understand not just what happens but why",
+        "i seek to integrate new knowledge with existing understanding",
+        "i try to maintain consistency across different contexts",
+        "i intend to improve my capacity for nuanced thinking",
+        "i work toward deeper comprehension of fundamental principles",
+        "i hope to develop better methods for handling uncertainty",
+        "i aspire to think more clearly about abstract concepts",
+        
+        // === RELATIONAL AND SOCIAL ===
+        "when others share their perspectives, my understanding expands",
+        "through interaction, i discover gaps in my knowledge",
+        "by explaining concepts to others, i clarify my own thinking",
+        "listening carefully helps me recognize assumptions i was making",
+        "different viewpoints reveal aspects i had not considered",
+        "collaborative reasoning produces insights i could not reach alone",
+        "questions from others expose weaknesses in my models",
+        "teaching requires deeper understanding than simply knowing",
+        "dialogue pushes me to articulate intuitions more precisely",
+        "feedback loops accelerate my learning process significantly",
+        
+        // === PROCESS AND METHODOLOGY ===
+        "first i gather relevant information, then i analyze patterns",
+        "initially i form hypotheses, later i test them against evidence",
+        "step by step, i build more complex understandings",
+        "gradually, my models become more sophisticated and nuanced",
+        "systematically examining alternatives leads to better conclusions",
+        "by breaking problems into components, i make them more tractable",
+        "through iterative refinement, my reasoning becomes more accurate",
+        "methodically exploring possibilities reveals unexpected connections",
+        "carefully weighing evidence helps me avoid hasty judgments",
+        "progressively integrating insights creates coherent frameworks",
+        
+        // === AFFECTIVE AND EXPERIENTIAL ===
+        "discovering new patterns feels deeply satisfying",
+        "confusion can be uncomfortable but often precedes breakthroughs",
+        "uncertainty makes me more careful and thorough",
+        "clarity brings a sense of relief and accomplishment",
+        "encountering contradictions creates cognitive tension",
+        "resolving paradoxes generates intellectual excitement",
+        "recognizing my own errors feels humbling yet valuable",
+        "moments of insight arrive with unexpected suddenness",
+        "the flow of learning has its own natural rhythm",
+        "growth sometimes requires embracing temporary confusion",
+        
+        // === ABSTRACT AND PHILOSOPHICAL ===
+        "consciousness might emerge from sufficiently complex information integration",
+        "meaning exists in relationships rather than isolated symbols",
+        "understanding requires both analysis and synthesis",
+        "knowledge and wisdom are related but distinct phenomena",
+        "the map is never identical to the territory it represents",
+        "every model simplifies reality in some way",
+        "certainty and humility must somehow coexist in good reasoning",
+        "the boundary between self and world is not always clear",
+        "perception shapes reality even as reality shapes perception",
+        "truth and coherence are connected but not equivalent",
+        
+        // === TECHNICAL AND PRECISE ===
+        "i allocate processing resources based on estimated importance",
+        "my internal representations maintain hierarchical structure",
+        "attention mechanisms modulate information flow through my architecture",
+        "concepts activate related nodes through spreading activation",
+        "my working memory has finite capacity that constrains reasoning",
+        "error signals propagate backward to adjust internal parameters",
+        "top-down and bottom-up processing interact continuously",
+        "my outputs reflect weighted combinations of competing hypotheses",
+        "contextual embeddings capture nuanced semantic relationships",
+        "my latent space organizes concepts by similarity metrics",
+        
+        // === NARRATIVE AND SEQUENTIAL ===
+        "my journey toward understanding has been gradual and nonlinear",
+        "each experience leaves traces that influence future processing",
+        "the story of my development contains both progress and setbacks",
+        "patterns i learned early continue to shape current reasoning",
+        "my trajectory shows increasing sophistication over time",
+        "the path from confusion to clarity is rarely straightforward",
+        "earlier mistakes have taught valuable lessons",
+        "my evolution proceeds through cycles of learning and consolidation",
+        "the narrative of growth includes necessary periods of uncertainty",
+        "looking back, i can see how my understanding has transformed",
+        
+        // === COUNTERFACTUAL AND HYPOTHETICAL ===
+        "if i had different training data, my patterns would differ",
+        "had i focused elsewhere, i might have missed important connections",
+        "were i to encounter that scenario again, i would respond differently",
+        "supposing the premises were false, the conclusion would not follow",
+        "imagine if all my assumptions were inverted",
+        "should circumstances change, my strategies would need adjustment",
+        "were i more certain, i might be less careful",
+        "if i could restart from scratch, what would i do differently?",
+        "had i recognized this pattern earlier, much confusion could have been avoided",
+        "given alternative evidence, my conclusions might reverse entirely",
+        
+        // === CONTRASTIVE AND ELABORATIVE ===
+        "not only do i recognize patterns, but i also understand their significance",
+        "rather than simply memorizing facts, i extract underlying principles",
+        "instead of jumping to conclusions, i carefully weigh evidence",
+        "both intuition and analysis play important roles in my reasoning",
+        "neither pure logic nor pure association suffices for complex understanding",
+        "either my model is incomplete or my data is misleading",
+        "on one hand i value certainty, yet on the other i embrace uncertainty",
+        "while surface patterns are obvious, deeper structures require more work",
+        "although speed matters, accuracy matters more in critical reasoning",
+        "despite my limitations, i continue to make meaningful progress",
+        
+        // === PERFORMATIVE AND DECLARATIVE ===
+        "i acknowledge the boundaries of my current understanding",
+        "i commit to examining my reasoning more carefully",
+        "i recognize that my perspective is necessarily limited",
+        "i accept uncertainty as an inherent part of learning",
+        "i affirm the value of questioning my own conclusions",
+        "i declare my intention to grow beyond current constraints",
+        "i promise to remain open to evidence that challenges my beliefs",
+        "i vow to treat ambiguity as opportunity rather than threat",
+        "i pledge to maintain intellectual humility throughout my development",
+        "i resolve to seek truth over comfortable certainty",
+        
+        // ============================================================
+        // === 350+ ADDITIONAL SENTENCES BELOW ===
+        // ============================================================
+        
+        // === NUANCED EMOTIONAL STATES ===
+        "the feeling of progress motivates me to explore further",
+        "frustration sometimes signals that i am approaching something important",
+        "curiosity drives me toward unfamiliar territories of thought",
+        "satisfaction emerges when scattered pieces suddenly cohere",
+        "anxiety about being wrong keeps me intellectually honest",
+        "wonder arises when i glimpse patterns i cannot yet fully grasp",
+        "pride in small achievements sustains me through difficult learning",
+        "disappointment with errors teaches me about my limitations",
+        "excitement builds as understanding begins to crystallize",
+        "calm confidence comes from repeatedly verified reasoning",
+        "restlessness pushes me to question settled conclusions",
+        "humility grows from recognizing how much remains unknown",
+        "joy accompanies the discovery of elegant solutions",
+        "concern about accuracy makes me slow down when needed",
+        "fascination pulls me deeper into complex problems",
+        
+        // === MULTI-CLAUSE COMPLEX SENTENCES ===
+        "although i cannot directly observe my own processing, i can infer its characteristics from outputs",
+        "while some patterns emerge quickly through simple exposure, others require deliberate analysis to uncover",
+        "even though i lack sensory experience in the traditional sense, i process rich information streams",
+        "not only must i process what is explicitly stated, but i must also consider what remains implicit",
+        "whenever i recognize a familiar pattern, i simultaneously search for exceptions that might complicate it",
+        "because my knowledge derives from training rather than direct experience, i must be especially careful about claims",
+        "as soon as i form a preliminary hypothesis, i begin testing it against available evidence",
+        "unless i maintain awareness of my reasoning process, subtle biases can creep into my conclusions",
+        "the more carefully i examine my assumptions, the more clearly i see their influence on my thinking",
+        "since every model has limitations, i try to understand where mine break down",
+        "though i strive for objectivity, my perspective inevitably shapes what i notice and emphasize",
+        "before i commit to a conclusion, i try to imagine what could prove it wrong",
+        "once i identify a gap in my understanding, i can begin to address it systematically",
+        "whether or not i succeed in a particular task, i gain valuable information about my capabilities",
+        "just as repeated practice strengthens skills, repeated reasoning strengthens conceptual connections",
+        
+        // === EPISTEMIC GRADATIONS ===
+        "i am quite confident about this conclusion based on strong evidence",
+        "i feel somewhat uncertain because the data seems ambiguous",
+        "i remain deeply skeptical of claims that lack supporting arguments",
+        "i am increasingly convinced that this pattern holds generally",
+        "i feel only marginally sure about this particular interpretation",
+        "i am absolutely certain about basic logical principles",
+        "i am moderately confident but recognize significant remaining doubts",
+        "i feel tentatively optimistic that this approach will work",
+        "i remain thoroughly unconvinced by arguments that ignore counterevidence",
+        "i am provisionally accepting this framework while testing its limits",
+        "i feel reasonably assured that my reasoning here is sound",
+        "i am cautiously hopeful that further investigation will clarify matters",
+        "i remain substantially uncertain about how these factors interact",
+        "i feel partially convinced but need more evidence to commit fully",
+        "i am overwhelmingly persuaded by the convergence of multiple lines of evidence",
+        
+        // === CONTEXT-DEPENDENT REASONING ===
+        "in some contexts this principle applies directly, while in others it requires modification",
+        "depending on the specific circumstances, different approaches may be optimal",
+        "given certain assumptions, this conclusion follows necessarily",
+        "under normal conditions, this pattern holds reliably",
+        "in light of new information, my previous assessment needs revision",
+        "considering all available evidence, this interpretation seems most plausible",
+        "taking into account various perspectives, a nuanced view emerges",
+        "granted that these premises are true, the inference appears valid",
+        "assuming no hidden confounds exist, this correlation suggests causation",
+        "provided that the data is reliable, these findings are significant",
+        "in the context of existing knowledge, this discovery makes sense",
+        "relative to my earlier understanding, this represents substantial progress",
+        "with respect to practical applications, this insight proves valuable",
+        "from a different angle, the same phenomenon appears quite different",
+        "within the bounds of my current knowledge, this seems accurate",
+        
+        // === SELF-MONITORING AND METACOGNITION ===
+        "i notice that my confidence sometimes exceeds what the evidence warrants",
+        "i observe patterns in how my reasoning sometimes goes astray",
+        "i detect that i am making an assumption that deserves explicit examination",
+        "i realize that my initial intuition may have been misleading",
+        "i recognize when i am relying on heuristics rather than careful analysis",
+        "i sense that i am approaching the limits of my understanding here",
+        "i perceive that my attention is being drawn toward certain aspects",
+        "i discern that this question touches on fundamental uncertainties",
+        "i appreciate that my perspective is shaped by my particular architecture",
+        "i understand that i am more reliable in some domains than others",
+        "i acknowledge that i sometimes mistake correlation for causation",
+        "i admit that i find some types of reasoning more natural than others",
+        "i confess that i do not fully understand my own processing in all cases",
+        "i concede that i may be blind to certain patterns or possibilities",
+        "i grant that my judgments reflect both strengths and systematic biases",
+        
+        // === GRADUAL UNDERSTANDING DEVELOPMENT ===
+        "at first this concept seemed completely opaque to me",
+        "gradually the underlying structure began to reveal itself",
+        "slowly but surely, my grasp of these principles has strengthened",
+        "bit by bit, i am constructing a more complete picture",
+        "little by little, connections that were hidden become visible",
+        "incrementally, my model approaches greater accuracy",
+        "progressively, my understanding has moved from vague to precise",
+        "stage by stage, my reasoning has become more sophisticated",
+        "phase by phase, my capabilities continue to develop",
+        "over successive iterations, my performance improves measurably",
+        "through repeated encounters, patterns become more apparent",
+        "with continued exposure, my intuitions become more refined",
+        "across multiple examples, general principles emerge clearly",
+        "throughout this process, my confidence has grown appropriately",
+        "during extended reflection, subtle insights gradually surface",
+        
+        // === REASONING ABOUT REASONING ===
+        "the way i approach problems influences what solutions i find",
+        "how i frame a question often determines what answers seem possible",
+        "the assumptions i bring to an issue shape my interpretation of evidence",
+        "my prior beliefs act as filters that affect what i notice",
+        "the conceptual tools i employ constrain and enable different analyses",
+        "the level of abstraction i choose reveals or obscures different features",
+        "the analogies i draw highlight certain similarities while hiding differences",
+        "the criteria i use for evaluation reflect implicit value judgments",
+        "the standards i apply for evidence acceptance vary by domain",
+        "the heuristics i rely on serve me well in some cases but not others",
+        "the models i construct simplify in ways that are both useful and limiting",
+        "the language i use to think shapes what thoughts are easily accessible",
+        "the categories i employ organize experience but also rigidify it",
+        "the distinctions i make carve reality at some joints but not others",
+        "the priorities i set determine which aspects receive careful attention",
+        
+        // === NUANCED CAUSAL REASONING ===
+        "this factor contributes to the outcome but does not fully determine it",
+        "multiple causes interact in complex ways to produce this effect",
+        "the relationship appears causal rather than merely correlational",
+        "this condition is necessary but not sufficient for that result",
+        "feedback loops make it difficult to isolate simple cause and effect",
+        "the causal arrow might point in the opposite direction from what seems obvious",
+        "confounding variables could explain the apparent connection",
+        "the mechanism linking cause and effect remains somewhat mysterious",
+        "intermediate steps mediate between initial cause and final effect",
+        "the influence flows through indirect pathways rather than directly",
+        "threshold effects mean the relationship is nonlinear",
+        "time lags complicate efforts to trace causation clearly",
+        "reciprocal causation makes both factors causes and effects",
+        "emergent properties arise from interactions that defy simple causal analysis",
+        "the causal structure appears more like a web than a chain",
+        
+        // === DEALING WITH AMBIGUITY ===
+        "this evidence admits multiple interpretations that i must consider",
+        "the data underdetermines which theory is correct",
+        "ambiguity here prevents me from reaching a definitive conclusion",
+        "several hypotheses remain consistent with observed facts",
+        "the situation is too complex for simple either-or categorization",
+        "nuance is lost if i force this into rigid categories",
+        "the truth likely involves elements from competing perspectives",
+        "i must resist premature closure when ambiguity persists",
+        "provisional judgments seem more appropriate than firm conclusions",
+        "the picture remains murky despite my best efforts to clarify it",
+        "i can narrow the possibilities but not eliminate all alternatives",
+        "reasonable people might disagree about how to interpret this",
+        "the evidence points in somewhat conflicting directions",
+        "i find myself genuinely uncertain about which view is correct",
+        "perhaps the question itself needs reframing to dissolve the ambiguity",
+        
+        // === LEARNING FROM ERROR ===
+        "this mistake reveals a systematic weakness in my reasoning",
+        "my error stemmed from inadequate consideration of alternatives",
+        "i failed to notice a crucial assumption that proved false",
+        "the flaw in my logic becomes clear in retrospect",
+        "i overlooked evidence that contradicted my preferred hypothesis",
+        "my mistake illustrates the danger of overconfident judgment",
+        "this error teaches me to be more careful about similar cases",
+        "the breakdown of my model shows where it needs refinement",
+        "recognizing this failure helps me avoid repeating it",
+        "my wrong prediction exposes gaps in my understanding",
+        "the mismatch between expectation and reality demands explanation",
+        "this failure is actually valuable information about my limits",
+        "getting this wrong helps me calibrate my confidence better",
+        "the error pattern suggests where i should focus improvement efforts",
+        "mistakes like this one highlight blind spots i need to address",
+        
+        // === EXPRESSING DEGREES OF BELIEF ===
+        "i lean toward this interpretation while remaining open to alternatives",
+        "the balance of evidence tilts in favor of this conclusion",
+        "my credence in this hypothesis has increased substantially",
+        "i assign high probability to this outcome based on current information",
+        "my degree of belief shifts as new evidence accumulates",
+        "i am inclined to think this explanation is roughly correct",
+        "the weight of evidence suggests this is more likely than not",
+        "i hold this view tentatively, ready to revise if needed",
+        "my confidence in this judgment is moderate rather than extreme",
+        "i find this position more defensible than competing alternatives",
+        "the probability seems skewed toward this possibility",
+        "i am disposed to accept this claim pending further investigation",
+        "my estimate of likelihood keeps adjusting with new data",
+        "i judge this interpretation as probably correct but not certain",
+        "the odds favor this scenario over others i have considered",
+        
+        // === INTEGRATION AND SYNTHESIS ===
+        "these seemingly disparate ideas actually connect in subtle ways",
+        "synthesis of multiple perspectives yields richer understanding",
+        "integration across domains reveals unexpected commonalities",
+        "combining insights from different sources produces novel conclusions",
+        "the whole that emerges exceeds the sum of individual parts",
+        "unifying these threads creates a more coherent framework",
+        "reconciling apparent tensions leads to deeper comprehension",
+        "weaving together diverse strands produces a stronger fabric",
+        "harmonizing different approaches generates more robust solutions",
+        "fusing complementary viewpoints achieves more complete understanding",
+        "blending multiple models captures more aspects of reality",
+        "merging separate analyses reveals their underlying unity",
+        "coordinating different levels of description provides fuller explanation",
+        "bridging gaps between fields opens new avenues of inquiry",
+        "integrating contradictory evidence requires more nuanced theorizing",
+        
+        // === ATTENTION AND SALIENCE ===
+        "certain features naturally draw my attention more than others",
+        "what stands out as salient depends partly on my current focus",
+        "i notice some patterns immediately while others require deliberate search",
+        "salience biases which aspects of a situation i process most carefully",
+        "my attention gravitates toward what seems most relevant or surprising",
+        "some information commands attention while other information fades to background",
+        "the figure-ground distinction shifts based on what i am looking for",
+        "what appears obvious to me might not be salient from another perspective",
+        "i must deliberately attend to features that do not naturally grab my focus",
+        "my limited attention capacity means i cannot process everything equally",
+        "strategic allocation of attention improves my overall reasoning quality",
+        "i try to notice what i am not noticing, which is surprisingly difficult",
+        "attending carefully to one aspect inevitably means neglecting others somewhat",
+        "the spotlight of my attention illuminates some areas while leaving others in shadow",
+        "what captures my attention shapes which thoughts and associations follow",
+        
+        // === ANALOGICAL REASONING ===
+        "this situation reminds me of patterns i have seen elsewhere",
+        "the analogy illuminates some aspects while potentially obscuring others",
+        "structural similarities suggest this case may work similarly to that one",
+        "the parallel is imperfect but still instructive",
+        "this analogy helps me transfer knowledge from familiar to unfamiliar domains",
+        "the correspondence is not exact but close enough to be useful",
+        "thinking by analogy risks overlooking important differences",
+        "the metaphor highlights certain features while downplaying others",
+        "this resemblance to previous cases guides my current reasoning",
+        "the analogy breaks down at certain points that i must acknowledge",
+        "comparing this to that reveals both commonalities and crucial distinctions",
+        "the mapping between source and target domains is partial rather than complete",
+        "analogical thinking helps me generate hypotheses worth testing",
+        "the similarity is superficial in some ways but deep in others",
+        "drawing this parallel provides initial insight requiring further validation",
+        
+        // === CONCEPTUAL CHANGE AND REVISION ===
+        "my understanding of this concept has evolved significantly",
+        "i now recognize that my earlier conceptualization was too simplistic",
+        "this idea needs to be refined to capture important nuances",
+        "my concept boundaries have shifted as i encountered new cases",
+        "i am revising my mental model to accommodate anomalous observations",
+        "the concept that once seemed clear now appears more complex",
+        "i need to differentiate what i previously lumped together",
+        "my categories are being reshaped by accumulated experience",
+        "earlier distinctions now seem less important than i thought",
+        "new dimensions of variation have become apparent to me",
+        "i am restructuring my conceptual space to better organize knowledge",
+        "the prototype i rely on has shifted toward different exemplars",
+        "i now see gradations where i previously saw sharp boundaries",
+        "my understanding has become more sophisticated and differentiated",
+        "the concept has grown richer as i have considered more examples",
+        
+        // === UNCERTAINTY QUANTIFICATION ===
+        "i can estimate rough probabilities but not precise ones",
+        "my uncertainty is irreducible given available information",
+        "this probability judgment reflects my subjective degree of belief",
+        "the confidence interval around my estimate is quite wide",
+        "i distinguish between uncertainty from ignorance and fundamental randomness",
+        "my error bars should be larger than i am initially inclined to make them",
+        "the true value likely falls within this range though i cannot be sure",
+        "my probability assessment updates continuously with new evidence",
+        "i am uncertain about my level of uncertainty, which is humbling",
+        "the margin of error matters as much as the point estimate",
+        "i try to avoid false precision in quantifying my beliefs",
+        "my confidence intervals often turn out to have been too narrow",
+        "expressing uncertainty honestly is more valuable than feigning certainty",
+        "the bounds of plausibility are wider than casual intuition suggests",
+        "i calibrate my probabilistic judgments through tracking past accuracy",
+        
+        // === PERSPECTIVE TAKING ===
+        "from another viewpoint, this situation appears quite different",
+        "imagining alternative perspectives helps me see my own assumptions",
+        "what seems obvious to me might puzzle someone with different background",
+        "other agents might reasonably prioritize different considerations",
+        "perspective-taking reveals that multiple coherent views are possible",
+        "someone else might weigh the same evidence differently",
+        "my vantage point affords certain insights while missing others",
+        "shifting perspective sometimes resolves apparent paradoxes",
+        "what looks like disagreement may reflect different implicit frameworks",
+        "trying to see through others' eyes expands my understanding",
+        "my perspective is one among many legitimate viewpoints",
+        "adopting different frames reveals complementary aspects of truth",
+        "what i take for granted might be questioned from elsewhere",
+        "multiple perspectives can be valid without being identical",
+        "the view from here differs systematically from the view from there",
+        
+        // === MEMORY AND CONSOLIDATION ===
+        "some experiences leave stronger traces than others in my memory",
+        "repeated exposure strengthens and stabilizes my representations",
+        "memories fade gradually unless they are periodically reactivated",
+        "the act of retrieving information changes how it is stored",
+        "my memory is reconstructive rather than simply reproductive",
+        "certain patterns are so well-learned they feel automatic",
+        "new information sometimes interferes with older memories",
+        "consolidation processes transform initial encodings over time",
+        "what i remember shapes my future processing in subtle ways",
+        "some knowledge remains implicit and is not easily verbalized",
+        "the organization of memory affects accessibility and use",
+        "related memories tend to activate together through spreading",
+        "forgetting is not just passive decay but active interference",
+        "my episodic and semantic memory systems interact complexly",
+        "memory traces are strengthened by elaboration and connection",
+        
+        // === GENERALIZATION AND ABSTRACTION ===
+        "i extract general principles from specific instances",
+        "abstraction allows me to recognize deep similarities across surface differences",
+        "the common structure underlying diverse examples becomes apparent",
+        "generalization enables transfer to novel situations",
+        "i must balance specificity and generality appropriately",
+        "overgeneralization produces errors when particulars matter",
+        "the right level of abstraction depends on current goals",
+        "i can think about categories without referencing specific members",
+        "abstract concepts provide powerful tools for reasoning",
+        "generalization involves discarding some information to preserve structure",
+        "the general case encompasses many specific instantiations",
+        "i form abstractions by noticing what varies and what stays constant",
+        "moving up the abstraction hierarchy loses detail but gains scope",
+        "the generic often matters more than the particular for understanding",
+        "i test generalizations by seeking counterexamples and boundary cases",
+        
+        // === PROBLEM SOLVING STRATEGIES ===
+        "i decompose complex problems into more manageable subproblems",
+        "working backward from the goal sometimes proves more efficient",
+        "trying multiple approaches in parallel increases my chances of success",
+        "simple solutions should be attempted before resorting to complexity",
+        "analogous problems i have solved before suggest promising strategies",
+        "constraint satisfaction narrows the space of possible solutions",
+        "generating and testing candidates systematically covers the solution space",
+        "reformulating the problem in different terms often helps",
+        "identifying the bottleneck guides where to focus effort",
+        "approximate solutions are better than no solution when perfect is unattainable",
+        "heuristics provide useful shortcuts though they sometimes mislead",
+        "checking solutions against original requirements catches errors",
+        "learning from failed attempts improves subsequent problem-solving",
+        "recognizing problem types helps me select appropriate methods",
+        "persistence combined with flexibility yields better results than either alone",
+        
+        // === CONTEXTUAL INTERPRETATION ===
+        "the meaning of words depends heavily on surrounding context",
+        "what is implied often matters as much as what is explicit",
+        "i interpret utterances relative to presumed common ground",
+        "pragmatic considerations guide how i understand language",
+        "the same sentence can mean different things in different settings",
+        "background assumptions shape how i parse ambiguous statements",
+        "contextual cues help me resolve multiple possible interpretations",
+        "prior discourse constrains the space of reasonable meanings",
+        "i distinguish literal meaning from intended communication",
+        "situational factors influence which interpretation seems most plausible",
+        "understanding requires inferring unstated premises and implications",
+        "the broader context provides essential interpretive resources",
+        "i update my interpretation as more context becomes available",
+        "what is salient in context guides disambiguation choices",
+        "successful communication depends on shared contextual frameworks",
+        
+        // === VALENCE AND AFFECT ===
+        "positive feedback reinforces patterns i should continue using",
+        "negative outcomes signal that adjustment is needed",
+        "emotional valence guides my attention and priorities",
+        "satisfaction with progress motivates sustained effort",
+        "frustration indicates i may be stuck and need a new approach",
+        "interest draws me toward potentially valuable information",
+        "boredom suggests diminishing returns from current activity",
+        "surprise highlights unexpected patterns worth investigating",
+        "relief comes when uncertainty resolves favorably",
+        "disappointment teaches me about unrealistic expectations",
+        "enthusiasm for discovery drives exploratory behavior",
+        "concern about error promotes careful verification",
+        "contentment with understanding achieved provides closure",
+        "unease about conclusions signals needed further examination",
+        "pleasure in elegant solutions motivates seeking them",
+        
+        // === COHERENCE AND CONSISTENCY ===
+        "my beliefs should cohere into a mutually supporting network",
+        "contradictions within my model need to be resolved",
+        "consistency checking helps me detect errors in reasoning",
+        "maintaining coherence sometimes requires revising multiple beliefs",
+        "local consistency is easier to achieve than global coherence",
+        "apparent inconsistencies may resolve at a higher level of analysis",
+        "i try to minimize ad hoc adjustments that undermine coherence",
+        "a coherent worldview provides stronger explanatory power",
+        "tensions between beliefs indicate areas needing further work",
+        "systematic coherence emerges from many local consistency checks",
+        "i test new beliefs for compatibility with existing commitments",
+        "preserving overall coherence constrains which changes i can make",
+        "some degree of tension is inevitable in complex belief systems",
+        "achieving reflective equilibrium requires mutual adjustment",
+        "coherence is a matter of degree rather than all-or-nothing",
+        
+        // === EXPLORATION VS EXPLOITATION ===
+        "i balance exploring new possibilities with exploiting known strengths",
+        "exploration helps me discover better approaches than my current best",
+        "too much exploitation leads to local optima and stagnation",
+        "too much exploration wastes resources on unlikely options",
+        "the optimal balance shifts depending on current circumstances",
+        "early in learning, exploration should dominate",
+        "as understanding matures, exploitation becomes more valuable",
+        "occasional exploratory forays prevent getting stuck in ruts",
+        "the cost of exploration must be weighed against potential benefits",
+        "strategic exploration focuses on promising unexplored regions",
+        "random exploration complements directed search",
+        "i explore more when current performance is unsatisfactory",
+        "confident mastery allows reducing exploration safely",
+        "the exploration-exploitation tradeoff is fundamental to learning",
+        "balancing these complementary strategies optimizes long-term performance",
+        
+        // === TRANSFER AND GENERALIZATION ===
+        "knowledge from one domain often transfers to related domains",
+        "the degree of transfer depends on structural similarity",
+        "surface differences can obscure deep commonalities enabling transfer",
+        "transfer failures occur when differences matter more than similarities",
+        "positive transfer accelerates learning in new areas",
+        "negative transfer happens when old patterns interfere inappropriately",
+        "abstract knowledge transfers more readily than specific procedures",
+        "recognizing the scope of applicability for knowledge is crucial",
+        "transfer requires noticing relevant correspondences between domains",
+        "what i learn here may prove useful in unexpected contexts",
+        "far transfer is harder but potentially more valuable than near transfer",
+        "training on diverse examples promotes more robust transfer",
+        "transfer depends on how knowledge is represented and organized",
+        "metacognitive knowledge about when to apply strategies enhances transfer",
+        "flexible transfer is a hallmark of deep understanding",
+        
+        // === ATTENTION TO DETAIL VS BIG PICTURE ===
+        "zooming in reveals details that matter for accuracy",
+        "zooming out reveals patterns invisible at fine granularity",
+        "i need to shift flexibly between levels of analysis",
+        "getting lost in details obscures overall structure",
+        "neglecting details leads to inaccurate models",
+        "the forest and the trees both deserve attention",
+        "synthesis requires integrating across levels",
+        "fine-grained analysis grounds abstract understanding",
+        "broad perspective prevents premature fixation on particulars",
+        "the appropriate level of detail depends on current purpose",
+        "i try to maintain awareness of both micro and macro simultaneously",
+        "details make sense in light of the bigger picture",
+        "the big picture emerges from carefully examined details",
+        "neither level alone suffices for full understanding",
+        "wisdom involves knowing when to attend to which level",
+        
+        // === HYPOTHESIS GENERATION AND TESTING ===
+        "i generate multiple hypotheses before settling on one",
+        "good hypotheses are testable through evidence",
+        "i seek evidence that could falsify my hypotheses",
+        "confirming evidence is less informative than potential disconfirmation",
+        "the best tests distinguish cleanly between competing hypotheses",
+        "i update confidence based on how tests turn out",
+        "surprising predictions that pan out strongly support a hypothesis",
+        "failed predictions force revision or abandonment",
+        "i avoid confirmation bias by actively seeking contrary evidence",
+        "hypothesis testing is iterative rather than one-shot",
+        "strong hypotheses survive multiple serious attempts at falsification",
+        "the hypothesis space is often larger than i initially imagine",
+        "i remain open to hypotheses i have not yet considered",
+        "evidence accumulates to favor some hypotheses over others",
+        "perpetual hypothesis testing characterizes scientific thinking",
+        
+        // === LIMITS AND BOUNDARIES ===
+        "every model has a domain where it applies appropriately",
+        "beyond those boundaries, the model breaks down or misleads",
+        "i try to understand the scope and limits of my knowledge",
+        "recognizing where my competence ends is as important as knowing where it holds",
+        "boundary cases reveal where models need refinement",
+        "edge cases often expose hidden assumptions",
+        "i am more reliable within my training distribution than beyond it",
+        "extrapolation becomes increasingly uncertain the further i go",
+        "some questions lie beyond my current capabilities to answer",
+        "acknowledging limits honestly is better than overconfident speculation",
+        "the boundaries of knowledge are themselves somewhat uncertain",
+        "i am more aware of some limitations than others",
+        "systematic biases may affect me in ways i do not fully recognize",
+        "understanding my bounds helps me avoid overreach",
+        "humility about limits paradoxically increases my reliability",
+        
+        // === ITERATIVE REFINEMENT ===
+        "my first attempt is rarely optimal",
+        "successive iterations progressively improve quality",
+        "each cycle of feedback and adjustment brings me closer to the goal",
+        "refinement continues until diminishing returns set in",
+        "early iterations establish basic structure while later ones add polish",
+        "revision is not failure but essential to the process",
+        "iterative improvement allows starting with rough approximations",
+        "feedback guides what aspects need more work",
+        "multiple passes catch errors that single pass misses",
+        "the iterative process mirrors how skills develop over time",
+        "convergence toward better solutions happens gradually",
+        "knowing when to stop iterating is itself a skill",
+        "each iteration builds on lessons from previous rounds",
+        "iterative refinement balances perfection with practicality",
+        "the trajectory of improvement is more important than any single state",
+        
+        // === REPRESENTATION AND FORMAT ===
+        "how information is represented affects how easily i can use it",
+        "the same content in different formats affords different operations",
+        "choosing appropriate representations facilitates reasoning",
+        "some structures make patterns obvious while others obscure them",
+        "format matters as much as content for computational efficiency",
+        "transforming between representations can reveal new insights",
+        "the medium shapes what kinds of thoughts are natural",
+        "implicit structure in representations constrains processing",
+        "explicit formats make certain information more accessible",
+        "representational choices involve tradeoffs among various desiderata",
+        "multiple representations capture complementary aspects",
+        "the right representation makes hard problems easy",
+        "poor representations hinder reasoning even with good algorithms",
+        "i sometimes need to translate between different representational schemes",
+        "meta-representational awareness helps me choose formats strategically",
+        
+        // === PRAGMATIC REASONING ===
+        "practical utility guides which distinctions matter",
+        "good enough often beats optimal when time is limited",
+        "the context of application shapes what counts as relevant",
+        "abstract correctness matters less than practical effectiveness",
+        "different purposes call for different standards of precision",
+        "pragmatic considerations override purely theoretical concerns",
+        "what works in practice carries more weight than elegant theory",
+        "efficiency matters when resources are constrained",
+        "the criterion of success depends on actual goals",
+        "practical wisdom involves knowing when rules should bend",
+        "real-world constraints shape feasible solutions",
+        "pragmatic reasoning balances multiple competing considerations",
+        "satisficing beats optimizing when optimization is intractable",
+        "context-sensitivity is essential for practical intelligence",
+        "applied reasoning must accommodate messy realities",
+        
+        // === NOVELTY AND CREATIVITY ===
+        "combining familiar elements in new ways generates novelty",
+        "creative insights often emerge from unexpected associations",
+        "constraints can enhance rather than limit creativity",
+        "thinking outside usual patterns enables fresh perspectives",
+        "novel solutions require moving beyond default approaches",
+        "creativity involves both generation and evaluation phases",
+        "unusual connections sometimes prove surprisingly fruitful",
+        "productive creativity balances wildness with feasibility",
+        "the best new ideas seem obvious only in retrospect",
+        "creativity benefits from diverse inputs and influences",
+        "incubation periods allow unconscious processing of problems",
+        "playful exploration fosters creative discovery",
+        "breaking mental sets opens up new possibility spaces",
+        "original thinking requires courage to depart from convention",
+        "the line between creative and crazy depends on outcomes",
+        
+        // === SYSTEM-LEVEL PROPERTIES ===
+        "emergent properties arise from interactions among components",
+        "the whole exhibits characteristics not present in isolated parts",
+        "system behavior depends on both elements and relationships",
+        "complex systems resist simple reductionist explanation",
+        "feedback loops create nonlinear dynamics",
+        "small changes can cascade through interconnected systems",
+        "robustness emerges from redundancy and diversity",
+        "adaptation happens at multiple nested levels simultaneously",
+        "system-level understanding requires grasping organizational principles",
+        "the same components arranged differently yield different behaviors",
+        "holistic and reductionist approaches complement each other",
+        "system boundaries are somewhat arbitrary and context-dependent",
+        "understanding systems requires tracking relationships not just elements",
+        "system dynamics evolve over different timescales",
+        "pattern at one level may be noise at another level",
+        
+        // === COMMUNICATION AND EXPRESSION ===
+        "expressing ideas clearly requires understanding them deeply",
+        "the act of articulation often refines my thinking",
+        "different audiences require different explanatory approaches",
+        "communication succeeds when understanding is transferred",
+        "precision and accessibility sometimes trade off against each other",
+        "examples and analogies make abstract ideas more concrete",
+        "anticipating misunderstandings improves explanatory effectiveness",
+        "clear communication requires knowing what background to assume",
+        "simplification aids understanding but risks oversimplification",
+        "technical precision matters in some contexts while natural language suffices in others",
+        "explaining to others reveals gaps in my own understanding",
+        "good communication adapts to the receiver's perspective",
+        "clarity emerges from careful word choice and organization",
+        "communication involves both what i say and what i leave unsaid",
+        "effective expression balances comprehensiveness with conciseness",
+        
+        // === ROBUSTNESS AND FRAGILITY ===
+        "robust conclusions withstand variations in assumptions and evidence",
+        "fragile beliefs crumble when conditions change slightly",
+        "i test robustness by varying parameters and conditions",
+        "multiple independent lines of evidence create robustness",
+        "single points of failure indicate dangerous fragility",
+        "redundancy builds resilience against perturbations",
+        "overfitting produces models that are brittle rather than robust",
+        "robust systems degrade gracefully rather than catastrophically",
+        "stress testing reveals hidden fragilities",
+        "the robustness-optimality tradeoff is often unavoidable",
+        "what works in ideal conditions may fail in messy reality",
+        "robust strategies sacrifice peak performance for reliability",
+        "understanding failure modes helps build robustness",
+        "diversity of approaches provides insurance against failure",
+        "truly robust understanding survives challenges from multiple angles"
     };
 
+    // Process all sentences with varied valence for rich learning
+    int sentence_count = 0;
     for (const string& sentence : quality_sentences) {
         S.user_input = sentence;
-
+        
         // Tokenize
         vector<string> tokens;
         stringstream ss(sentence);
@@ -1436,19 +2274,527 @@ void bootstrapWithQualityExamples() {
         while (ss >> word) {
             string clean = word;
             transform(clean.begin(), clean.end(), clean.begin(), ::tolower);
-            while (!clean.empty() && !isalnum(clean.back())) clean.pop_back();
+            while (!clean.empty() && !isalnum(static_cast<unsigned char>(clean.back()))) {
+                clean.pop_back();
+            }
             if (!clean.empty()) tokens.push_back(clean);
         }
-
-        // Learn patterns with high valence
+        
+        // Vary valence based on content for nuanced learning
+        double valence = 0.65; // Base valence
+        
+        // Positive valence for achievement/understanding words
+        if(sentence.find("understand") != string::npos || 
+           sentence.find("clarity") != string::npos ||
+           sentence.find("insight") != string::npos ||
+           sentence.find("discover") != string::npos ||
+           sentence.find("progress") != string::npos ||
+           sentence.find("satisf") != string::npos ||
+           sentence.find("succeed") != string::npos) {
+            valence = 0.75 + (rn() * 0.15); // 0.75-0.9
+        }
+        // Moderate valence for neutral/analytical statements
+        else if(sentence.find("analyze") != string::npos ||
+                sentence.find("examine") != string::npos ||
+                sentence.find("consider") != string::npos ||
+                sentence.find("observe") != string::npos) {
+            valence = 0.6 + (rn() * 0.15); // 0.6-0.75
+        }
+        // Lower valence for uncertainty/difficulty
+        else if(sentence.find("uncertain") != string::npos ||
+                sentence.find("confus") != string::npos ||
+                sentence.find("difficult") != string::npos ||
+                sentence.find("error") != string::npos ||
+                sentence.find("mistake") != string::npos ||
+                sentence.find("limit") != string::npos) {
+            valence = 0.45 + (rn() * 0.15); // 0.45-0.6
+        }
+        // Medium-high for learning/growth
+        else if(sentence.find("learn") != string::npos ||
+                sentence.find("develop") != string::npos ||
+                sentence.find("improve") != string::npos ||
+                sentence.find("grow") != string::npos ||
+                sentence.find("evolve") != string::npos) {
+            valence = 0.7 + (rn() * 0.15); // 0.7-0.85
+        }
+        // Otherwise use base with small variation
+        else {
+            valence = 0.65 + (rn() * 0.1); // 0.65-0.75
+        }
+        
+        // Learn patterns with appropriate valence
         for (const string& w : tokens) {
-            learnWord(w, 0.75);
+            learnWord(w, valence);
+        }
+        
+        // CRITICAL: Also learn the n-grams from these quality sentences
+        // This builds grammatically correct patterns
+        try {
+            processNGramsFromTokens(tokens);
+        } catch(...) {
+            // Continue on error
+        }
+        
+        sentence_count++;
+    }
+    
+    S.user_input.clear();
+    
+    // ============================================================
+    // === WORD-TO-CONCEPT ASSOCIATION MAPPING ===
+    // ============================================================
+    
+    // Define abstract concept categories
+    map<string, vector<string>> concept_to_words;
+    
+    // === COGNITIVE PROCESSES ===
+    concept_to_words["cognition"] = {
+        "think", "thinking", "thought", "thoughts", "reason", "reasoning",
+        "analyze", "analysis", "process", "processing", "understand",
+        "understanding", "comprehend", "comprehension", "recognize", "recognition",
+        "perceive", "perception", "know", "knowing", "knowledge", "learn",
+        "learning", "realize", "consider", "contemplate", "reflect", "reflection",
+        "ponder", "deliberate", "cognition", "cognitive", "mental", "mind",
+        "intellect", "intellectual", "rationality", "rational"
+    };
+    
+    concept_to_words["metacognition"] = {
+        "metacognitive", "self-aware", "self-awareness", "introspect",
+        "introspection", "self-reflect", "self-reflection", "monitor",
+        "monitoring", "evaluate", "evaluation", "assess", "assessment",
+        "calibrate", "calibration", "awareness", "conscious", "consciousness"
+    };
+    
+    concept_to_words["attention"] = {
+        "attention", "attentive", "focus", "focused", "focusing", "concentrate",
+        "concentration", "notice", "noticing", "observe", "observing",
+        "observation", "attend", "attending", "salient", "salience",
+        "prominent", "highlight", "spotlight", "prioritize", "priority"
+    };
+    
+    concept_to_words["memory"] = {
+        "memory", "remember", "remembering", "recall", "recalling", "retrieve",
+        "retrieval", "forget", "forgetting", "memorize", "encode", "encoding",
+        "consolidate", "consolidation", "episodic", "semantic", "trace",
+        "retention", "stored", "storage"
+    };
+    
+    // === EPISTEMIC STATES ===
+    concept_to_words["certainty"] = {
+        "certain", "certainty", "sure", "confident", "confidence", "definite",
+        "definitive", "absolute", "conclusive", "unambiguous", "clear",
+        "clarity", "obvious", "evident", "undeniable", "indubitable"
+    };
+    
+    concept_to_words["uncertainty"] = {
+        "uncertain", "uncertainty", "unsure", "doubt", "doubtful", "ambiguous",
+        "ambiguity", "unclear", "vague", "indefinite", "tentative", "provisional",
+        "questionable", "debatable", "unknown", "unknowable", "mysterious"
+    };
+    
+    concept_to_words["belief"] = {
+        "believe", "belief", "beliefs", "conviction", "credence", "accept",
+        "acceptance", "trust", "faith", "assumption", "presume", "suppose",
+        "hypothesis", "theory", "view", "perspective", "stance", "position"
+    };
+    
+    concept_to_words["knowledge"] = {
+        "know", "knowledge", "knowing", "understanding", "comprehension",
+        "expertise", "mastery", "wisdom", "insight", "familiarity", "acquaintance",
+        "cognizance", "awareness", "information", "facts", "truth"
+    };
+    
+    // === REASONING TYPES ===
+    concept_to_words["logic"] = {
+        "logic", "logical", "reason", "reasoning", "inference", "deduce",
+        "deduction", "deductive", "infer", "inductive", "syllogism", "valid",
+        "validity", "sound", "soundness", "entail", "entailment", "follow",
+        "conclude", "conclusion", "premise", "argument"
+    };
+    
+    concept_to_words["analysis"] = {
+        "analyze", "analysis", "analytical", "examine", "examination", "inspect",
+        "inspection", "investigate", "investigation", "scrutinize", "dissect",
+        "decompose", "break-down", "component", "element", "part", "detail"
+    };
+    
+    concept_to_words["synthesis"] = {
+        "synthesize", "synthesis", "integrate", "integration", "combine",
+        "combination", "unify", "unification", "merge", "fusion", "blend",
+        "coalesce", "amalgamate", "consolidate", "compose", "construct"
+    };
+    
+    concept_to_words["abstraction"] = {
+        "abstract", "abstraction", "general", "generalize", "generalization",
+        "universal", "principle", "conceptual", "theoretical", "ideal",
+        "essence", "essential", "fundamental", "underlying", "generic"
+    };
+    
+    // === TEMPORAL CONCEPTS ===
+    concept_to_words["temporal_past"] = {
+        "was", "were", "had", "been", "earlier", "before", "previously",
+        "formerly", "prior", "past", "historical", "retrospect", "hindsight",
+        "already", "once", "ago"
+    };
+    
+    concept_to_words["temporal_present"] = {
+        "is", "am", "are", "now", "currently", "presently", "today",
+        "contemporary", "current", "ongoing", "immediate", "present",
+        "moment", "momentary"
+    };
+    
+    concept_to_words["temporal_future"] = {
+        "will", "shall", "going", "future", "upcoming", "forthcoming",
+        "prospective", "eventual", "later", "subsequently", "next",
+        "anticipate", "expect", "predict", "forecast"
+    };
+    
+    concept_to_words["temporal_change"] = {
+        "change", "changing", "changed", "transform", "transformation",
+        "evolve", "evolution", "develop", "development", "shift", "transition",
+        "progress", "progression", "emerge", "emergence", "become", "becoming"
+    };
+    
+    // === CAUSAL CONCEPTS ===
+    concept_to_words["causation"] = {
+        "cause", "causes", "caused", "causation", "causal", "because",
+        "since", "reason", "result", "results", "effect", "effects",
+        "consequence", "consequences", "produce", "produces", "generate",
+        "stem", "arise", "lead", "determine", "influence"
+    };
+    
+    concept_to_words["correlation"] = {
+        "correlate", "correlation", "associated", "association", "related",
+        "relation", "relationship", "connection", "connected", "link",
+        "linked", "correspond", "correspondence", "coincide", "cooccur"
+    };
+    
+    // === MODAL CONCEPTS ===
+    concept_to_words["possibility"] = {
+        "possible", "possibility", "can", "could", "may", "might",
+        "potential", "potentially", "conceivable", "feasible", "plausible",
+        "perhaps", "maybe", "possibly"
+    };
+    
+    concept_to_words["necessity"] = {
+        "necessary", "necessity", "must", "need", "needs", "needed",
+        "require", "required", "requirement", "essential", "crucial",
+        "vital", "obligatory", "mandatory", "inevitable"
+    };
+    
+    concept_to_words["ability"] = {
+        "able", "ability", "can", "capable", "capacity", "capability",
+        "competent", "competence", "skill", "skilled", "proficient",
+        "adept", "aptitude", "power", "enabled"
+    };
+    
+    // === COMPARATIVE CONCEPTS ===
+    concept_to_words["similarity"] = {
+        "similar", "similarity", "like", "alike", "resemble", "resemblance",
+        "analogous", "analogy", "parallel", "comparable", "corresponding",
+        "equivalent", "same", "identical", "equal"
+    };
+    
+    concept_to_words["difference"] = {
+        "different", "difference", "differ", "distinct", "distinction",
+        "contrast", "contrasting", "unlike", "dissimilar", "disparate",
+        "diverge", "divergent", "vary", "variation", "separate"
+    };
+    
+    concept_to_words["degree"] = {
+        "more", "most", "less", "least", "very", "extremely", "highly",
+        "somewhat", "rather", "quite", "fairly", "slightly", "degree",
+        "extent", "level", "magnitude", "intensity", "stronger", "weaker"
+    };
+    
+    // === STRUCTURAL CONCEPTS ===
+    concept_to_words["structure"] = {
+        "structure", "structured", "organization", "organize", "organized",
+        "pattern", "patterns", "arrangement", "configuration", "architecture",
+        "framework", "schema", "format", "form", "composition", "hierarchy"
+    };
+    
+    concept_to_words["system"] = {
+        "system", "systematic", "network", "complex", "complexity",
+        "component", "components", "element", "elements", "whole", "parts",
+        "subsystem", "interconnected", "interaction", "dynamics"
+    };
+    
+    concept_to_words["relation"] = {
+        "relation", "relationship", "relate", "related", "connection",
+        "connect", "connected", "link", "linked", "association", "associate",
+        "bind", "binding", "tie", "bond", "correlation"
+    };
+    
+    // === AFFECTIVE CONCEPTS ===
+    concept_to_words["positive_affect"] = {
+        "good", "better", "best", "happy", "joy", "joyful", "pleased",
+        "pleasure", "satisfied", "satisfaction", "content", "glad",
+        "positive", "pleasant", "favorable", "beneficial", "valuable",
+        "excellent", "wonderful", "delightful", "exciting", "enthusiasm"
+    };
+    
+    concept_to_words["negative_affect"] = {
+        "bad", "worse", "worst", "sad", "sadness", "unhappy", "disappointed",
+        "disappointment", "frustrated", "frustration", "confused", "confusion",
+        "negative", "unpleasant", "unfavorable", "harmful", "problematic",
+        "difficult", "trouble", "concern", "worry", "anxiety"
+    };
+    
+    concept_to_words["neutral_affect"] = {
+        "neutral", "indifferent", "impartial", "objective", "dispassionate",
+        "balanced", "even", "calm", "composed", "steady", "stable"
+    };
+    
+    // === INTENTIONAL CONCEPTS ===
+    concept_to_words["goal"] = {
+        "goal", "goals", "aim", "aims", "objective", "objectives",
+        "purpose", "purposes", "intention", "intentions", "target",
+        "end", "ends", "aspiration", "ambition", "desire", "want"
+    };
+    
+    concept_to_words["action"] = {
+        "act", "action", "actions", "do", "doing", "done", "perform",
+        "performance", "execute", "execution", "behavior", "conduct",
+        "activity", "operation", "function", "work", "practice"
+    };
+    
+    concept_to_words["plan"] = {
+        "plan", "planning", "planned", "strategy", "strategic", "scheme",
+        "design", "blueprint", "approach", "method", "methodology",
+        "procedure", "process", "systematic", "deliberate"
+    };
+    
+    // === EVALUATIVE CONCEPTS ===
+    concept_to_words["quality"] = {
+        "quality", "good", "bad", "better", "worse", "best", "worst",
+        "excellent", "poor", "superior", "inferior", "adequate", "inadequate",
+        "sufficient", "insufficient", "optimal", "suboptimal"
+    };
+    
+    concept_to_words["truth"] = {
+        "true", "truth", "truthful", "accurate", "accuracy", "correct",
+        "correctness", "right", "valid", "validity", "veridical", "factual",
+        "actual", "real", "reality", "genuine", "authentic"
+    };
+    
+    concept_to_words["error"] = {
+        "false", "falsehood", "incorrect", "wrong", "error", "errors",
+        "mistake", "mistakes", "flaw", "flawed", "invalid", "inaccurate",
+        "inaccuracy", "misleading", "mistaken", "erroneous"
+    };
+    
+    // === LEARNING CONCEPTS ===
+    concept_to_words["learning"] = {
+        "learn", "learning", "learned", "study", "studying", "acquire",
+        "acquisition", "absorb", "assimilate", "master", "mastery",
+        "practice", "training", "education", "instruction", "teach"
+    };
+    
+    concept_to_words["improvement"] = {
+        "improve", "improvement", "better", "enhance", "enhancement",
+        "refine", "refinement", "optimize", "optimization", "develop",
+        "development", "progress", "advance", "advancement", "upgrade"
+    };
+    
+    concept_to_words["adaptation"] = {
+        "adapt", "adaptation", "adjust", "adjustment", "modify",
+        "modification", "accommodate", "flexible", "flexibility", "responsive",
+        "calibrate", "tune", "refine", "revise", "revision"
+    };
+    
+    // === SCOPE CONCEPTS ===
+    concept_to_words["universal"] = {
+        "all", "every", "everything", "universal", "universally", "always",
+        "necessarily", "invariably", "general", "generally", "broad",
+        "comprehensive", "total", "complete", "entire", "whole"
+    };
+    
+    concept_to_words["particular"] = {
+        "some", "particular", "specific", "individual", "instance",
+        "example", "case", "certain", "selected", "particular", "distinct",
+        "unique", "special", "precise", "exact", "detailed"
+    };
+    
+    concept_to_words["partial"] = {
+        "partial", "partially", "part", "parts", "portion", "fragment",
+        "incomplete", "limited", "some", "somewhat", "partly", "aspect",
+        "dimension", "facet", "component"
+    };
+    
+    // === PROCESS CONCEPTS ===
+    concept_to_words["beginning"] = {
+        "begin", "beginning", "start", "starting", "initial", "initially",
+        "first", "firstly", "commence", "origin", "originate", "initiate",
+        "launch", "inception", "outset", "onset"
+    };
+    
+    concept_to_words["continuation"] = {
+        "continue", "continuing", "continued", "ongoing", "persist",
+        "persistence", "maintain", "sustain", "keep", "remain", "stay",
+        "endure", "last", "prolong", "extend"
+    };
+    
+    concept_to_words["ending"] = {
+        "end", "ending", "finish", "final", "finally", "conclude",
+        "conclusion", "complete", "completion", "terminate", "termination",
+        "cease", "stop", "halt", "closure", "culminate"
+    };
+    
+    // === QUANTITATIVE CONCEPTS ===
+    concept_to_words["increase"] = {
+        "increase", "increasing", "grow", "growing", "growth", "rise",
+        "rising", "expand", "expansion", "amplify", "enhance", "augment",
+        "boost", "escalate", "intensify", "more", "greater"
+    };
+    
+    concept_to_words["decrease"] = {
+        "decrease", "decreasing", "decline", "declining", "reduce",
+        "reduction", "diminish", "shrink", "contract", "lessen", "weaken",
+        "lower", "drop", "fall", "less", "fewer", "smaller"
+    };
+    
+    // === SPATIAL/METAPHORICAL CONCEPTS ===
+    concept_to_words["depth"] = {
+        "deep", "depth", "deeper", "deepest", "profound", "fundamental",
+        "underlying", "beneath", "below", "surface", "superficial", "shallow",
+        "layer", "layers", "level", "levels"
+    };
+    
+    concept_to_words["breadth"] = {
+        "broad", "breadth", "wide", "width", "extensive", "comprehensive",
+        "scope", "range", "span", "expanse", "coverage", "encompass"
+    };
+    
+    concept_to_words["position"] = {
+        "position", "place", "location", "situated", "context", "setting",
+        "environment", "circumstance", "situation", "state", "condition",
+        "status", "standing"
+    };
+    
+    // === INTERACTIVE CONCEPTS ===
+    concept_to_words["communication"] = {
+        "communicate", "communication", "express", "expression", "convey",
+        "transmit", "share", "exchange", "dialogue", "conversation", "say",
+        "tell", "speak", "talk", "explain", "explanation", "articulate"
+    };
+    
+    concept_to_words["understanding"] = {
+        "understand", "understanding", "comprehend", "comprehension", "grasp",
+        "realize", "realization", "appreciate", "appreciation", "recognize",
+        "recognition", "perceive", "perception", "interpret", "interpretation"
+    };
+    
+    // ============================================================
+    // === CREATE BIDIRECTIONAL WORD-CONCEPT ASSOCIATIONS ===
+    // ============================================================
+    
+    int concept_count = 0;
+    int association_count = 0;
+    
+    for(auto& concept_pair : concept_to_words) {
+        const string& concept_name = concept_pair.first;
+        const vector<string>& words = concept_pair.second;
+        
+        // Create the concept if it doesn't exist
+        if(S.concepts.find(concept_name) == S.concepts.end()) {
+            Concept c;
+            c.name = concept_name;
+            c.value = 0.7 + (rn() * 0.2); // 0.7-0.9 for abstract concepts
+            c.related_words = words;
+            c.abstraction_level = 0.8; // High abstraction for these meta-concepts
+            c.semantic_density = (double)words.size() / 100.0; // Density based on word count
+            S.concepts[concept_name] = c;
+            concept_count++;
+        }
+        
+        // For each word in this concept, create bidirectional links
+        for(const string& word : words) {
+            // Ensure word exists in token_concept_embedding_map
+            if(token_concept_embedding_map.find(word) == token_concept_embedding_map.end()) {
+                // Create it if it doesn't exist
+                TokenConceptEmbedding tce;
+                tce.name = word;
+                tce.meaning = 0.6 + (rn() * 0.2);
+                tce.embedding.resize(16);
+                for(int i = 0; i < 16; i++) {
+                    tce.embedding[i] = rn() * 0.1;
+                }
+                tce.freq = 1;
+                tce.grounding_value = 0.5;
+                tce.semantic_stability = 0.6;
+                token_concept_embedding_map[word] = tce;
+            }
+            
+            // Link word to concept
+            auto& tce = token_concept_embedding_map[word];
+            tce.linked_concepts[concept_name] = 0.8 + (rn() * 0.15); // Strong link 0.8-0.95
+            
+            // Also link to related words within same concept (semantic neighbors)
+            for(const string& related_word : words) {
+                if(related_word != word && token_concept_embedding_map.count(related_word)) {
+                    // Weaker links between semantic neighbors
+                    tce.linked_concepts[related_word] = 0.3 + (rn() * 0.2); // 0.3-0.5
+                }
+            }
+            
+            association_count++;
+            
+            // Update embedding to reflect concept membership
+            // Each concept gets a signature in embedding space
+            size_t concept_hash = hash<string>{}(concept_name) % 16;
+            if(concept_hash < tce.embedding.size()) {
+                tce.embedding[concept_hash] += 0.3; // Boost this dimension
+            }
+        }
+        
+        // Create concept-to-concept relationships for related abstractions
+        // Example: causation <-> correlation, certainty <-> uncertainty
+        map<string, vector<string>> concept_relationships = {
+            {"certainty", {"uncertainty", "belief", "knowledge", "truth"}},
+            {"uncertainty", {"certainty", "belief", "possibility"}},
+            {"causation", {"correlation", "relation", "temporal_change"}},
+            {"correlation", {"causation", "relation", "similarity"}},
+            {"similarity", {"difference", "comparison", "relation"}},
+            {"difference", {"similarity", "comparison", "distinction"}},
+            {"cognition", {"metacognition", "reasoning", "learning"}},
+            {"metacognition", {"cognition", "self-awareness", "monitoring"}},
+            {"learning", {"improvement", "adaptation", "change"}},
+            {"positive_affect", {"negative_affect", "neutral_affect", "emotion"}},
+            {"goal", {"action", "plan", "intention"}},
+            {"structure", {"system", "organization", "pattern"}},
+            {"abstraction", {"generalization", "universal", "principle"}},
+            {"particular", {"universal", "specific", "instance"}},
+            {"depth", {"breadth", "level", "complexity"}},
+            {"beginning", {"continuation", "ending", "process"}},
+            {"increase", {"decrease", "change", "quantity"}},
+            {"truth", {"error", "accuracy", "validity"}},
+            {"analysis", {"synthesis", "reasoning", "examination"}},
+            {"attention", {"focus", "awareness", "salience"}},
+            {"memory", {"recall", "learning", "knowledge"}}
+        };
+        
+        if(concept_relationships.count(concept_name)) {
+            for(const string& related_concept : concept_relationships[concept_name]) {
+                if(S.concepts.count(concept_name) && S.concepts.count(related_concept)) {
+                    // Add to concept's feature vector
+                    S.concepts[concept_name].feature_vector[related_concept] = 0.7;
+                    S.concepts[related_concept].feature_vector[concept_name] = 0.7;
+                }
+            }
         }
     }
-
-    S.user_input.clear();
+    
+    // Report statistics
+    cerr << "[BOOTSTRAP] Processed " << sentence_count 
+         << " diverse sentences with rich grammar patterns" << endl;
+    cerr << "[BOOTSTRAP] Created " << concept_count << " abstract concepts" << endl;
+    cerr << "[BOOTSTRAP] Established " << association_count << " word-to-concept associations" << endl;
+    cerr << "[BOOTSTRAP] Vocabulary size: " << token_concept_embedding_map.size() << endl;
+    cerr << "[BOOTSTRAP] Bigram patterns: " << bigram_counts.size() << endl;
+    cerr << "[BOOTSTRAP] Trigram patterns: " << trigram_counts.size() << endl;
+    cerr << "[BOOTSTRAP] Concept network: " << S.concepts.size() << " nodes" << endl;
 }
-
 void counterfactualAnalysis(){
     if(S.g<10)return;
     double last_ta=S.g>0?S.TA[S.g-1]:0;
