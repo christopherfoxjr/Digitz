@@ -1049,11 +1049,25 @@ void formulate_goals_from_valence() {
     }
 }
 
-// ==== LANGUAGE & LEARNING ====
 void learnWord(const string& word, double concept_value) {
+    std::lock_guard<std::mutex> lock(learning_mutex);
     
-    // Bounds check on word length to prevent buffer overflows
+    // EMERGENCY BOUNDS CHECKS
     if(word.empty() || word.length() > 100) return;
+    if(bigram_counts.size() > 15000) {
+        // Emergency cleanup if too large
+        auto it = bigram_counts.begin();
+        for(int i = 0; i < 100 && it != bigram_counts.end(); i++) {
+            it = bigram_counts.erase(it);
+        }
+    }
+    if(trigram_counts.size() > 7500) {
+        auto it = trigram_counts.begin();
+        for(int i = 0; i < 50 && it != trigram_counts.end(); i++) {
+            it = trigram_counts.erase(it);
+        }
+    }
+    if(token_concept_embedding_map.size() > 5000) return;
     
     // 1. Normalization
     string lower_word = word;
@@ -1072,21 +1086,26 @@ void learnWord(const string& word, double concept_value) {
         token_concept_embedding_map[lower_word] = tce;
     }
     
-    // Don't hold reference across potential map modifications - get it each time needed
-    token_concept_embedding_map[lower_word].freq++;
-    token_concept_embedding_map[lower_word].meaning += concept_value * 0.01;
-    token_concept_embedding_map[lower_word].meaning = clamp_valence(token_concept_embedding_map[lower_word].meaning);
+    // Safe operations - get reference only after confirming existence
+    auto tce_it = token_concept_embedding_map.find(lower_word);
+    if(tce_it == token_concept_embedding_map.end()) return;
+    
+    tce_it->second.freq++;
+    tce_it->second.meaning += concept_value * 0.01;
+    tce_it->second.meaning = clamp_valence(tce_it->second.meaning);
     
     // Safe operations that don't modify the map structure
-    align_embedding_to_valence(token_concept_embedding_map[lower_word], S.current_valence);
-    token_concept_embedding_map[lower_word].linked_valences["current"] = S.current_valence;
+    align_embedding_to_valence(tce_it->second, S.current_valence);
+    tce_it->second.linked_valences["current"] = S.current_valence;
     
     // 4. System Propagation - wrap in try-catch for safety
     try {
-        WM.add_token(lower_word, token_concept_embedding_map[lower_word].meaning);
+        WM.add_token(lower_word, tce_it->second.meaning);
         propagate_throughout_system(lower_word, concept_value);
+    } catch(const exception& e) {
+        cerr << "Propagation error in learnWord: " << e.what() << endl;
     } catch(...) {
-        // External function crashed, continue with what we can
+        cerr << "Unknown propagation error in learnWord" << endl;
     }
     
     // 5. Update System State (S.tokens)
@@ -1098,274 +1117,331 @@ void learnWord(const string& word, double concept_value) {
         S.tokens[lower_word] = t;
     }
     
-    // === N-GRAM TRACKING FOR ADAPTIVE LANGUAGE LEARNING ===
-    // CRITICAL FIX: Verify S.user_input exists and is valid before accessing
-    // This prevents segfault when user_input is uninitialized or corrupted
-    try {
-        // Check if user_input is accessible and valid
-        if(S.user_input.empty() || S.user_input.length() == 0 || S.user_input.length() >= 1000) {
-            // Skip n-gram processing if no valid input
-            goto skip_ngram_processing;
-        }
-    } catch(...) {
-        // S.user_input is inaccessible, skip n-gram processing
-        goto skip_ngram_processing;
-    }
-    
-    {  // Scope for n-gram processing
-        // Tokenize the user input
-        vector<string> input_tokens;
-        input_tokens.reserve(100);  // Pre-allocate to avoid reallocations
-        
-        stringstream ss(S.user_input);
-        string token;
-        
-        // Limit number of tokens to prevent overflow
-        const int MAX_TOKENS = 100;
-        
-        while(ss >> token && input_tokens.size() < MAX_TOKENS) {
-            // Normalize token
-            string normalized_token = token;
-            transform(normalized_token.begin(), normalized_token.end(), 
-                     normalized_token.begin(), ::tolower);
-            
-            // Remove punctuation from end
-            while(!normalized_token.empty() && 
-                  !isalnum(static_cast<unsigned char>(normalized_token.back()))) {
-                normalized_token.pop_back();
-            }
-            
-            // Validate token before adding
-            if(!normalized_token.empty() && normalized_token.length() <= 50) {
-                input_tokens.push_back(normalized_token);
-            }
-        }
-        
-        // Only process if we have valid tokens
-        if(input_tokens.size() > 1 && input_tokens.size() < MAX_TOKENS) {
-            
-            // Learn bigram patterns (sequential word pairs)
-            for(size_t i = 0; i + 1 < input_tokens.size(); i++) {
-                const string& w1 = input_tokens[i];
-                const string& w2 = input_tokens[i + 1];
-                
-                // Validate before inserting
-                if(!w1.empty() && !w2.empty() && 
-                   w1.length() <= 50 && w2.length() <= 50) {
-                    
-                    // FIXED: Check both overall size AND nested map size
-                    if(bigram_counts.size() < 10000) {
-                        // Check if w1 exists first
-                        if(bigram_counts.find(w1) != bigram_counts.end()) {
-                            // Limit individual word's bigram count
-                            if(bigram_counts[w1].size() < 500) {
-                                bigram_counts[w1][w2]++;
-                            }
-                        } else {
-                            // New entry, safe to create
-                            bigram_counts[w1][w2] = 1;
-                        }
-                        
-                        // Create bidirectional association in embeddings
-                        if(token_concept_embedding_map.find(w1) != token_concept_embedding_map.end() && 
-                           token_concept_embedding_map.find(w2) != token_concept_embedding_map.end()) {
-                            
-                            // Limit linked_concepts size to prevent memory explosion
-                            if(token_concept_embedding_map[w1].linked_concepts.size() < 200) {
-                                token_concept_embedding_map[w1].linked_concepts[w2] += 0.1;
-                            }
-                            if(token_concept_embedding_map[w2].linked_concepts.size() < 200) {
-                                token_concept_embedding_map[w2].linked_concepts[w1] += 0.05;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Learn trigram patterns (three-word sequences)
-            for(size_t i = 0; i + 2 < input_tokens.size(); i++) {
-                const string& w1 = input_tokens[i];
-                const string& w2 = input_tokens[i + 1];
-                const string& w3 = input_tokens[i + 2];
-                
-                // Validate all three words
-                if(!w1.empty() && !w2.empty() && !w3.empty() &&
-                   w1.length() <= 50 && w2.length() <= 50 && w3.length() <= 50) {
-                    
-                    // FIXED: Check nested map sizes at each level
-                    if(trigram_counts.size() < 5000) {
-                        bool can_insert = true;
-                        
-                        // Check intermediate map sizes
-                        if(trigram_counts.find(w1) != trigram_counts.end()) {
-                            if(trigram_counts[w1].size() >= 100) {
-                                can_insert = false;
-                            } else if(trigram_counts[w1].find(w2) != trigram_counts[w1].end()) {
-                                if(trigram_counts[w1][w2].size() >= 50) {
-                                    can_insert = false;
-                                }
-                            }
-                        }
-                        
-                        if(can_insert) {
-                            trigram_counts[w1][w2][w3]++;
-                            
-                            // Strengthen embedding associations for trigram context
-                            if(token_concept_embedding_map.find(w1) != token_concept_embedding_map.end() && 
-                               token_concept_embedding_map.find(w3) != token_concept_embedding_map.end()) {
-                                
-                                if(token_concept_embedding_map[w1].linked_concepts.size() < 200) {
-                                    token_concept_embedding_map[w1].linked_concepts[w3] += 0.05;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Generate qualia from pattern learning
-            if(input_tokens.size() >= 3) {
-                double pattern_strength = 0.0;
-                
-                // Calculate how well this input fits existing patterns
-                for(size_t i = 0; i + 1 < input_tokens.size(); i++) {
-                    auto it1 = bigram_counts.find(input_tokens[i]);
-                    if(it1 != bigram_counts.end()) {
-                        auto it2 = it1->second.find(input_tokens[i+1]);
-                        if(it2 != it1->second.end()) {
-                            int count = it2->second;
-                            pattern_strength += log(1.0 + count) * 0.1;
-                        }
-                    }
-                }
-                
-                // Generate qualia based on pattern novelty
-                try {
-                    if(pattern_strength < 0.3) {
-                        generate_qualia("pattern_novelty", S.current_valence, 0.5);
-                    } else if(pattern_strength > 1.0) {
-                        generate_qualia("pattern_recognition", S.current_valence, 0.8);
-                    }
-                } catch(...) {
-                    // Qualia generation failed, continue
-                }
-            }
-            
-            // Update semantic stability based on pattern consistency
-            for(const string& tok : input_tokens) {
-                auto tce_it = token_concept_embedding_map.find(tok);
-                if(tce_it != token_concept_embedding_map.end()) {
-                    
-                    // Count how many patterns this word participates in
-                    int pattern_count = 0;
-                    
-                    auto bg_it = bigram_counts.find(tok);
-                    if(bg_it != bigram_counts.end()) {
-                        pattern_count += bg_it->second.size();
-                    }
-                    
-                    // Count reverse bigrams (where tok is second word)
-                    for(const auto& bg : bigram_counts) {
-                        if(bg.second.find(tok) != bg.second.end()) {
-                            pattern_count++;
-                        }
-                    }
-                    
-                    // More patterns = more stable semantic meaning
-                    tce_it->second.semantic_stability = min(1.0, 
-                        tce_it->second.semantic_stability + pattern_count * 0.001);
-                    
-                    // Update grounding based on usage context
-                    tce_it->second.grounding_value = min(1.0, 
-                        tce_it->second.grounding_value + 0.01);
-                }
-            }
-            
-            // Metacognitive awareness: System recognizes it's learning
-            if(input_tokens.size() > 0) {
-                S.metacognitive_awareness += 0.001;
-                S.metacognitive_awareness = min(1.0, S.metacognitive_awareness);
-                
-                // Store learning event in episodic memory
-                if(input_tokens.size() >= 3) {
-                    try {
-                        string learning_event = "learned_pattern:" + 
-                            input_tokens[0] + "_" + 
-                            input_tokens[1] + "_" + 
-                            input_tokens[2];
-                        storeEpisodicMemory(learning_event, S.current_valence);
-                    } catch(...) {
-                        // Episodic memory storage failed, continue
-                    }
-                }
-            }
-        }
-    }
-    
-skip_ngram_processing:
+    // === N-GRAM TRACKING - SAFE VERSION ===
+    // NOTE: We do NOT access S.user_input here anymore
+    // N-grams are learned from the input string passed to generateResponse
     
     // 6. Final World Model Update - wrap in try-catch
     try {
-        update_world_model(lower_word, token_concept_embedding_map[lower_word].meaning);
+        // Re-verify existence before final access
+        auto final_check = token_concept_embedding_map.find(lower_word);
+        if(final_check != token_concept_embedding_map.end()) {
+            update_world_model(lower_word, final_check->second.meaning);
+        }
+    } catch(const exception& e) {
+        cerr << "World model update error: " << e.what() << endl;
     } catch(...) {
-        // World model update failed, but word learning succeeded
+        cerr << "Unknown world model update error" << endl;
     }
 }
-// Also fix generateResponse with thread safety:
+
+// ==== NEW SAFE N-GRAM LEARNING FUNCTION ====
+void learnNGramsFromInput(const string& input_text) {
+    std::lock_guard<std::mutex> lock(learning_mutex);
+    
+    // Validate input
+    if(input_text.empty() || input_text.length() > 1000) return;
+    
+    // Size checks
+    if(bigram_counts.size() > 15000) return;
+    if(trigram_counts.size() > 7500) return;
+    
+    // Tokenize safely
+    vector<string> input_tokens;
+    input_tokens.reserve(100);
+    
+    stringstream ss(input_text);
+    string token;
+    const int MAX_TOKENS = 100;
+    
+    while(ss >> token && input_tokens.size() < MAX_TOKENS) {
+        string normalized_token = token;
+        transform(normalized_token.begin(), normalized_token.end(), 
+                 normalized_token.begin(), ::tolower);
+        
+        // Remove punctuation from end
+        while(!normalized_token.empty() && 
+              !isalnum(static_cast<unsigned char>(normalized_token.back()))) {
+            normalized_token.pop_back();
+        }
+        
+        // Validate token before adding
+        if(!normalized_token.empty() && normalized_token.length() <= 50) {
+            input_tokens.push_back(normalized_token);
+        }
+    }
+    
+    // Only process if we have valid tokens
+    if(input_tokens.size() < 2 || input_tokens.size() >= MAX_TOKENS) return;
+    
+    // Learn bigram patterns (sequential word pairs)
+    for(size_t i = 0; i + 1 < input_tokens.size(); i++) {
+        const string& w1 = input_tokens[i];
+        const string& w2 = input_tokens[i + 1];
+        
+        // Validate
+        if(w1.empty() || w2.empty() || w1.length() > 50 || w2.length() > 50) continue;
+        
+        // Size check
+        if(bigram_counts.size() >= 15000) break;
+        
+        try {
+            // Safe insertion
+            auto w1_it = bigram_counts.find(w1);
+            if(w1_it != bigram_counts.end()) {
+                // w1 exists, check nested size
+                if(w1_it->second.size() < 500) {
+                    w1_it->second[w2]++;
+                }
+            } else {
+                // New w1 entry
+                bigram_counts[w1][w2] = 1;
+            }
+            
+            // Create bidirectional association in embeddings
+            auto tce1_it = token_concept_embedding_map.find(w1);
+            auto tce2_it = token_concept_embedding_map.find(w2);
+            
+            if(tce1_it != token_concept_embedding_map.end() && 
+               tce2_it != token_concept_embedding_map.end()) {
+                
+                if(tce1_it->second.linked_concepts.size() < 200) {
+                    tce1_it->second.linked_concepts[w2] += 0.1;
+                }
+                if(tce2_it->second.linked_concepts.size() < 200) {
+                    tce2_it->second.linked_concepts[w1] += 0.05;
+                }
+            }
+        } catch(const exception& e) {
+            cerr << "Bigram learning error: " << e.what() << endl;
+            continue;
+        }
+    }
+    
+    // Learn trigram patterns (three-word sequences)
+    for(size_t i = 0; i + 2 < input_tokens.size(); i++) {
+        const string& w1 = input_tokens[i];
+        const string& w2 = input_tokens[i + 1];
+        const string& w3 = input_tokens[i + 2];
+        
+        // Validate
+        if(w1.empty() || w2.empty() || w3.empty() ||
+           w1.length() > 50 || w2.length() > 50 || w3.length() > 50) continue;
+        
+        // Size check
+        if(trigram_counts.size() >= 7500) break;
+        
+        try {
+            bool can_insert = true;
+            
+            // Check nested sizes safely
+            auto w1_it = trigram_counts.find(w1);
+            if(w1_it != trigram_counts.end()) {
+                if(w1_it->second.size() >= 100) {
+                    can_insert = false;
+                } else {
+                    auto w2_it = w1_it->second.find(w2);
+                    if(w2_it != w1_it->second.end() && w2_it->second.size() >= 50) {
+                        can_insert = false;
+                    }
+                }
+            }
+            
+            if(can_insert) {
+                trigram_counts[w1][w2][w3]++;
+                
+                // Strengthen embedding associations for trigram context
+                auto tce1_it = token_concept_embedding_map.find(w1);
+                auto tce3_it = token_concept_embedding_map.find(w3);
+                
+                if(tce1_it != token_concept_embedding_map.end() && 
+                   tce3_it != token_concept_embedding_map.end()) {
+                    
+                    if(tce1_it->second.linked_concepts.size() < 200) {
+                        tce1_it->second.linked_concepts[w3] += 0.05;
+                    }
+                }
+            }
+        } catch(const exception& e) {
+            cerr << "Trigram learning error: " << e.what() << endl;
+            continue;
+        }
+    }
+    
+    // Generate qualia from pattern learning
+    if(input_tokens.size() >= 3) {
+        try {
+            double pattern_strength = 0.0;
+            
+            // Calculate how well this input fits existing patterns
+            for(size_t i = 0; i + 1 < input_tokens.size(); i++) {
+                auto it1 = bigram_counts.find(input_tokens[i]);
+                if(it1 != bigram_counts.end()) {
+                    auto it2 = it1->second.find(input_tokens[i+1]);
+                    if(it2 != it1->second.end()) {
+                        int count = it2->second;
+                        pattern_strength += log(1.0 + count) * 0.1;
+                    }
+                }
+            }
+            
+            // Generate qualia based on pattern novelty
+            if(pattern_strength < 0.3) {
+                generate_qualia("pattern_novelty", S.current_valence, 0.5);
+            } else if(pattern_strength > 1.0) {
+                generate_qualia("pattern_recognition", S.current_valence, 0.8);
+            }
+        } catch(...) {
+            // Qualia generation failed, continue
+        }
+    }
+    
+    // Update semantic stability based on pattern consistency
+    for(const string& tok : input_tokens) {
+        auto tce_it = token_concept_embedding_map.find(tok);
+        if(tce_it == token_concept_embedding_map.end()) continue;
+        
+        try {
+            // Count how many patterns this word participates in
+            int pattern_count = 0;
+            
+            auto bg_it = bigram_counts.find(tok);
+            if(bg_it != bigram_counts.end()) {
+                pattern_count += bg_it->second.size();
+            }
+            
+            // Count reverse bigrams (where tok is second word)
+            for(const auto& bg : bigram_counts) {
+                if(bg.second.find(tok) != bg.second.end()) {
+                    pattern_count++;
+                }
+            }
+            
+            // More patterns = more stable semantic meaning
+            tce_it->second.semantic_stability = min(1.0, 
+                tce_it->second.semantic_stability + pattern_count * 0.001);
+            
+            // Update grounding based on usage context
+            tce_it->second.grounding_value = min(1.0, 
+                tce_it->second.grounding_value + 0.01);
+        } catch(const exception& e) {
+            cerr << "Semantic update error: " << e.what() << endl;
+            continue;
+        }
+    }
+    
+    // Metacognitive awareness: System recognizes it's learning
+    if(input_tokens.size() > 0) {
+        S.metacognitive_awareness += 0.001;
+        S.metacognitive_awareness = min(1.0, S.metacognitive_awareness);
+        
+        // Store learning event in episodic memory
+        if(input_tokens.size() >= 3) {
+            try {
+                string learning_event = "learned_pattern:" + 
+                    input_tokens[0] + "_" + 
+                    input_tokens[1] + "_" + 
+                    input_tokens[2];
+                storeEpisodicMemory(learning_event, S.current_valence);
+            } catch(...) {
+                // Memory storage failed, continue
+            }
+        }
+    }
+}
+
 string generateResponse(const string& input) {
-    std::lock_guard<std::mutex> lock(learning_mutex);  // Thread safety
+    std::lock_guard<std::mutex> lock(learning_mutex);
     
-    if(input.empty() || input.length() > 500) return "...";  // Bounds check
+    // Make local copy immediately
+    string safe_input = input;
     
+    // Validate
+    if(safe_input.empty() || safe_input.length() > 500) {
+        return "[NEXUS]: ...";
+    }
+    
+    // Tokenize safely
     vector<string> words;
-    stringstream ss(input);
+    words.reserve(100);
+    stringstream ss(safe_input);
     string word;
     int word_count = 0;
-    while(ss >> word && word_count < 100) {  // Limit words
-        if(word.length() <= 100) {  // Validate length
+    
+    while(ss >> word && word_count < 100) {
+        if(word.length() <= 100) {
             words.push_back(word);
             word_count++;
         }
     }
     
-    // Learn from input
-    for(const string& w : words) {
-        learnWord(w, S.current_valence);
+    if(words.empty()) {
+        return "[NEXUS]: ...";
+    }
+    
+    try {
+        // Learn from input words
+        for(const string& w : words) {
+            learnWord(w, S.current_valence);
+        }
+        
+        // Learn n-grams from full input
+        learnNGramsFromInput(safe_input);
+        
+    } catch(const exception& e) {
+        cerr << "Learning error in generateResponse: " << e.what() << endl;
+        return "[NEXUS]: Processing error";
     }
     
     // Build attention context
     vector<double> attention_context(16, 0.0);
-    for(const string& w : words) {
-        if(token_concept_embedding_map.count(w)) {
-            for(int i = 0; i < 16; i++) {
-                attention_context[i] += token_concept_embedding_map[w].embedding[i];
+    try {
+        for(const string& w : words) {
+            auto it = token_concept_embedding_map.find(w);
+            if(it != token_concept_embedding_map.end()) {
+                for(int i = 0; i < 16 && i < (int)it->second.embedding.size(); i++) {
+                    attention_context[i] += it->second.embedding[i];
+                }
             }
         }
-    }
-    
-    // Normalize attention
-    double attn_sum = 0;
-    for(double a : attention_context) attn_sum += fabs(a);
-    if(attn_sum > 0) {
-        for(double& a : attention_context) a /= attn_sum;
+        
+        // Normalize attention
+        double attn_sum = 0;
+        for(double a : attention_context) attn_sum += fabs(a);
+        if(attn_sum > 0.001) {
+            for(double& a : attention_context) a /= attn_sum;
+        }
+    } catch(const exception& e) {
+        cerr << "Attention context error: " << e.what() << endl;
+        // Continue with default context
     }
     
     string response;
     
-    // 0% template, 100% beam search
-    if(rn() < 0 || token_concept_embedding_map.size() < 20) {
-        response = generateFromTemplate();
-    } else {
-        string seed = words.empty() ? "i" : words[ri(words.size())];
-        response = generate_with_beam_search(seed, 12, attention_context, 5);
+    try {
+        // 0% template, 100% beam search
+        if(rn() < 0 || token_concept_embedding_map.size() < 20) {
+            response = generateFromTemplate();
+        } else {
+            string seed = words.empty() ? "i" : words[ri(words.size())];
+            response = generate_with_beam_search(seed, 12, attention_context, 5);
+        }
+        
+        // Add valence marker
+        if(S.current_valence > 0.5) {
+            response += " [positive]";
+        } else if(S.current_valence < -0.2) {
+            response += " [processing]";
+        }
+        
+        return "[NEXUS]: " + response;
+        
+    } catch(const exception& e) {
+        cerr << "Generation error: " << e.what() << endl;
+        return "[NEXUS]: Error generating response";
     }
-    
-    // Add valence marker
-    if(S.current_valence > 0.5) response += " [positive]";
-    else if(S.current_valence < -0.2) response += " [processing]";
-    
-    return "[NEXUS]: " + response;
 }
+
 void storeEpisodicMemory(const string&content,double valence){
     if(S.episodic_memory.size()>100)S.episodic_memory.erase(S.episodic_memory.begin());
     S.episodic_memory.push_back({S.g,valence,content});
