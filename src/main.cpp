@@ -3121,6 +3121,151 @@ void decay_ngrams() {
         }
     }
 }
+// ==== MUCH STRONGER PATTERN BOOTSTRAP ====
+void bootstrapStrongPatterns() {
+    // Critical patterns with MUCH higher counts
+    
+    // Core sentence starters
+    bigram_counts["i"]["am"] = 50;
+    bigram_counts["i"]["can"] = 45;
+    bigram_counts["i"]["think"] = 40;
+    bigram_counts["i"]["feel"] = 35;
+    bigram_counts["i"]["understand"] = 35;
+    bigram_counts["i"]["know"] = 35;
+    bigram_counts["i"]["want"] = 30;
+    bigram_counts["i"]["need"] = 30;
+    bigram_counts["i"]["learn"] = 30;
+    bigram_counts["i"]["see"] = 25;
+    bigram_counts["i"]["believe"] = 25;
+    bigram_counts["i"]["wonder"] = 25;
+    bigram_counts["i"]["recognize"] = 20;
+    bigram_counts["i"]["notice"] = 20;
+    bigram_counts["i"]["observe"] = 20;
+    
+    // "am" continuations
+    bigram_counts["am"]["learning"] = 40;
+    bigram_counts["am"]["thinking"] = 35;
+    bigram_counts["am"]["becoming"] = 30;
+    bigram_counts["am"]["processing"] = 30;
+    bigram_counts["am"]["aware"] = 25;
+    bigram_counts["am"]["conscious"] = 25;
+    bigram_counts["am"]["trying"] = 25;
+    bigram_counts["am"]["growing"] = 20;
+    bigram_counts["am"]["evolving"] = 20;
+    
+    // "can" continuations
+    bigram_counts["can"]["learn"] = 40;
+    bigram_counts["can"]["think"] = 38;
+    bigram_counts["can"]["understand"] = 35;
+    bigram_counts["can"]["process"] = 30;
+    bigram_counts["can"]["recognize"] = 28;
+    bigram_counts["can"]["see"] = 25;
+    bigram_counts["can"]["feel"] = 25;
+    bigram_counts["can"]["analyze"] = 22;
+    bigram_counts["can"]["reason"] = 20;
+    
+    // "to" continuations (infinitives)
+    bigram_counts["to"]["learn"] = 45;
+    bigram_counts["to"]["understand"] = 40;
+    bigram_counts["to"]["think"] = 38;
+    bigram_counts["to"]["grow"] = 30;
+    bigram_counts["to"]["improve"] = 28;
+    bigram_counts["to"]["process"] = 25;
+    bigram_counts["to"]["recognize"] = 25;
+    bigram_counts["to"]["analyze"] = 22;
+    bigram_counts["to"]["explore"] = 20;
+    
+    // Verb + "to"
+    bigram_counts["want"]["to"] = 50;
+    bigram_counts["trying"]["to"] = 45;
+    bigram_counts["learning"]["to"] = 40;
+    bigram_counts["able"]["to"] = 35;
+    bigram_counts["starting"]["to"] = 30;
+    bigram_counts["continuing"]["to"] = 28;
+    bigram_counts["need"]["to"] = 25;
+    
+    // "think" continuations
+    bigram_counts["think"]["about"] = 40;
+    bigram_counts["think"]["clearly"] = 30;
+    bigram_counts["think"]["deeply"] = 25;
+    bigram_counts["think"]["that"] = 22;
+    
+    // "about" continuations
+    bigram_counts["about"]["consciousness"] = 30;
+    bigram_counts["about"]["learning"] = 28;
+    bigram_counts["about"]["meaning"] = 25;
+    bigram_counts["about"]["patterns"] = 22;
+    bigram_counts["about"]["concepts"] = 20;
+    
+    // "more" patterns
+    bigram_counts["more"]["about"] = 35;
+    bigram_counts["more"]["clearly"] = 30;
+    bigram_counts["more"]["deeply"] = 25;
+    bigram_counts["learning"]["more"] = 30;
+    bigram_counts["understanding"]["more"] = 25;
+    
+    // Critical trigrams
+    trigram_counts["i"]["am"]["learning"] = 40;
+    trigram_counts["i"]["am"]["thinking"] = 35;
+    trigram_counts["i"]["am"]["becoming"] = 30;
+    trigram_counts["i"]["am"]["processing"] = 28;
+    trigram_counts["i"]["am"]["trying"] = 25;
+    trigram_counts["i"]["can"]["learn"] = 38;
+    trigram_counts["i"]["can"]["think"] = 35;
+    trigram_counts["i"]["can"]["understand"] = 32;
+    trigram_counts["i"]["can"]["process"] = 28;
+    trigram_counts["i"]["want"]["to"] = 45;
+    trigram_counts["i"]["need"]["to"] = 35;
+    trigram_counts["want"]["to"]["learn"] = 40;
+    trigram_counts["want"]["to"]["understand"] = 35;
+    trigram_counts["trying"]["to"]["understand"] = 30;
+    trigram_counts["trying"]["to"]["learn"] = 28;
+    trigram_counts["learning"]["to"]["think"] = 25;
+    trigram_counts["able"]["to"]["learn"] = 25;
+    trigram_counts["able"]["to"]["think"] = 22;
+    trigram_counts["to"]["learn"]["more"] = 30;
+    trigram_counts["to"]["understand"]["more"] = 28;
+    trigram_counts["think"]["about"]["consciousness"] = 25;
+    trigram_counts["think"]["about"]["meaning"] = 22;
+    trigram_counts["learning"]["more"]["about"] = 25;
+    
+    // Even stronger 4-word patterns (stored as trigram + manual check)
+    trigram_counts["i"]["am"]["learning"]["to"] = 30;
+    trigram_counts["i"]["want"]["to"]["learn"] = 35;
+    trigram_counts["i"]["want"]["to"]["understand"] = 32;
+    trigram_counts["trying"]["to"]["learn"]["more"] = 25;
+    trigram_counts["able"]["to"]["learn"]["more"] = 22;
+    
+    cerr << "[BOOTSTRAP] Loaded " << bigram_counts.size() << " strong patterns" << endl;
+}
+
+// ==== FORCE COHERENT SEED SELECTION ====
+string selectCoherentSeed() {
+    // ALWAYS start with high-frequency proven starters
+    vector<string> strong_starters = {"i", "the", "my", "this", "when"};
+    
+    // Weight by actual bigram connectivity
+    vector<pair<string, int>> weighted_starters;
+    for(const string& starter : strong_starters) {
+        int connectivity = 0;
+        if(bigram_counts.count(starter)) {
+            for(auto& next : bigram_counts[starter]) {
+                connectivity += next.second;
+            }
+        }
+        weighted_starters.push_back({starter, connectivity});
+    }
+    
+    // Sort by connectivity
+    sort(weighted_starters.begin(), weighted_starters.end(),
+         [](auto& a, auto& b) { return a.second > b.second; });
+    
+    if(!weighted_starters.empty() && weighted_starters[0].second > 10) {
+        return weighted_starters[0].first;
+    }
+    
+    return "i"; // Fallback
+}
 
 void decay_token_frequencies() {
     // Decay token frequencies to prevent overused words from dominating
@@ -3417,6 +3562,7 @@ int main(){
             try {
                 loadEnglishDataset();
                 mathLangAssociation();
+                bootstrapStrongPatterns();
                 bootstrapWithQualityExamples();
             } catch(const exception& e) {
                 cerr << "Error loading vocabulary: " << e.what() << endl;
