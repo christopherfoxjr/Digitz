@@ -452,6 +452,485 @@ string generate_with_beam_search(string seed, int max_length,
     
     return result;
 }
+// ==================== TRANSFORMER-STYLE GENERATION WITH BIDIRECTIONAL GROUNDING ====================
+
+// Add this struct for proper attention computation
+struct AttentionOutput {
+    vector<double> context_vector;
+    map<string, double> attention_weights;
+    double attention_entropy;
+};
+
+// Add this struct for bidirectional context
+struct BidirectionalContext {
+    vector<string> past_tokens;      // What came before
+    vector<string> future_tokens;    // What should come after (predicted)
+    map<string, double> semantic_field;  // Active concepts
+    double coherence_score;
+};
+
+// Multi-head self-attention (proper transformer style)
+AttentionOutput compute_multihead_attention(
+    const vector<string>& sequence,
+    int current_pos,
+    const vector<double>& query_embedding,
+    bool bidirectional = true
+) {
+    AttentionOutput output;
+    output.context_vector.resize(16, 0.0);
+    
+    if(sequence.empty() || transformer_heads.empty()) {
+        return output;
+    }
+    
+    // For each attention head
+    for(size_t head_idx = 0; head_idx < transformer_heads.size(); head_idx++) {
+        TransformerHead& head = transformer_heads[head_idx];
+        
+        vector<double> head_output(16, 0.0);
+        double total_weight = 0.0;
+        
+        // Compute attention over all positions in sequence
+        int start_pos = bidirectional ? 0 : 0;  // Always see full context in generation
+        int end_pos = bidirectional ? sequence.size() : current_pos + 1;
+        
+        map<int, double> position_scores;
+        
+        for(int pos = start_pos; pos < end_pos; pos++) {
+            if(pos >= (int)sequence.size()) continue;
+            
+            const string& token = sequence[pos];
+            if(!token_concept_embedding_map.count(token)) continue;
+            
+            auto& token_emb = token_concept_embedding_map[token];
+            
+            // Q·K^T attention score
+            double score = 0.0;
+            for(int d = 0; d < head.dim && d < (int)query_embedding.size(); d++) {
+                double q = query_embedding[d] * head.query_proj[d];
+                double k = token_emb.embedding[d] * head.key_proj[d];
+                score += q * k;
+            }
+            
+            // Scale by sqrt(d_k)
+            score /= sqrt((double)head.dim);
+            
+            // Add positional bias (closer positions get boost)
+            int distance = abs(pos - current_pos);
+            double position_bias = 1.0 / (1.0 + 0.1 * distance);
+            score += position_bias * 0.5;
+            
+            // Softmax later
+            position_scores[pos] = score;
+        }
+        
+        // Softmax normalization
+        double max_score = -1e9;
+        for(auto& p : position_scores) {
+            max_score = max(max_score, p.second);
+        }
+        
+        map<int, double> attention_weights;
+        double sum_exp = 0.0;
+        for(auto& p : position_scores) {
+            double exp_score = exp((p.second - max_score) / head.temperature);
+            attention_weights[p.first] = exp_score;
+            sum_exp += exp_score;
+        }
+        
+        for(auto& p : attention_weights) {
+            p.second /= (sum_exp + 1e-9);
+        }
+        
+        // Weighted sum of values
+        for(auto& p : attention_weights) {
+            int pos = p.first;
+            double weight = p.second;
+            
+            const string& token = sequence[pos];
+            if(!token_concept_embedding_map.count(token)) continue;
+            
+            auto& token_emb = token_concept_embedding_map[token];
+            
+            for(int d = 0; d < head.dim && d < 16; d++) {
+                double value = token_emb.embedding[d] * head.value_proj[d];
+                head_output[d] += weight * value;
+            }
+            
+            // Track attention for output
+            output.attention_weights[token] += weight;
+            total_weight += weight;
+        }
+        
+        // Add head output to final context vector
+        for(int d = 0; d < 16; d++) {
+            output.context_vector[d] += head_output[d] / (double)transformer_heads.size();
+        }
+    }
+    
+    // Normalize attention weights
+    for(auto& p : output.attention_weights) {
+        p.second /= (double)transformer_heads.size();
+    }
+    
+    // Calculate attention entropy (measure of focus)
+    output.attention_entropy = 0.0;
+    for(auto& p : output.attention_weights) {
+        if(p.second > 1e-9) {
+            output.attention_entropy -= p.second * log(p.second);
+        }
+    }
+    
+    return output;
+}
+
+// Build bidirectional semantic context
+BidirectionalContext build_bidirectional_context(
+    const vector<string>& past_tokens,
+    const string& current_focus,
+    const vector<double>& attention_context
+) {
+    BidirectionalContext ctx;
+    ctx.past_tokens = past_tokens;
+    ctx.coherence_score = 0.0;
+    
+    // Build semantic field from past tokens
+    for(const string& tok : past_tokens) {
+        if(token_concept_embedding_map.count(tok)) {
+            auto& tce = token_concept_embedding_map[tok];
+            
+            // Add this token's semantic contribution
+            ctx.semantic_field[tok] = tce.meaning * tce.semantic_stability;
+            
+            // Add linked concepts to semantic field
+            for(auto& linked : tce.linked_concepts) {
+                ctx.semantic_field[linked.first] += linked.second * 0.5;
+            }
+        }
+    }
+    
+    // Predict likely future tokens based on semantic field and n-grams
+    map<string, double> future_predictions;
+    
+    if(!past_tokens.empty()) {
+        string last = past_tokens.back();
+        string prev = past_tokens.size() > 1 ? past_tokens[past_tokens.size()-2] : "";
+        
+        // From trigrams
+        if(!prev.empty() && trigram_counts.count(prev) && trigram_counts[prev].count(last)) {
+            for(auto& next : trigram_counts[prev][last]) {
+                future_predictions[next.first] += log(1.0 + next.second) * 2.0;
+            }
+        }
+        
+        // From bigrams
+        if(bigram_counts.count(last)) {
+            for(auto& next : bigram_counts[last]) {
+                future_predictions[next.first] += log(1.0 + next.second);
+            }
+        }
+        
+        // From semantic field (what concepts should follow)
+        for(auto& sem_pair : ctx.semantic_field) {
+            if(token_concept_embedding_map.count(sem_pair.first)) {
+                auto& tce = token_concept_embedding_map[sem_pair.first];
+                for(auto& linked : tce.linked_concepts) {
+                    future_predictions[linked.first] += linked.second * sem_pair.second * 0.5;
+                }
+            }
+        }
+    }
+    
+    // Sort and take top predictions
+    vector<pair<string, double>> sorted_predictions;
+    for(auto& p : future_predictions) {
+        sorted_predictions.push_back(p);
+    }
+    sort(sorted_predictions.begin(), sorted_predictions.end(),
+         [](auto& a, auto& b) { return a.second > b.second; });
+    
+    // Store top 5 future predictions
+    for(int i = 0; i < 5 && i < (int)sorted_predictions.size(); i++) {
+        ctx.future_tokens.push_back(sorted_predictions[i].first);
+    }
+    
+    // Calculate coherence score
+    if(!past_tokens.empty()) {
+        // Check n-gram continuity
+        double ngram_coherence = 0.0;
+        for(int i = 1; i < (int)past_tokens.size(); i++) {
+            if(bigram_counts.count(past_tokens[i-1]) && 
+               bigram_counts[past_tokens[i-1]].count(past_tokens[i])) {
+                ngram_coherence += 1.0;
+            }
+        }
+        ngram_coherence /= max(1.0, (double)(past_tokens.size() - 1));
+        
+        // Check semantic continuity
+        double semantic_coherence = 0.0;
+        for(int i = 1; i < (int)past_tokens.size(); i++) {
+            if(token_concept_embedding_map.count(past_tokens[i-1]) &&
+               token_concept_embedding_map.count(past_tokens[i])) {
+                auto& prev_tce = token_concept_embedding_map[past_tokens[i-1]];
+                auto& curr_tce = token_concept_embedding_map[past_tokens[i]];
+                
+                // Dot product of embeddings
+                double similarity = 0.0;
+                for(int d = 0; d < 16 && d < (int)prev_tce.embedding.size() && 
+                    d < (int)curr_tce.embedding.size(); d++) {
+                    similarity += prev_tce.embedding[d] * curr_tce.embedding[d];
+                }
+                semantic_coherence += max(0.0, similarity);
+            }
+        }
+        semantic_coherence /= max(1.0, (double)(past_tokens.size() - 1));
+        
+        ctx.coherence_score = (ngram_coherence * 0.4 + semantic_coherence * 0.6);
+    }
+    
+    return ctx;
+}
+
+// Score next token using full bidirectional context
+double score_token_bidirectional(
+    const string& candidate,
+    const BidirectionalContext& bidir_ctx,
+    const AttentionOutput& attention,
+    const set<string>& used_tokens
+) {
+    double score = 0.0;
+    
+    if(!token_concept_embedding_map.count(candidate)) {
+        return -1000.0;  // Unknown token
+    }
+    
+    auto& candidate_tce = token_concept_embedding_map[candidate];
+    
+    // === 1. ATTENTION-BASED SCORING (Highest Priority) ===
+    // How well does this token align with attention context?
+    double attention_score = 0.0;
+    for(int d = 0; d < 16 && d < (int)attention.context_vector.size() && 
+        d < (int)candidate_tce.embedding.size(); d++) {
+        attention_score += attention.context_vector[d] * candidate_tce.embedding[d];
+    }
+    score += attention_score * 15.0;  // Highest weight
+    
+    // === 2. SEMANTIC FIELD ALIGNMENT ===
+    // Does this token fit the current semantic field?
+    double semantic_score = 0.0;
+    for(auto& sem_pair : bidir_ctx.semantic_field) {
+        if(candidate_tce.linked_concepts.count(sem_pair.first)) {
+            semantic_score += candidate_tce.linked_concepts[sem_pair.first] * sem_pair.second;
+        }
+    }
+    score += semantic_score * 10.0;
+    
+    // === 3. FUTURE PREDICTION ALIGNMENT ===
+    // Is this token predicted by the bidirectional context?
+    double future_score = 0.0;
+    for(const string& future_tok : bidir_ctx.future_tokens) {
+        if(candidate == future_tok) {
+            future_score = 1.0;
+            break;
+        }
+        // Also check if candidate helps reach future tokens
+        if(token_concept_embedding_map.count(future_tok)) {
+            if(bigram_counts.count(candidate) && bigram_counts[candidate].count(future_tok)) {
+                future_score += 0.5;
+            }
+        }
+    }
+    score += future_score * 8.0;
+    
+    // === 4. GRAMMAR (Still Important) ===
+    if(!bidir_ctx.past_tokens.empty()) {
+        string prev = bidir_ctx.past_tokens.back();
+        int position = bidir_ctx.past_tokens.size();
+        double grammar_score = getGrammarScore(prev, candidate, position);
+        score += grammar_score * 6.0;
+    }
+    
+    // === 5. N-GRAM PATTERNS (Lower Priority Now) ===
+    if(!bidir_ctx.past_tokens.empty()) {
+        string prev = bidir_ctx.past_tokens.back();
+        if(bigram_counts.count(prev) && bigram_counts[prev].count(candidate)) {
+            score += log(1.0 + bigram_counts[prev][candidate]) * 3.0;
+        }
+        
+        if(bidir_ctx.past_tokens.size() > 1) {
+            string prev_prev = bidir_ctx.past_tokens[bidir_ctx.past_tokens.size()-2];
+            if(trigram_counts.count(prev_prev) && trigram_counts[prev_prev].count(prev) &&
+               trigram_counts[prev_prev][prev].count(candidate)) {
+                score += log(1.0 + trigram_counts[prev_prev][prev][candidate]) * 4.0;
+            }
+        }
+    }
+    
+    // === 6. GROUNDING & MEANING ===
+    score += candidate_tce.grounding_value * 5.0;
+    score += candidate_tce.meaning * 3.0;
+    score += candidate_tce.semantic_stability * 2.0;
+    
+    // === 7. COHERENCE BOOST ===
+    // If sequence is already coherent, prefer tokens that maintain coherence
+    if(bidir_ctx.coherence_score > 0.6) {
+        score += bidir_ctx.coherence_score * 4.0;
+    }
+    
+    // === 8. REPETITION PENALTY (Strong) ===
+    int repetition_count = 0;
+    for(const string& used : used_tokens) {
+        if(used == candidate) repetition_count++;
+    }
+    if(repetition_count > 0) {
+        score -= 30.0 * repetition_count;  // Very strong penalty
+    }
+    
+    // === 9. FREQUENCY NORMALIZATION ===
+    // Prevent overused words, but don't punish too hard
+    if(candidate_tce.freq > 20) {
+        score -= log(candidate_tce.freq - 19) * 0.5;
+    }
+    
+    return score;
+}
+
+// Main transformer-style generation with bidirectional grounding
+string generate_transformer_bidirectional(
+    const string& seed,
+    int max_length,
+    const vector<double>& initial_context,
+    int beam_width = 8
+) {
+    // Initialize with seed
+    vector<BeamCandidate> beam;
+    BeamCandidate initial;
+    
+    // Smart seed selection
+    if(seed.empty() || !token_concept_embedding_map.count(seed)) {
+        initial.tokens.push_back("i");
+    } else {
+        initial.tokens.push_back(seed);
+    }
+    initial.score = 0.0;
+    beam.push_back(initial);
+    
+    // Generation loop
+    for(int step = 0; step < max_length; step++) {
+        vector<BeamCandidate> new_beam;
+        
+        for(auto& candidate : beam) {
+            // Build current query embedding (average of recent tokens)
+            vector<double> query_embedding(16, 0.0);
+            int query_window = min(3, (int)candidate.tokens.size());
+            int query_count = 0;
+            
+            for(int i = candidate.tokens.size() - query_window; i < (int)candidate.tokens.size(); i++) {
+                if(token_concept_embedding_map.count(candidate.tokens[i])) {
+                    auto& tce = token_concept_embedding_map[candidate.tokens[i]];
+                    for(int d = 0; d < 16; d++) {
+                        query_embedding[d] += tce.embedding[d];
+                    }
+                    query_count++;
+                }
+            }
+            
+            if(query_count > 0) {
+                for(int d = 0; d < 16; d++) {
+                    query_embedding[d] /= query_count;
+                }
+            } else {
+                query_embedding = initial_context;
+            }
+            
+            // Compute multi-head attention
+            AttentionOutput attention = compute_multihead_attention(
+                candidate.tokens,
+                candidate.tokens.size() - 1,
+                query_embedding,
+                true  // bidirectional
+            );
+            
+            // Build bidirectional context
+            BidirectionalContext bidir_ctx = build_bidirectional_context(
+                candidate.tokens,
+                candidate.tokens.back(),
+                attention.context_vector
+            );
+            
+            // Track used tokens for this candidate
+            set<string> used;
+            for(auto& t : candidate.tokens) used.insert(t);
+            
+            // Score all possible next tokens
+            vector<pair<string, double>> next_candidates;
+            
+            for(auto& p : token_concept_embedding_map) {
+                if(p.second.freq < 1) continue;  // Skip rare tokens
+                
+                double score = score_token_bidirectional(
+                    p.first,
+                    bidir_ctx,
+                    attention,
+                    used
+                );
+                
+                next_candidates.push_back({p.first, score});
+            }
+            
+            // Sort by score
+            sort(next_candidates.begin(), next_candidates.end(),
+                 [](const pair<string,double>& a, const pair<string,double>& b) {
+                     return a.second > b.second;
+                 });
+            
+            // Expand beam with top candidates
+            int expand_count = min(beam_width, (int)next_candidates.size());
+            for(int i = 0; i < expand_count; i++) {
+                BeamCandidate new_cand = candidate;
+                new_cand.tokens.push_back(next_candidates[i].first);
+                new_cand.score += next_candidates[i].second;
+                new_beam.push_back(new_cand);
+            }
+        }
+        
+        // Keep top beam_width candidates
+        sort(new_beam.begin(), new_beam.end(),
+             [](const BeamCandidate& a, const BeamCandidate& b) {
+                 return a.score > b.score;
+             });
+        
+        if((int)new_beam.size() > beam_width) {
+            new_beam.resize(beam_width);
+        }
+        
+        beam = new_beam;
+        
+        if(beam.empty()) break;
+        
+        // Early stopping if we have a complete sentence
+        if(step >= 5 && !beam[0].tokens.empty()) {
+            string last = beam[0].tokens.back();
+            string pos = getPartOfSpeech(last);
+            if(pos == "NOUN" || pos == "ADJECTIVE") {
+                // Good place to stop
+                break;
+            }
+        }
+    }
+    
+    // Return best candidate
+    if(beam.empty()) return "i think";
+    
+    string result;
+    for(const string& token : beam[0].tokens) {
+        if(!result.empty()) result += " ";
+        result += token;
+    }
+    
+    return result;
+}
+
 bool isSentenceTooSimilar(const string& candidate) {
     // Normalize candidate for comparison
     string normalized = candidate;
@@ -1389,7 +1868,7 @@ string generateResponse(const string& input) {
         } else {
             // Use beam search with learned patterns
             string seed = words.empty() ? "i" : words[ri(words.size())];
-            response = generate_with_beam_search(seed, 15, attention_context, 12);
+            response = generate_transformer_bidirectional(seed, 15, attention_context, 8);
         }
         
         // Add state markers
