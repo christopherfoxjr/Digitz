@@ -89,12 +89,56 @@ void groundConcept(const string& concept_name, const vector<string>& related_wor
     for(const string& w : related_words) {
         grounding.linked_tokens.push_back(hsh(w) % 10000);
         grounding.linked_concepts.push_back(w);
+        
+        // ENHANCED: Bidirectional grounding
+        if(token_concept_embedding_map.count(w)) {
+            auto& tce = token_concept_embedding_map[w];
+            
+            // Strengthen grounding through concept link
+            tce.grounding_value += 0.1;
+            tce.grounding_value = min(1.0, tce.grounding_value);
+            
+            // Link back to concept
+            tce.linked_concepts[concept_name] = 0.8;
+            
+            // Adjust embedding to reflect concept membership
+            // Each concept gets a "signature" in embedding space
+            size_t concept_hash = hash<string>{}(concept_name) % 16;
+            if(concept_hash < tce.embedding.size()) {
+                tce.embedding[concept_hash] += 0.2;
+                tce.embedding[concept_hash] = min(1.0, tce.embedding[concept_hash]);
+            }
+            
+            // Increase semantic stability through grounding
+            tce.semantic_stability += 0.05;
+            tce.semantic_stability = min(1.0, tce.semantic_stability);
+        }
     }
     
-    vector<int> tokens;
-
+    // Create concept if it doesn't exist
+    if(S.concepts.find(concept_name) == S.concepts.end()) {
+        Concept c;
+        c.name = concept_name;
+        c.value = valence;
+        c.related_words = related_words;
+        c.abstraction_level = 0.7;  // Default abstract level
+        c.semantic_density = (double)related_words.size() / 10.0;
+        S.concepts[concept_name] = c;
+    }
+    
+    // ENHANCED: Create semantic links between related words
+    for(size_t i = 0; i < related_words.size(); i++) {
+        if(!token_concept_embedding_map.count(related_words[i])) continue;
+        
+        for(size_t j = i+1; j < related_words.size(); j++) {
+            if(!token_concept_embedding_map.count(related_words[j])) continue;
+            
+            // Words in same concept are semantically related
+            token_concept_embedding_map[related_words[i]].linked_concepts[related_words[j]] = 0.5;
+            token_concept_embedding_map[related_words[j]].linked_concepts[related_words[i]] = 0.5;
+        }
+    }
 }
-
 
 double rn(){return uniform_real_distribution<>(0,1)(rng);}
 int ri(int mx){if(mx<=0)return 0;return uniform_int_distribution<>(0,mx-1)(rng);}
@@ -230,127 +274,228 @@ double calculateTokenScore(const string& prev_word, const string& prev_prev_word
     
     double score = 0.0;
     
-    // === 1. GRAMMAR (HIGHEST PRIORITY FOR STRUCTURE) ===
+    // === 1. GRAMMAR (STRUCTURAL FOUNDATION) ===
     double grammar = getGrammarScore(prev_word, candidate, position);
-    score += grammar * 8.0;  // INCREASED from 3.0
+    score += grammar * 10.0;  // Increased from 8.0
     
-    // === 2. TRIGRAM (STRONG BUT NOT DOMINANT) ===
+    // === 2. TRIGRAM (LEARNED PATTERNS) ===
     if(!prev_prev_word.empty() && trigram_counts.count(prev_prev_word)) {
         if(trigram_counts[prev_prev_word].count(prev_word)) {
             if(trigram_counts[prev_prev_word][prev_word].count(candidate)) {
                 int count = trigram_counts[prev_prev_word][prev_word][candidate];
-                score += log(1 + count) * 12.0;  // REDUCED from 15.0
+                // Use sqrt to reduce dominance of overused patterns
+                score += sqrt(count) * 8.0;
             }
         }
     }
     
-    // === 3. BIGRAM (IMPORTANT BUT BALANCED) ===
+    // === 3. BIGRAM (LOCAL COHERENCE) ===
     if(bigram_counts.count(prev_word) && bigram_counts[prev_word].count(candidate)) {
         int count = bigram_counts[prev_word][candidate];
-        score += log(1 + count) * 8.0;  // REDUCED from 10.0
+        score += sqrt(count) * 6.0;
     }
     
-    // === 4. SEMANTIC COHERENCE (INCREASED WEIGHT) ===
+    // === 4. SEMANTIC GROUNDING (ENHANCED) ===
     if(token_concept_embedding_map.count(candidate)) {
         auto& tce = token_concept_embedding_map[candidate];
         
-        // Attention alignment (INCREASED)
+        // Attention alignment with non-linear scaling
         double attn_score = 0.0;
         for(size_t i=0; i<attention_context.size() && i<tce.embedding.size(); i++) {
             attn_score += attention_context[i] * tce.embedding[i];
         }
-        score += attn_score * 2.0;  // INCREASED from 0.6
+        // Use tanh to prevent extreme values
+        score += tanh(attn_score) * 5.0;
         
-        // Meaning and grounding
-        score += tce.meaning * 1.5;  // INCREASED from 0.5
-        score += tce.grounding_value * 1.0;  // INCREASED from 0.3
+        // GROUNDING: Words with stronger grounding get boost
+        score += tce.grounding_value * 4.0;  // Increased from 1.0
+        
+        // MEANING: Meaningful tokens prioritized
+        score += tce.meaning * 3.0;  // Increased from 1.5
+        
+        // SEMANTIC STABILITY: Stable concepts preferred
+        score += tce.semantic_stability * 2.5;
+        
+        // CONCEPTUAL LINKS: Bonus for words linked to active concepts
+        double concept_bonus = 0.0;
+        for(auto& linked : tce.linked_concepts) {
+            if(S.concepts.count(linked.first)) {
+                concept_bonus += linked.second * S.concepts[linked.first].value;
+            }
+        }
+        score += concept_bonus * 3.0;
     }
     
-    // === 5. FREQUENCY (REDUCED TO PREVENT OVERUSE) ===
+    // === 5. CONTEXTUAL COHERENCE ===
+    // Bonus for semantic consistency with previous word
+    if(token_concept_embedding_map.count(prev_word) && 
+       token_concept_embedding_map.count(candidate)) {
+        auto& prev_tce = token_concept_embedding_map[prev_word];
+        auto& curr_tce = token_concept_embedding_map[candidate];
+        
+        // Embedding similarity
+        double similarity = 0.0;
+        for(size_t i=0; i<min(prev_tce.embedding.size(), curr_tce.embedding.size()); i++) {
+            similarity += prev_tce.embedding[i] * curr_tce.embedding[i];
+        }
+        score += tanh(similarity) * 4.0;
+        
+        // Direct conceptual link
+        if(prev_tce.linked_concepts.count(candidate)) {
+            score += prev_tce.linked_concepts[candidate] * 6.0;
+        }
+    }
+    
+    // === 6. FREQUENCY BALANCE ===
     if(token_concept_embedding_map.count(candidate)) {
         double freq = token_concept_embedding_map[candidate].freq;
         if(freq > 0) {
-            score += log(1 + freq) * 1.0;  // REDUCED from 2.0
+            // Logarithmic scaling prevents overuse dominance
+            score += log(1 + freq) * 0.8;
         }
-        // Stronger penalty for overuse
-        if(freq > 30) {
-            score -= (freq - 30) * 0.1;  // INCREASED from 0.02
+        // Stronger penalty for overused words
+        if(freq > 25) {
+            score -= (freq - 25) * 0.15;
         }
     }
     
-    // === 6. REPETITION PENALTY (MUCH STRONGER) ===
+    // === 7. REPETITION PENALTY (EXPONENTIAL) ===
     int repetition_count = 0;
     for(const string& used : used_tokens) {
         if(used == candidate) repetition_count++;
     }
     
     if(repetition_count == 1) {
-        score -= 25.0;  // INCREASED from 14.0 - first repeat now very costly
+        score -= 30.0;  // First repeat very costly
     } else if(repetition_count == 2) {
-        score -= 60.0;  // INCREASED from 36.0 - second repeat nearly impossible
+        score -= 80.0;  // Second repeat nearly impossible
     } else if(repetition_count > 2) {
-        score -= 150.0;  // INCREASED from 83.0 - third+ repeat blocked
+        score -= 200.0;  // Third+ repeat blocked
     }
     
-    // === 7. POSITION-SPECIFIC (ENHANCED) ===
+    // === 8. POSITION-SPECIFIC OPTIMIZATION ===
     if(position == 0) {
         string pos = getPartOfSpeech(candidate);
-        if(pos == "PRONOUN") score += 12.0;  // INCREASED from 8.0
-        if(pos == "QUESTION") score += 8.0;   // INCREASED from 5.0
-        if(pos == "ARTICLE") score += 5.0;    // INCREASED from 3.0
+        if(pos == "PRONOUN") score += 15.0;
+        if(pos == "QUESTION") score += 10.0;
+        if(pos == "ARTICLE") score += 7.0;
+        // Penalize inappropriate starters
+        if(pos == "CONJUNCTION" || pos == "PREPOSITION") score -= 10.0;
     }
     
     if(position > 0 && position < 3) {
         string pos = getPartOfSpeech(candidate);
-        if(pos == "BE_VERB" || pos == "MODAL") score += 4.0;  // INCREASED from 2.0
+        if(pos == "BE_VERB" || pos == "MODAL") score += 6.0;
     }
     
-    // === 8. CONTEXTUAL CONSISTENCY ===
-    // Bonus for words that appear in linked concepts of previous word
-    if(token_concept_embedding_map.count(prev_word) && 
-       token_concept_embedding_map.count(candidate)) {
-        auto& prev_tce = token_concept_embedding_map[prev_word];
-        if(prev_tce.linked_concepts.count(candidate)) {
-            score += prev_tce.linked_concepts[candidate] * 5.0;  // NEW
+    // === 9. ABSTRACT CONCEPT BONUS ===
+    // Reward tokens that connect to abstract concepts
+    if(token_concept_embedding_map.count(candidate)) {
+        auto& tce = token_concept_embedding_map[candidate];
+        int abstract_links = 0;
+        for(auto& link : tce.linked_concepts) {
+            if(S.concepts.count(link.first)) {
+                if(S.concepts[link.first].abstraction_level > 0.6) {
+                    abstract_links++;
+                }
+            }
         }
+        score += abstract_links * 2.0;
     }
     
     return score;
 }
 string selectCoherentSeed(const vector<string>& context_words) {
-    // Priority 1: High-frequency sentence starters with strong bigram connectivity
-    vector<string> strong_starters = {"i", "the", "my", "this", "when", "what", "how"};
+    // Build candidate list with scores
+    map<string, double> candidates;
     
-    vector<pair<string, double>> weighted;
+    // Priority 1: High-frequency sentence starters
+    vector<string> strong_starters = {"i", "the", "my", "this", "when", "what", "how", "there"};
+    
     for(const string& starter : strong_starters) {
-        double score = 0.0;
+        if(!token_concept_embedding_map.count(starter)) continue;
         
-        // Check bigram connectivity
+        double score = 0.0;
+        auto& tce = token_concept_embedding_map[starter];
+        
+        // Bigram connectivity (can this lead to good continuations?)
         if(bigram_counts.count(starter)) {
             for(auto& next : bigram_counts[starter]) {
-                score += log(1 + next.second);
+                score += log(1.0 + next.second) * 2.0;
             }
         }
         
-        // Bonus if appears in context
+        // Context relevance
         for(const string& ctx : context_words) {
-            if(starter == ctx) score += 5.0;
+            if(starter == ctx) score += 8.0;
+            if(tce.linked_concepts.count(ctx)) {
+                score += tce.linked_concepts[ctx] * 5.0;
+            }
         }
         
-        // Frequency bonus
-        if(token_concept_embedding_map.count(starter)) {
-            score += log(1 + token_concept_embedding_map[starter].freq);
+        // Grounding bonus (well-grounded words make better seeds)
+        score += tce.grounding_value * 10.0;
+        
+        // Frequency normalization (not too rare, not too common)
+        if(tce.freq > 5 && tce.freq < 50) {
+            score += 5.0;
+        } else if(tce.freq >= 50) {
+            score += 2.0;
         }
         
-        weighted.push_back({starter, score});
+        // Semantic stability bonus
+        score += tce.semantic_stability * 8.0;
+        
+        // Grammar appropriateness
+        string pos = getPartOfSpeech(starter);
+        if(pos == "PRONOUN") score += 10.0;
+        if(pos == "ARTICLE") score += 6.0;
+        if(pos == "QUESTION") score += 8.0;
+        
+        candidates[starter] = score;
     }
     
-    // Sort by score descending
-    sort(weighted.begin(), weighted.end(),
-         [](auto& a, auto& b) { return a.second > b.second; });
+    // Priority 2: Context-relevant content words
+    for(const string& ctx : context_words) {
+        if(!token_concept_embedding_map.count(ctx)) continue;
+        if(candidates.count(ctx)) continue;  // Already evaluated
+        
+        auto& tce = token_concept_embedding_map[ctx];
+        string pos = getPartOfSpeech(ctx);
+        
+        // Only consider nouns and verbs from context
+        if(pos != "NOUN" && pos != "VERB") continue;
+        
+        double score = 0.0;
+        
+        // Strong context relevance
+        score += 15.0;
+        
+        // Grounding
+        score += tce.grounding_value * 8.0;
+        
+        // Can it lead somewhere?
+        if(bigram_counts.count(ctx)) {
+            for(auto& next : bigram_counts[ctx]) {
+                score += log(1.0 + next.second);
+            }
+        }
+        
+        candidates[ctx] = score;
+    }
     
-    // Return best, or fallback to "i"
-    return weighted.empty() ? "i" : weighted[0].first;
+    // Find best candidate
+    string best_seed = "i";  // Safe default
+    double best_score = -1000.0;
+    
+    for(auto& pair : candidates) {
+        if(pair.second > best_score) {
+            best_score = pair.second;
+            best_seed = pair.first;
+        }
+    }
+    
+    return best_seed;
 }
 
 string generate_with_beam_search(string seed, int max_length, 
@@ -1607,7 +1752,6 @@ void formulate_goals_from_valence() {
         }
     }
 }
-// ==== FIXED learnWord() - Integrated N-gram Learning ====
 void learnWord(const string& word, double concept_value) {
     // EMERGENCY BOUNDS CHECKS
     if(word.empty() || word.length() > 100) return;
@@ -1635,9 +1779,29 @@ void learnWord(const string& word, double concept_value) {
     if(token_concept_embedding_map.find(lower_word) == token_concept_embedding_map.end()) {
         TokenConceptEmbedding tce;
         tce.name = lower_word;
-        tce.meaning = rn(); 
+        tce.meaning = concept_value * 0.5 + 0.25;  // Initialize in reasonable range
         tce.embedding.resize(16);
-        for(int i = 0; i < 16; i++) tce.embedding[i] = rn() * 0.1;
+        
+        // Initialize embedding with part-of-speech bias
+        string pos = getPartOfSpeech(lower_word);
+        for(int i = 0; i < 16; i++) {
+            tce.embedding[i] = rn() * 0.1 + 0.45;  // Center around 0.5
+        }
+        
+        // Add POS signature to embedding
+        if(pos == "NOUN") tce.embedding[0] += 0.3;
+        else if(pos == "VERB") tce.embedding[1] += 0.3;
+        else if(pos == "ADJECTIVE") tce.embedding[2] += 0.3;
+        else if(pos == "PRONOUN") tce.embedding[3] += 0.3;
+        
+        // Initialize grounding based on POS
+        if(pos == "NOUN" || pos == "VERB") {
+            tce.grounding_value = 0.6;  // Content words more grounded
+        } else {
+            tce.grounding_value = 0.3;  // Function words less grounded
+        }
+        
+        tce.semantic_stability = 0.4;
         token_concept_embedding_map[lower_word] = tce;
     }
     
@@ -1646,11 +1810,56 @@ void learnWord(const string& word, double concept_value) {
     if(tce_it == token_concept_embedding_map.end()) return;
     
     tce_it->second.freq++;
-    tce_it->second.meaning += concept_value * 0.01;
+    
+    // ENHANCED: Learning rate decreases with frequency (diminishing returns)
+    double learning_rate = 0.01 / (1.0 + log(1.0 + tce_it->second.freq * 0.1));
+    tce_it->second.meaning += concept_value * learning_rate;
     tce_it->second.meaning = clamp_valence(tce_it->second.meaning);
+    
+    // ENHANCED: Grounding strengthens with repeated exposure
+    tce_it->second.grounding_value += learning_rate * 0.5;
+    tce_it->second.grounding_value = min(1.0, tce_it->second.grounding_value);
+    
+    // ENHANCED: Stability increases with usage
+    tce_it->second.semantic_stability += learning_rate * 0.3;
+    tce_it->second.semantic_stability = min(1.0, tce_it->second.semantic_stability);
     
     align_embedding_to_valence(tce_it->second, S.current_valence);
     tce_it->second.linked_valences["current"] = S.current_valence;
+    
+    // ENHANCED: Abstract concept formation
+    // If word is used frequently, try to form abstract concepts
+    if(tce_it->second.freq > 10 && tce_it->second.freq % 10 == 0) {
+        // Find semantically related words through co-occurrence
+        vector<string> related;
+        for(auto& other : token_concept_embedding_map) {
+            if(other.first == lower_word) continue;
+            if(other.second.freq < 3) continue;
+            
+            // Check for conceptual similarity
+            double similarity = 0.0;
+            for(size_t i = 0; i < min(tce_it->second.embedding.size(), other.second.embedding.size()); i++) {
+                similarity += tce_it->second.embedding[i] * other.second.embedding[i];
+            }
+            
+            if(similarity > 0.6) {
+                related.push_back(other.first);
+                if(related.size() >= 3) break;
+            }
+        }
+        
+        // Form abstract concept if we found related words
+        if(related.size() >= 2) {
+            related.push_back(lower_word);
+            string concept_name = "abstract_" + lower_word + "_" + to_string(S.g);
+            createConceptAssociation(concept_name, related);
+            
+            // Mark this concept as abstract
+            if(S.concepts.count(concept_name)) {
+                S.concepts[concept_name].abstraction_level = 0.8;
+            }
+        }
+    }
     
     // 4. System Propagation
     try {
@@ -1663,7 +1872,7 @@ void learnWord(const string& word, double concept_value) {
     // 5. Update System State (S.tokens)
     if(S.tokens.find(lower_word) != S.tokens.end()) {
         S.tokens[lower_word].freq++;
-        S.tokens[lower_word].meaning += concept_value * 0.01;
+        S.tokens[lower_word].meaning += concept_value * learning_rate;
     } else {
         Token t = {lower_word, concept_value, 1, vector<int>(), 4, 0.5};
         S.tokens[lower_word] = t;
