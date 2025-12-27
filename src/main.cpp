@@ -405,6 +405,167 @@ double calculateTokenScore(const string& prev_word, const string& prev_prev_word
     
     return score;
 }
+BidirectionalContext build_bidirectional_context(
+    const vector<string>& past_tokens,
+    const string& current_focus,
+    const vector<double>& attention_context
+) {
+    BidirectionalContext ctx;
+    ctx.past_tokens = past_tokens;
+    ctx.coherence_score = 0.0;
+    
+    // Build semantic field with discourse continuity
+    map<string, double> topic_strength;
+    
+    for(size_t i = 0; i < past_tokens.size(); i++) {
+        const string& tok = past_tokens[i];
+        if(!token_concept_embedding_map.count(tok)) continue;
+        
+        auto& tce = token_concept_embedding_map[tok];
+        
+        // Recent tokens have more weight
+        double recency_weight = 1.0 - (0.1 * (past_tokens.size() - i - 1));
+        recency_weight = max(0.3, recency_weight);
+        
+        ctx.semantic_field[tok] = tce.meaning * tce.semantic_stability * recency_weight;
+        
+        // Track discourse topics
+        for(auto& linked : tce.linked_concepts) {
+            topic_strength[linked.first] += linked.second * recency_weight;
+        }
+    }
+    
+    // Identify dominant discourse topics
+    vector<pair<string, double>> sorted_topics;
+    for(auto& topic : topic_strength) {
+        sorted_topics.push_back(topic);
+    }
+    sort(sorted_topics.begin(), sorted_topics.end(),
+         [](auto& a, auto& b) { return a.second > b.second; });
+    
+    // Boost semantic field for words related to main topics
+    for(size_t i = 0; i < min((size_t)3, sorted_topics.size()); i++) {
+        const string& main_topic = sorted_topics[i].first;
+        double topic_weight = sorted_topics[i].second;
+        
+        for(auto& field_entry : ctx.semantic_field) {
+            if(token_concept_embedding_map.count(field_entry.first)) {
+                auto& tce = token_concept_embedding_map[field_entry.first];
+                if(tce.linked_concepts.count(main_topic)) {
+                    field_entry.second += tce.linked_concepts[main_topic] * topic_weight * 0.5;
+                }
+            }
+        }
+    }
+    
+    // Predict future tokens with discourse awareness
+    map<string, double> future_predictions;
+    
+    if(!past_tokens.empty()) {
+        string last = past_tokens.back();
+        string prev = past_tokens.size() > 1 ? past_tokens[past_tokens.size()-2] : "";
+        
+        // Trigram predictions
+        if(!prev.empty() && trigram_counts.count(prev) && trigram_counts[prev].count(last)) {
+            for(auto& next : trigram_counts[prev][last]) {
+                future_predictions[next.first] += log(1.0 + next.second) * 3.0;
+            }
+        }
+        
+        // Bigram predictions
+        if(bigram_counts.count(last)) {
+            for(auto& next : bigram_counts[last]) {
+                future_predictions[next.first] += log(1.0 + next.second) * 2.0;
+            }
+        }
+        
+        // Discourse-based predictions (words that fit the topic)
+        for(size_t i = 0; i < min((size_t)2, sorted_topics.size()); i++) {
+            const string& topic = sorted_topics[i].first;
+            double topic_weight = sorted_topics[i].second;
+            
+            if(S.concepts.count(topic)) {
+                for(const string& related_word : S.concepts[topic].related_words) {
+                    future_predictions[related_word] += topic_weight * 5.0;
+                }
+            }
+            
+            // Find words linked to this topic
+            for(auto& tok_pair : token_concept_embedding_map) {
+                if(tok_pair.second.linked_concepts.count(topic)) {
+                    future_predictions[tok_pair.first] += 
+                        tok_pair.second.linked_concepts[topic] * topic_weight * 3.0;
+                }
+            }
+        }
+    }
+    
+    // Sort and select top predictions
+    vector<pair<string, double>> sorted_predictions;
+    for(auto& p : future_predictions) {
+        sorted_predictions.push_back(p);
+    }
+    sort(sorted_predictions.begin(), sorted_predictions.end(),
+         [](auto& a, auto& b) { return a.second > b.second; });
+    
+    for(int i = 0; i < 7 && i < (int)sorted_predictions.size(); i++) {
+        ctx.future_tokens.push_back(sorted_predictions[i].first);
+    }
+    
+    // Calculate coherence with multiple factors
+    if(!past_tokens.empty()) {
+        // N-gram coherence
+        double ngram_coherence = 0.0;
+        for(size_t i = 1; i < past_tokens.size(); i++) {
+            if(bigram_counts.count(past_tokens[i-1]) && 
+               bigram_counts[past_tokens[i-1]].count(past_tokens[i])) {
+                ngram_coherence += 1.0;
+            }
+        }
+        ngram_coherence /= max(1.0, (double)(past_tokens.size() - 1));
+        
+        // Semantic coherence
+        double semantic_coherence = 0.0;
+        for(size_t i = 1; i < past_tokens.size(); i++) {
+            if(token_concept_embedding_map.count(past_tokens[i-1]) &&
+               token_concept_embedding_map.count(past_tokens[i])) {
+                auto& prev_tce = token_concept_embedding_map[past_tokens[i-1]];
+                auto& curr_tce = token_concept_embedding_map[past_tokens[i]];
+                
+                double similarity = 0.0;
+                for(size_t d = 0; d < 16 && d < prev_tce.embedding.size() && 
+                    d < curr_tce.embedding.size(); d++) {
+                    similarity += prev_tce.embedding[d] * curr_tce.embedding[d];
+                }
+                semantic_coherence += max(0.0, similarity);
+            }
+        }
+        semantic_coherence /= max(1.0, (double)(past_tokens.size() - 1));
+        
+        // Discourse coherence (staying on topic)
+        double discourse_coherence = 0.0;
+        if(!sorted_topics.empty()) {
+            string main_topic = sorted_topics[0].first;
+            int on_topic_count = 0;
+            
+            for(const string& tok : past_tokens) {
+                if(token_concept_embedding_map.count(tok)) {
+                    if(token_concept_embedding_map[tok].linked_concepts.count(main_topic)) {
+                        on_topic_count++;
+                    }
+                }
+            }
+            discourse_coherence = (double)on_topic_count / (double)past_tokens.size();
+        }
+        
+        // Combined coherence score
+        ctx.coherence_score = (ngram_coherence * 0.3 + 
+                              semantic_coherence * 0.35 + 
+                              discourse_coherence * 0.35);
+    }
+    
+    return ctx;
+}
 string selectCoherentSeed(const vector<string>& context_words) {
     // Build candidate list with scores
     map<string, double> candidates;
@@ -497,25 +658,70 @@ string selectCoherentSeed(const vector<string>& context_words) {
     
     return best_seed;
 }
-
+bool validateSentenceQuality(const vector<string>& tokens) {
+    if(tokens.empty()) return false;
+    if(tokens.size() < 3) return false;  // Too short
+    
+    // Check for basic sentence structure
+    bool has_subject = false;
+    bool has_verb = false;
+    int noun_count = 0;
+    int verb_count = 0;
+    int function_word_count = 0;
+    
+    for(const string& tok : tokens) {
+        string pos = getPartOfSpeech(tok);
+        
+        if(pos == "PRONOUN" || pos == "NOUN") {
+            has_subject = true;
+            noun_count++;
+        }
+        if(pos == "VERB" || pos == "BE_VERB" || pos == "MODAL") {
+            has_verb = true;
+            verb_count++;
+        }
+        if(pos == "ARTICLE" || pos == "PREPOSITION" || pos == "CONJUNCTION") {
+            function_word_count++;
+        }
+    }
+    
+    // Must have basic S-V structure
+    if(!has_subject || !has_verb) return false;
+    
+    // Check for reasonable balance
+    double content_ratio = (double)(noun_count + verb_count) / (double)tokens.size();
+    if(content_ratio < 0.3 || content_ratio > 0.8) return false;
+    
+    // Check for excessive repetition
+    set<string> unique_tokens(tokens.begin(), tokens.end());
+    double diversity = (double)unique_tokens.size() / (double)tokens.size();
+    if(diversity < 0.5) return false;  // Too repetitive
+    
+    return true;
+}
 string generate_with_beam_search(string seed, int max_length, 
                                   const vector<double>& attention_context,
-                                  int beam_width = 12) {  // Increased from 10
+                                  int beam_width = 12) {
     
-    // === SMART SEED SELECTION ===
     vector<string> seed_words;
     if(!seed.empty()) seed_words.push_back(seed);
     
     string best_seed = selectCoherentSeed(seed_words);
     
-    // Initialize beam with best seed
     vector<BeamCandidate> beam;
     BeamCandidate initial;
     initial.tokens.push_back(best_seed);
     initial.score = 0.0;
     beam.push_back(initial);
     
-    // Beam search loop
+    // Track discourse coherence
+    map<string, double> discourse_topics;
+    if(token_concept_embedding_map.count(best_seed)) {
+        for(auto& concept : token_concept_embedding_map[best_seed].linked_concepts) {
+            discourse_topics[concept.first] = concept.second;
+        }
+    }
+    
     for(int step = 0; step < max_length; step++) {
         vector<BeamCandidate> new_beam;
         
@@ -527,7 +733,13 @@ string generate_with_beam_search(string seed, int max_length,
             set<string> used;
             for(auto& t : candidate.tokens) used.insert(t);
             
-            // Get top candidates for next token
+            // Update discourse topics based on current sequence
+            if(step > 0 && token_concept_embedding_map.count(prev)) {
+                for(auto& concept : token_concept_embedding_map[prev].linked_concepts) {
+                    discourse_topics[concept.first] = discourse_topics[concept.first] * 0.9 + concept.second * 0.1;
+                }
+            }
+            
             vector<pair<string, double>> next_candidates;
             
             for(auto& p : token_concept_embedding_map) {
@@ -538,29 +750,52 @@ string generate_with_beam_search(string seed, int max_length,
                         attention_context, used
                     );
                     
-                    // Lower threshold to allow more diversity
-                    if(score > -10.0) {  // Changed from -5.0
+                    // COHERENCE BOOST: Reward staying on topic
+                    double topic_bonus = 0.0;
+                    if(token_concept_embedding_map.count(p.first)) {
+                        for(auto& concept : token_concept_embedding_map[p.first].linked_concepts) {
+                            if(discourse_topics.count(concept.first)) {
+                                topic_bonus += discourse_topics[concept.first] * concept.second;
+                            }
+                        }
+                    }
+                    score += topic_bonus * 8.0;  // Strong coherence incentive
+                    
+                    // COHERENCE: Penalize topic drift
+                    if(step > 2) {
+                        bool shares_topic = false;
+                        if(token_concept_embedding_map.count(p.first)) {
+                            for(auto& concept : token_concept_embedding_map[p.first].linked_concepts) {
+                                if(discourse_topics.count(concept.first) && discourse_topics[concept.first] > 0.3) {
+                                    shares_topic = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if(!shares_topic && getPartOfSpeech(p.first) == "NOUN") {
+                            score -= 15.0;  // Penalty for introducing unrelated nouns
+                        }
+                    }
+                    
+                    if(score > -10.0) {
                         next_candidates.push_back({p.first, score});
                     }
                 }
             }
             
-            // Sort and take top beam_width
             sort(next_candidates.begin(), next_candidates.end(),
                  [](const pair<string,double>& a, const pair<string,double>& b) {
                      return a.second > b.second;
                  });
             
-            // === DIVERSITY INJECTION ===
-            // Take top beam_width, but also sample from top 2*beam_width with temperature
             int expand_count = min(beam_width, (int)next_candidates.size());
             int sample_pool = min(beam_width * 2, (int)next_candidates.size());
             
             for(int i = 0; i < expand_count; i++) {
                 int idx = i;
                 
-                // 20% chance to sample from wider pool for diversity
-                if(rn() < 0.2 && sample_pool > expand_count) {
+                // Reduced randomness for more coherence
+                if(rn() < 0.15 && sample_pool > expand_count) {
                     idx = expand_count + ri(sample_pool - expand_count);
                 }
                 
@@ -571,7 +806,6 @@ string generate_with_beam_search(string seed, int max_length,
             }
         }
         
-        // Keep only top beam_width candidates
         sort(new_beam.begin(), new_beam.end(), 
              [](const BeamCandidate& a, const BeamCandidate& b) {
                  return a.score > b.score;
@@ -584,9 +818,61 @@ string generate_with_beam_search(string seed, int max_length,
         beam = new_beam;
         
         if(beam.empty()) break;
+        
+        // Enhanced loop detection
+        if(!beam[0].tokens.empty() && beam[0].tokens.size() >= 3) {
+            string last = beam[0].tokens.back();
+            string prev1 = beam[0].tokens[beam[0].tokens.size()-2];
+            
+            if(last == prev1) {
+                break;  // Immediate repetition
+            }
+            
+            // Check for oscillation patterns
+            if(beam[0].tokens.size() >= 4) {
+                string prev2 = beam[0].tokens[beam[0].tokens.size()-3];
+                if(last == prev2) {
+                    break;  // A-B-A pattern
+                }
+            }
+            
+            map<string, int> recent_counts;
+            int window = min(6, (int)beam[0].tokens.size());
+            for(int i = beam[0].tokens.size() - window; i < (int)beam[0].tokens.size(); i++) {
+                recent_counts[beam[0].tokens[i]]++;
+            }
+            
+            for(auto& p : recent_counts) {
+                if(p.second >= 3) {
+                    break;  // Too much repetition
+                }
+            }
+        }
+        
+        // Natural stopping points
+        if(step >= 5 && !beam[0].tokens.empty()) {
+            string last = beam[0].tokens.back();
+            string pos = getPartOfSpeech(last);
+            
+            // Good places to end
+            if(pos == "NOUN" || pos == "ADJECTIVE") {
+                // Check if we have a complete thought
+                bool has_subject = false;
+                bool has_verb = false;
+                
+                for(auto& tok : beam[0].tokens) {
+                    string tok_pos = getPartOfSpeech(tok);
+                    if(tok_pos == "PRONOUN" || tok_pos == "NOUN") has_subject = true;
+                    if(tok_pos == "VERB" || tok_pos == "BE_VERB") has_verb = true;
+                }
+                
+                if(has_subject && has_verb && step >= 6) {
+                    break;  // Complete sentence
+                }
+            }
+        }
     }
     
-    // Return best candidate
     if(beam.empty()) return best_seed;
     
     string result;
@@ -597,7 +883,6 @@ string generate_with_beam_search(string seed, int max_length,
     
     return result;
 }
-
 // ==================== TRANSFORMER-STYLE GENERATION WITH BIDIRECTIONAL GROUNDING ====================
 
 // Add this struct for proper attention computation
@@ -1779,64 +2064,55 @@ void learnWord(const string& word, double concept_value) {
     if(token_concept_embedding_map.find(lower_word) == token_concept_embedding_map.end()) {
         TokenConceptEmbedding tce;
         tce.name = lower_word;
-        tce.meaning = concept_value * 0.5 + 0.25;  // Initialize in reasonable range
+        tce.meaning = concept_value * 0.5 + 0.25;
         tce.embedding.resize(16);
         
-        // Initialize embedding with part-of-speech bias
         string pos = getPartOfSpeech(lower_word);
         for(int i = 0; i < 16; i++) {
-            tce.embedding[i] = rn() * 0.1 + 0.45;  // Center around 0.5
+            tce.embedding[i] = rn() * 0.1 + 0.45;
         }
         
-        // Add POS signature to embedding
         if(pos == "NOUN") tce.embedding[0] += 0.3;
         else if(pos == "VERB") tce.embedding[1] += 0.3;
         else if(pos == "ADJECTIVE") tce.embedding[2] += 0.3;
         else if(pos == "PRONOUN") tce.embedding[3] += 0.3;
         
-        // Initialize grounding based on POS
         if(pos == "NOUN" || pos == "VERB") {
-            tce.grounding_value = 0.6;  // Content words more grounded
+            tce.grounding_value = 0.6;
         } else {
-            tce.grounding_value = 0.3;  // Function words less grounded
+            tce.grounding_value = 0.3;
         }
         
         tce.semantic_stability = 0.4;
         token_concept_embedding_map[lower_word] = tce;
     }
     
-    // Safe operations - get reference only after confirming existence
     auto tce_it = token_concept_embedding_map.find(lower_word);
     if(tce_it == token_concept_embedding_map.end()) return;
     
     tce_it->second.freq++;
     
-    // ENHANCED: Learning rate decreases with frequency (diminishing returns)
     double learning_rate = 0.01 / (1.0 + log(1.0 + tce_it->second.freq * 0.1));
     tce_it->second.meaning += concept_value * learning_rate;
     tce_it->second.meaning = clamp_valence(tce_it->second.meaning);
     
-    // ENHANCED: Grounding strengthens with repeated exposure
     tce_it->second.grounding_value += learning_rate * 0.5;
     tce_it->second.grounding_value = min(1.0, tce_it->second.grounding_value);
     
-    // ENHANCED: Stability increases with usage
     tce_it->second.semantic_stability += learning_rate * 0.3;
     tce_it->second.semantic_stability = min(1.0, tce_it->second.semantic_stability);
     
     align_embedding_to_valence(tce_it->second, S.current_valence);
     tce_it->second.linked_valences["current"] = S.current_valence;
     
-    // ENHANCED: Abstract concept formation
-    // If word is used frequently, try to form abstract concepts
-    if(tce_it->second.freq > 10 && tce_it->second.freq % 10 == 0) {
-        // Find semantically related words through co-occurrence
+    // FIXED: Cast freq to int for modulo operation
+    int freq_int = static_cast<int>(tce_it->second.freq);
+    if(freq_int > 10 && freq_int % 10 == 0) {
         vector<string> related;
         for(auto& other : token_concept_embedding_map) {
             if(other.first == lower_word) continue;
             if(other.second.freq < 3) continue;
             
-            // Check for conceptual similarity
             double similarity = 0.0;
             for(size_t i = 0; i < min(tce_it->second.embedding.size(), other.second.embedding.size()); i++) {
                 similarity += tce_it->second.embedding[i] * other.second.embedding[i];
@@ -1848,28 +2124,22 @@ void learnWord(const string& word, double concept_value) {
             }
         }
         
-        // Form abstract concept if we found related words
         if(related.size() >= 2) {
             related.push_back(lower_word);
             string concept_name = "abstract_" + lower_word + "_" + to_string(S.g);
             createConceptAssociation(concept_name, related);
             
-            // Mark this concept as abstract
             if(S.concepts.count(concept_name)) {
                 S.concepts[concept_name].abstraction_level = 0.8;
             }
         }
     }
     
-    // 4. System Propagation
     try {
         WM.add_token(lower_word, tce_it->second.meaning);
         propagate_throughout_system(lower_word, concept_value);
-    } catch(...) {
-        // Silent failure
-    }
+    } catch(...) {}
     
-    // 5. Update System State (S.tokens)
     if(S.tokens.find(lower_word) != S.tokens.end()) {
         S.tokens[lower_word].freq++;
         S.tokens[lower_word].meaning += concept_value * learning_rate;
@@ -1878,17 +2148,13 @@ void learnWord(const string& word, double concept_value) {
         S.tokens[lower_word] = t;
     }
     
-    // 6. Final World Model Update
     try {
         auto final_check = token_concept_embedding_map.find(lower_word);
         if(final_check != token_concept_embedding_map.end()) {
             update_world_model(lower_word, final_check->second.meaning);
         }
-    } catch(...) {
-        // Silent failure
-    }
+    } catch(...) {}
 }
-
 // ==== NEW: Process N-grams from tokenized input ====
 void processNGramsFromTokens(const vector<string>& tokens) {
     if(tokens.size() < 2) return;
